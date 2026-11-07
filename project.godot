@@ -1,0 +1,10 @@
+; Engine configuration file.
+; It's best edited using the editor UI and not directly,
+; but it can also be edited by hand.
+
+config_version=5
+
+[application]
+
+config/name="League of Swords"
+config/features=PackedStringArray("4.7")
