@@ -1,0 +1,31 @@
+{
+  "legend": {
+    "#": {
+      "type": "wall",
+      "walkable": false
+    },
+    ".": {
+      "type": "floor",
+      "walkable": true
+    },
+    ",": {
+      "type": "grass",
+      "walkable": true,
+      "decor": "grass_tuft"
+    }
+  },
+  "entry": [1, 1],
+  "spawns": [
+    {
+      "enemy": "boar_small",
+      "tile": [2, 2],
+      "respawn_s": 30
+    }
+  ],
+  "exits": [
+    {
+      "tile": [10, 6],
+      "to_zone": "town"
+    }
+  ]
+}
