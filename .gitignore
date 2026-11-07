@@ -1,0 +1,8 @@
+.godot/
+.tools/
+.screenshots/
+/export/
+*.tmp
+.team/worktrees/
+.team/runs/
+.team/agents.json
