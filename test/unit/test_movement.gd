@@ -44,21 +44,21 @@ func test_sim_spawn_and_get_entity() -> void:
 
 func test_reaches_straight_line_target_in_expected_ticks() -> void:
 	# Acceptance criterion 1:
-	# Entity reaches a straight-line target in expected ticks ±1 (expected = ceil(path_len / (speed*tick_len)))
+	# Entity reaches a straight-line target in expected ticks ±1 (expected = ceil(path_len / (speed*tick_length)))
 	var sim := WorldSim.new(_zone, _registry)
 	var start_tile := Vector2i(1, 1)
 	var target_tile := Vector2i(4, 1)
 	var entity := sim.spawn("player", start_tile, _player_speed)
 
 	var path_len := float((target_tile.x - start_tile.x)) # 3.0 tiles
-	var tick_len := sim.tick_len
-	var expected_ticks := int(ceil(path_len / (_player_speed * tick_len)))
+	var tick_length := sim.tick_length
+	var expected_ticks := int(ceil(path_len / (_player_speed * tick_length)))
 
 	sim.submit(Commands.move_to(entity.id, target_tile))
 
 	var ticks := 0
 	while ticks < expected_ticks + 5:
-		sim.step(tick_len)
+		sim.step(tick_length)
 		ticks += 1
 		if entity.command == null:
 			break
@@ -86,7 +86,7 @@ func test_path_avoids_walls_and_goes_through_gap() -> void:
 	var visited_gap := false
 	var ticks := 0
 	while ticks < 250:
-		sim.step(sim.tick_len)
+		sim.step(sim.tick_length)
 		ticks += 1
 		var cur_tile := entity.tile()
 		assert_true(
@@ -131,7 +131,7 @@ func test_unreachable_target_ends_on_nearest_reachable() -> void:
 
 	var ticks := 0
 	while ticks < 200:
-		sim.step(sim.tick_len)
+		sim.step(sim.tick_length)
 		ticks += 1
 		if entity.command == null:
 			break
@@ -155,7 +155,7 @@ func test_mid_walk_new_command_replaces_old() -> void:
 
 	# Run 5 ticks to get entity mid-walk along first path
 	for i in range(5):
-		sim.step(sim.tick_len)
+		sim.step(sim.tick_length)
 
 	assert_not_null(entity.command)
 	assert_true(entity.pos.y > 1.5, "Entity should have moved south")
@@ -166,7 +166,7 @@ func test_mid_walk_new_command_replaces_old() -> void:
 
 	var ticks := 0
 	while ticks < 200:
-		sim.step(sim.tick_len)
+		sim.step(sim.tick_length)
 		ticks += 1
 		if entity.command == null:
 			break
@@ -195,19 +195,19 @@ func test_step_dt_smaller_and_larger_yields_same_result() -> void:
 	sim_small.submit(Commands.move_to(e_small.id, target))
 	sim_large.submit(Commands.move_to(e_large.id, target))
 
-	var tick_len := sim_ref.tick_len
+	var tick_length := sim_ref.tick_length
 
-	# Reference: 30 ticks of tick_len (1.0 s)
+	# Reference: 30 ticks of tick_length (1.0 s)
 	for i in range(30):
-		sim_ref.step(tick_len)
+		sim_ref.step(tick_length)
 
-	# Small dt: 120 steps of tick_len / 4.0 (1.0 s)
+	# Small dt: 120 steps of tick_length / 4.0 (1.0 s)
 	for i in range(120):
-		sim_small.step(tick_len * 0.25)
+		sim_small.step(tick_length * 0.25)
 
-	# Large dt: 12 steps of tick_len * 2.5 (1.0 s)
+	# Large dt: 12 steps of tick_length * 2.5 (1.0 s)
 	for i in range(12):
-		sim_large.step(tick_len * 2.5)
+		sim_large.step(tick_length * 2.5)
 
 	assert_eq(sim_ref.tick_count, 30)
 	assert_eq(sim_small.tick_count, 30)
@@ -243,8 +243,8 @@ func test_determinism_identical_sims_yield_identical_positions() -> void:
 
 	# Let both finish to destination
 	while e1.command != null:
-		sim1.step(sim1.tick_len)
-		sim2.step(sim2.tick_len)
+		sim1.step(sim1.tick_length)
+		sim2.step(sim2.tick_length)
 
 	assert_eq(e1.pos, e2.pos)
 	assert_almost_eq(e1.pos.x, 10.5, 0.001)
@@ -256,7 +256,7 @@ func test_move_to_same_tile_clears_command_immediately() -> void:
 	var entity := sim.spawn("player", Vector2i(1, 1), _player_speed)
 	sim.submit(Commands.move_to(entity.id, Vector2i(1, 1)))
 
-	sim.step(sim.tick_len)
+	sim.step(sim.tick_length)
 	assert_null(entity.command, "Command should clear immediately when target is already current tile")
 	assert_almost_eq(entity.pos.x, 1.5, 0.001)
 	assert_almost_eq(entity.pos.y, 1.5, 0.001)
@@ -270,7 +270,7 @@ func test_latest_queued_command_in_same_tick_replaces_earlier() -> void:
 	sim.submit(Commands.move_to(entity.id, Vector2i(1, 6)))
 	sim.submit(Commands.move_to(entity.id, Vector2i(4, 1)))
 
-	sim.step(sim.tick_len)
+	sim.step(sim.tick_length)
 	# After 1 tick, the entity should be heading towards (4, 1), not (1, 6)
 	assert_not_null(entity.command)
 	var move_cmd := entity.command as Commands.MoveTo
