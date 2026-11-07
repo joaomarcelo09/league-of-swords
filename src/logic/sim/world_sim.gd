@@ -32,10 +32,12 @@ func _init(p_zone: Zone, p_registry: DataRegistry) -> void:
 	_begin_handlers = {
 		Commands.MoveTo: _begin_move_to,
 		Commands.AttackTarget: _begin_attack_target,
+		Commands.CastSkill: _begin_cast_skill,
 	}
 	_update_handlers = {
 		Commands.MoveTo: _update_move_to,
 		Commands.AttackTarget: _update_attack_target,
+		Commands.CastSkill: _update_cast_skill,
 	}
 
 
@@ -84,6 +86,10 @@ func spawn(kind: String, tile: Vector2i, speed: float, hp: float = -1.0, stats: 
 		final_hp = 0.0
 
 	var entity := Entity.new(entity_id, kind, entity_pos, speed, final_hp, final_stats)
+	if registry != null and not kind.is_empty():
+		var kind_skills: Variant = registry.get_balance(kind + ".skills")
+		if kind_skills is Dictionary:
+			entity.skills = (kind_skills as Dictionary).duplicate()
 	entities[entity_id] = entity
 	return entity
 
@@ -129,14 +135,18 @@ func _tick() -> void:
 
 
 func _apply_command(entity: Entity, cmd: Commands.Command) -> void:
-	entity.command = cmd
 	var handler: Callable = _begin_handlers.get(cmd.get_script(), Callable())
-	if handler.is_valid():
-		handler.call(entity, cmd)
-	else:
+	if not handler.is_valid():
 		entity.command = null
 		entity.path.clear()
 		entity.path_index = 0
+		return
+
+	if cmd is Commands.CastSkill:
+		handler.call(entity, cmd)
+	else:
+		entity.command = cmd
+		handler.call(entity, cmd)
 
 
 func _update_entities() -> void:
@@ -146,6 +156,13 @@ func _update_entities() -> void:
 		var entity: Entity = entities[id]
 		if entity.dead:
 			continue
+		if not entity.buffs.is_empty():
+			var active_buffs: Array[Dictionary] = []
+			for buff: Dictionary in entity.buffs:
+				var expires: float = float(buff.get("expires_tick", 0.0))
+				if float(tick_count) < expires - 1e-9:
+					active_buffs.append(buff)
+			entity.buffs = active_buffs
 		if entity.command != null:
 			var handler: Callable = _update_handlers.get(entity.command.get_script(), Callable())
 			if handler.is_valid():
@@ -351,13 +368,241 @@ func apply_damage(source_id: int, target: Entity, amount: float) -> void:
 		_handle_entity_death(target)
 
 
+func effective_stats(entity: Entity) -> Stats:
+	if entity == null:
+		return null
+	var base := entity.stats
+	if base == null and registry != null and not entity.kind.is_empty():
+		var kind_data: Variant = registry.get_balance(entity.kind)
+		if kind_data is Dictionary:
+			base = Stats.from_dict(kind_data)
+	if base == null:
+		return null
+
+	var eff := base.duplicate()
+	for buff: Dictionary in entity.buffs:
+		var expires: float = float(buff.get("expires_tick", 0.0))
+		if float(tick_count) >= expires - 1e-9:
+			continue
+		var stat_name: String = str(buff.get("stat", ""))
+		var mult: float = float(buff.get("mult", 1.0))
+		match stat_name:
+			"atk":
+				eff.atk *= mult
+			"defense":
+				eff.defense *= mult
+			"max_hp":
+				eff.max_hp *= mult
+			"attack_range":
+				eff.attack_range *= mult
+			"attack_interval":
+				eff.attack_interval *= mult
+			"weapon_damage":
+				eff.weapon_damage *= mult
+	return eff
+
+
+func apply_heal(source_id: int, target: Entity, amount: float) -> float:
+	if target == null or target.dead:
+		return 0.0
+	var max_hp: float = 0.0
+	var eff := effective_stats(target)
+	if eff != null and eff.max_hp > 0.0:
+		max_hp = eff.max_hp
+	elif target.stats != null and target.stats.max_hp > 0.0:
+		max_hp = target.stats.max_hp
+	elif registry != null and not target.kind.is_empty():
+		var val: Variant = registry.get_balance(target.kind + ".max_hp")
+		if val != null:
+			max_hp = float(val)
+
+	var old_hp := target.hp
+	target.hp = minf(max_hp, target.hp + amount)
+	var healed := target.hp - old_hp
+	_events.append({
+		"type": "heal",
+		"tick": tick_count,
+		"source": source_id,
+		"target": target.id,
+		"amount": healed,
+	})
+	return healed
+
+
 func _perform_attack(attacker: Entity, target: Entity) -> void:
-	if attacker.stats == null:
+	var attacker_stats := effective_stats(attacker)
+	if attacker_stats == null:
 		push_error("Entity %d cannot attack without usable stats" % attacker.id)
 		attacker.command = null
 		return
-	var damage: float = Combat.compute_damage(attacker.stats, target.stats, registry)
+	var target_stats := effective_stats(target)
+	var damage: float = Combat.compute_damage(attacker_stats, target_stats, registry)
 	apply_damage(attacker.id, target, damage)
+
+
+func _begin_cast_skill(entity: Entity, cmd: Commands.CastSkill) -> void:
+	if not entity.skills.has(cmd.slot):
+		_events.append({
+			"type": "cast_failed",
+			"tick": tick_count,
+			"source": entity.id,
+			"slot": cmd.slot,
+			"reason": "unknown_slot",
+		})
+		return
+
+	var skill_id: String = entity.skills.get(cmd.slot, "")
+	if skill_id.is_empty() or registry == null or not registry.has_entry("skills", skill_id):
+		_events.append({
+			"type": "cast_failed",
+			"tick": tick_count,
+			"source": entity.id,
+			"slot": cmd.slot,
+			"reason": "unknown_skill",
+		})
+		return
+
+	var skill: Dictionary = registry.get_entry("skills", skill_id)
+	var errors: Array[String] = SkillSystem.validate_skill(skill)
+	if not errors.is_empty():
+		for err in errors:
+			push_error("Skill '%s' invalid: %s" % [skill_id, err])
+		_events.append({
+			"type": "cast_failed",
+			"tick": tick_count,
+			"source": entity.id,
+			"slot": cmd.slot,
+			"reason": "invalid_skill",
+		})
+		return
+
+	var to_aim := cmd.aim - entity.pos
+	if to_aim.is_zero_approx():
+		_events.append({
+			"type": "cast_failed",
+			"tick": tick_count,
+			"source": entity.id,
+			"slot": cmd.slot,
+			"reason": "zero_direction",
+		})
+		return
+
+	var ready_tick: float = entity.skill_ready_ticks.get(cmd.slot, 0.0)
+	if float(tick_count) < ready_tick - 1e-9:
+		_events.append({
+			"type": "cast_failed",
+			"tick": tick_count,
+			"source": entity.id,
+			"slot": cmd.slot,
+			"reason": "cooldown",
+		})
+		return
+
+	entity.path.clear()
+	entity.path_index = 0
+
+	var cast_time_s: float = float(skill.get("cast_time_s", 0.0))
+	var cast_ticks: int = int(round(cast_time_s / _tick_len))
+	if cast_ticks <= 0:
+		entity.command = cmd
+		_resolve_cast_skill(entity, cmd, skill)
+		entity.command = null
+	else:
+		cmd.resolve_tick = tick_count + cast_ticks - 1
+		entity.command = cmd
+
+
+func _update_cast_skill(entity: Entity, cmd: Commands.CastSkill) -> void:
+	if tick_count >= cmd.resolve_tick:
+		var skill_id: String = entity.skills.get(cmd.slot, "")
+		var skill: Dictionary = registry.get_entry("skills", skill_id)
+		_resolve_cast_skill(entity, cmd, skill)
+		entity.command = null
+
+
+func _resolve_cast_skill(entity: Entity, cmd: Commands.CastSkill, skill: Dictionary) -> void:
+	if entity.dead:
+		return
+
+	var cooldown_s: float = float(skill.get("cooldown_s", 0.0))
+	var cd_ticks: float = cooldown_s / _tick_len
+	entity.skill_ready_ticks[cmd.slot] = float(tick_count) + cd_ticks
+
+	var skill_id: String = entity.skills.get(cmd.slot, "")
+	_events.append({
+		"type": "skill_cast",
+		"tick": tick_count,
+		"source": entity.id,
+		"skill": skill_id,
+		"slot": cmd.slot,
+	})
+
+	var hit_entities: Array[Entity] = []
+	var aim_offset := cmd.aim - entity.pos
+	var sorted_ids: Array = entities.keys()
+	sorted_ids.sort()
+	for other_id: Variant in sorted_ids:
+		var other: Entity = entities[other_id]
+		if other.id == entity.id or other.dead:
+			continue
+		if SkillSystem.in_shape(skill, entity.pos, aim_offset, other.pos):
+			hit_entities.append(other)
+
+	for effect: Dictionary in skill.get("effects", []):
+		var eff_type: String = str(effect.get("type", ""))
+		var target_mode: String = str(effect.get("target", ""))
+		if target_mode.is_empty():
+			if eff_type == "damage":
+				target_mode = "hit"
+			else:
+				target_mode = "self"
+
+		var targets: Array[Entity] = []
+		if target_mode == "hit":
+			targets = hit_entities
+		elif target_mode == "self":
+			if not entity.dead:
+				targets = [entity]
+
+		match eff_type:
+			"damage":
+				var mult: float = float(effect.get("mult", 1.0))
+				var attacker_stats := effective_stats(entity)
+				for target: Entity in targets:
+					if target.dead:
+						continue
+					var target_stats := effective_stats(target)
+					var base_dmg: float = Combat.compute_damage(attacker_stats, target_stats, registry)
+					apply_damage(entity.id, target, mult * base_dmg)
+			"heal":
+				var amount: float = float(effect.get("amount", 0.0))
+				for target: Entity in targets:
+					if target.dead:
+						continue
+					apply_heal(entity.id, target, amount)
+			"buff":
+				var stat: String = str(effect.get("stat", ""))
+				var mult: float = float(effect.get("mult", 1.0))
+				var duration_s: float = float(effect.get("duration_s", 0.0))
+				var duration_ticks: float = duration_s / _tick_len
+				var expires_tick: int = tick_count + int(round(duration_ticks))
+				for target: Entity in targets:
+					if target.dead:
+						continue
+					target.buffs.append({
+						"stat": stat,
+						"mult": mult,
+						"expires_tick": expires_tick,
+					})
+					_events.append({
+						"type": "buff",
+						"tick": tick_count,
+						"source": entity.id,
+						"target": target.id,
+						"stat": stat,
+						"mult": mult,
+						"expires_tick": expires_tick,
+					})
 
 
 func _handle_entity_death(dead_entity: Entity) -> void:

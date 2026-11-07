@@ -12,6 +12,9 @@ var path: Array[Vector2i] = []
 var path_index: int = 0
 var command: Commands.Command = null
 var attack_ready_tick: float = 0.0
+var skills: Dictionary = {}
+var skill_ready_ticks: Dictionary = {}
+var buffs: Array[Dictionary] = []
 
 
 func _init(

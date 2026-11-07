@@ -1,0 +1,53 @@
+{
+  "crescent_sweep": {
+    "name": "Crescent Sweep",
+    "slot": "W",
+    "cooldown_s": 5.0,
+    "cast_time_s": 0.3,
+    "shape": "cone",
+    "range": 3.0,
+    "angle_deg": 90.0,
+    "effects": [
+      {
+        "type": "damage",
+        "mult": 1.2
+      }
+    ]
+  },
+  "ember_lance": {
+    "name": "Ember Lance",
+    "slot": "Q",
+    "cooldown_s": 3.0,
+    "cast_time_s": 0.2,
+    "shape": "line",
+    "range": 5.0,
+    "width": 1.0,
+    "effects": [
+      {
+        "type": "damage",
+        "mult": 1.5
+      }
+    ]
+  },
+  "mending_gale": {
+    "name": "Mending Gale",
+    "slot": "R",
+    "cooldown_s": 10.0,
+    "cast_time_s": 0.0,
+    "shape": "circle",
+    "range": 0.0,
+    "radius": 2.5,
+    "effects": [
+      {
+        "type": "heal",
+        "amount": 30.0
+      },
+      {
+        "type": "buff",
+        "stat": "atk",
+        "mult": 1.5,
+        "duration_s": 5.0
+      }
+    ]
+  }
+}

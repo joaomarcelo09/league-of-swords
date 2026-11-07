@@ -24,7 +24,12 @@
     "defense": 2.0,
     "attack_range": 1.5,
     "attack_interval": 1.0,
-    "weapon_damage": 5.0
+    "weapon_damage": 5.0,
+    "skills": {
+      "Q": "ember_lance",
+      "W": "crescent_sweep",
+      "R": "mending_gale"
+    }
   },
   "sim": {
     "tick_hz": 30
