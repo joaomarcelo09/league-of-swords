@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+VERSION_FILE="$SCRIPT_DIR/godot-version.txt"
+
+if [[ ! -f "$VERSION_FILE" ]]; then
+  echo "Error: Version file not found at $VERSION_FILE. Please run tools/install_godot.sh" >&2
+  exit 1
+fi
+
+GODOT_VERSION="$(grep -E '^GODOT_VERSION=' "$VERSION_FILE" | cut -d= -f2-)"
+BINARY_PATH="$REPO_ROOT/.tools/godot/Godot_v${GODOT_VERSION}_linux.x86_64"
+
+if [[ ! -x "$BINARY_PATH" ]]; then
+  echo "Error: Godot binary not found at $BINARY_PATH. Please run tools/install_godot.sh" >&2
+  exit 1
+fi
+
+exec "$BINARY_PATH" "$@"
