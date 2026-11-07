@@ -1,0 +1,12 @@
+{
+  "dash": {
+    "distance_tiles": 3.0,
+    "cooldown_s": 6.0
+  },
+  "player": {
+    "move_speed_tiles_per_s": 4.0
+  },
+  "sim": {
+    "tick_hz": 30
+  }
+}
