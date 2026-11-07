@@ -9,6 +9,8 @@ static func parse_args(args: PackedStringArray) -> Dictionary:
 	for arg in args:
 		if arg.begins_with("--"):
 			var trimmed: String = arg.substr(2)
+			if trimmed.is_empty():
+				continue
 			var eq_idx: int = trimmed.find("=")
 			if eq_idx != -1:
 				var key: String = trimmed.substr(0, eq_idx)
@@ -19,13 +21,28 @@ static func parse_args(args: PackedStringArray) -> Dictionary:
 	return result
 
 
+## Returns true if the given value is a non-empty string.
+static func is_valid_screenshot_value(val: Variant) -> bool:
+	if typeof(val) != TYPE_STRING:
+		return false
+	return not (val as String).strip_edges().is_empty()
+
+
 func _ready() -> void:
 	var args := parse_args(OS.get_cmdline_user_args())
 	if not args.has("screenshot"):
 		return
 
-	var screenshot_path := str(args["screenshot"]).strip_edges()
+	var raw_val: Variant = args["screenshot"]
+	if typeof(raw_val) != TYPE_STRING:
+		push_error("ScreenshotRunner: --screenshot requires a String path, got %s" % type_string(typeof(raw_val)))
+		get_tree().quit(1)
+		return
+
+	var screenshot_path := (raw_val as String).strip_edges()
 	if screenshot_path.is_empty():
+		push_error("ScreenshotRunner: --screenshot path must not be empty")
+		get_tree().quit(1)
 		return
 
 	var frames_to_wait := DEFAULT_FRAMES

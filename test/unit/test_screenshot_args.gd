@@ -46,3 +46,37 @@ func test_parse_args_ignores_non_double_dash() -> void:
 	assert_false(result.has("s"))
 	assert_false(result.has("-s"))
 	assert_eq(result.get("valid"), "yes")
+
+
+func test_parse_args_bare_double_dash() -> void:
+	var args := PackedStringArray(["--"])
+	var result := ScreenshotRunnerScript.parse_args(args)
+	assert_eq(result.size(), 0)
+
+
+func test_parse_args_bare_screenshot() -> void:
+	var args := PackedStringArray(["--screenshot"])
+	var result := ScreenshotRunnerScript.parse_args(args)
+	assert_true(result.has("screenshot"))
+	assert_eq(result.get("screenshot"), true)
+
+
+func test_parse_args_empty_screenshot_value() -> void:
+	var args := PackedStringArray(["--screenshot="])
+	var result := ScreenshotRunnerScript.parse_args(args)
+	assert_true(result.has("screenshot"))
+	assert_eq(result.get("screenshot"), "")
+
+
+func test_is_valid_screenshot_value() -> void:
+	assert_false(ScreenshotRunnerScript.is_valid_screenshot_value(true))
+	assert_false(ScreenshotRunnerScript.is_valid_screenshot_value(false))
+	assert_false(ScreenshotRunnerScript.is_valid_screenshot_value(123))
+	assert_false(ScreenshotRunnerScript.is_valid_screenshot_value(null))
+	assert_false(ScreenshotRunnerScript.is_valid_screenshot_value(""))
+	assert_false(ScreenshotRunnerScript.is_valid_screenshot_value("   "))
+	assert_false(ScreenshotRunnerScript.is_valid_screenshot_value("\t\n"))
+	assert_true(ScreenshotRunnerScript.is_valid_screenshot_value("shot.png"))
+	assert_true(ScreenshotRunnerScript.is_valid_screenshot_value("res://scenes/main.tscn"))
+	assert_true(ScreenshotRunnerScript.is_valid_screenshot_value("/tmp/shot.png"))
+	assert_true(ScreenshotRunnerScript.is_valid_screenshot_value(".screenshots/shot.png"))
