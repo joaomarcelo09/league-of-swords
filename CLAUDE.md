@@ -4,11 +4,11 @@ Original 2D action RPG inspired by Sword Art Online: Godot 4.7.2 (pinned), typed
 
 ## Environment & Commands
 - Pinned versions: `tools/godot-version.txt` (Godot 4.7.2-stable, GUT v9.7.1).
-- Setup: `tools/install_godot.sh` (installs into `.tools/`, gitignored; worktrees need their own install or symlink `.tools/godot` from main).
+- Setup: `tools/install_godot.sh` (installs into `.tools/`, gitignored; worktrees need their own install or symlink: `mkdir -p .tools && ln -s <main-checkout>/.tools/godot .tools/godot`).
 - Godot wrapper: run Godot only through `tools/godot` (e.g. `tools/godot --version`).
 - Headless re-import: `tools/godot --headless --import` (required when adding new `class_name` scripts).
 - Run tests: `tools/test.sh` (GUT headless; exit code is truth; supports filter like `tools/test.sh test_smoke.gd`).
-- Capture visuals: `tools/screenshot.sh` (runs xvfb, saves PNG to `.screenshots/shot.png`; inspect with Read tool; supports `--scene=res://scenes/main.tscn --frames=60 --out=.screenshots/shot.png`).
+- Capture visuals: `tools/screenshot.sh` (runs xvfb, defaults to `<repo root>/.screenshots/shot.png` and prints absolute path; relative `--out` resolves from current dir, run from repo root; supports `--scene=res://scenes/main.tscn --frames=60 --out=.screenshots/shot.png`).
 
 ## Folder Layout
 - `src/logic/` (planned): pure simulation, NO Node/SceneTree/rendering APIs, headless-testable.
@@ -16,7 +16,7 @@ Original 2D action RPG inspired by Sword Art Online: Godot 4.7.2 (pinned), typed
 - `src/input/` (planned): turns input into logic commands.
 - `data/` (planned): JSON content and balance numbers.
 - `scenes/`: Godot scene files (`.tscn`).
-- `assets/` (planned): Git LFS for png/audio.
+- `assets/` (planned): art and audio (Git LFS applies repo-wide by extension, see `.gitattributes`, not only under `assets/`; git-lfs must be installed).
 - `test/unit/`: GUT unit tests (`test_*.gd`).
 - `test/integration/`: GUT integration tests.
 - `tools/`: project automation and tooling scripts.
@@ -24,7 +24,7 @@ Original 2D action RPG inspired by Sword Art Online: Godot 4.7.2 (pinned), typed
 
 ## Rules for Coders
 - Godot 4 syntax only: typed GDScript, `@export`, `@onready`, `await` (no `yield`).
-- Logic purity: logic never imports view or input.
+- Logic purity: `src/logic` classes extend RefCounted only (no Node); they never use Input, get_tree(), textures or scenes and never import view or input; `src/view` only reads logic state/events; `src/input` only emits Commands to logic.
 - Data-driven content: no hardcoded gameplay numbers, content lives in JSON under `data/`.
 - Test requirement: every logic change ships with a GUT test in `test/unit/` (name `test_*.gd`).
 - Class cache: new `class_name` scripts need a re-import (`tools/godot --headless --import`) before tests see them.
