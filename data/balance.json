@@ -8,6 +8,15 @@
     "distance_tiles": 3.0,
     "cooldown_s": 6.0
   },
+  "enemy": {
+    "move_speed_tiles_per_s": 2.0,
+    "max_hp": 100.0,
+    "atk": 5.0,
+    "defense": 0.0,
+    "attack_range": 1.0,
+    "attack_interval": 1.0,
+    "weapon_damage": 0.0
+  },
   "player": {
     "move_speed_tiles_per_s": 4.0,
     "max_hp": 100.0,

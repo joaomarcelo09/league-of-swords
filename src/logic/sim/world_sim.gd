@@ -7,12 +7,9 @@ var _tick_len: float = 0.0
 var tick_length: float:
 	get:
 		return _tick_len
-var tick_len: float:
-	get:
-		return _tick_len
 var tick_count: int = 0
 var entities: Dictionary = {}
-var events: Array[Dictionary] = []
+var _events: Array[Dictionary] = []
 
 var _next_entity_id: int = 1
 var _command_queue: Array[Commands.Command] = []
@@ -66,20 +63,29 @@ func spawn(kind: String, tile: Vector2i, speed: float, hp: float = -1.0, stats: 
 	var entity_id := _next_entity_id
 	_next_entity_id += 1
 	var entity_pos := tile_center(tile)
+
+	var final_stats := stats
+	if final_stats == null and registry != null and not kind.is_empty():
+		var kind_data: Variant = registry.get_balance(kind)
+		if kind_data is Dictionary:
+			final_stats = Stats.from_dict(kind_data)
+
 	var final_hp := hp
-	if final_hp < 0.0 and stats == null and registry != null:
-		var val: Variant = registry.get_balance(kind + ".max_hp")
-		if val == null:
-			val = registry.get_balance("player.max_hp")
-		if val != null and float(val) > 0.0:
-			final_hp = float(val)
-	var entity := Entity.new(entity_id, kind, entity_pos, speed, final_hp, stats)
+	if final_hp < 0.0:
+		if final_stats != null and final_stats.max_hp > 0.0:
+			final_hp = final_stats.max_hp
+		elif registry != null and not kind.is_empty():
+			var val: Variant = registry.get_balance(kind + ".max_hp")
+			if val != null and float(val) > 0.0:
+				final_hp = float(val)
+
+	if final_hp < 0.0:
+		push_error("Entity %d (kind '%s') cannot resolve HP source and spawned dead" % [entity_id, kind])
+		final_hp = 0.0
+
+	var entity := Entity.new(entity_id, kind, entity_pos, speed, final_hp, final_stats)
 	entities[entity_id] = entity
 	return entity
-
-
-func spawn_with_stats(kind: String, tile: Vector2i, speed: float, stats: Stats, hp: float = -1.0) -> Entity:
-	return spawn(kind, tile, speed, hp, stats)
 
 
 func get_entity(id: int) -> Entity:
@@ -92,8 +98,8 @@ func submit(cmd: Commands.Command) -> void:
 
 
 func drain_events() -> Array[Dictionary]:
-	var result: Array[Dictionary] = events.duplicate()
-	events.clear()
+	var result: Array[Dictionary] = _events.duplicate()
+	_events.clear()
 	return result
 
 
@@ -127,6 +133,10 @@ func _apply_command(entity: Entity, cmd: Commands.Command) -> void:
 	var handler: Callable = _begin_handlers.get(cmd.get_script(), Callable())
 	if handler.is_valid():
 		handler.call(entity, cmd)
+	else:
+		entity.command = null
+		entity.path.clear()
+		entity.path_index = 0
 
 
 func _update_entities() -> void:
@@ -140,6 +150,10 @@ func _update_entities() -> void:
 			var handler: Callable = _update_handlers.get(entity.command.get_script(), Callable())
 			if handler.is_valid():
 				handler.call(entity, entity.command)
+			else:
+				entity.command = null
+				entity.path.clear()
+				entity.path_index = 0
 
 
 func _path_to_tile(entity: Entity, target_tile: Vector2i) -> void:
@@ -220,6 +234,12 @@ func _update_move_to(entity: Entity, _cmd: Commands.MoveTo) -> void:
 
 
 func _begin_attack_target(entity: Entity, cmd: Commands.AttackTarget) -> void:
+	if cmd.target_id == entity.id:
+		entity.command = null
+		entity.path.clear()
+		entity.path_index = 0
+		return
+
 	var target: Entity = get_entity(cmd.target_id)
 	if target == null or target.dead:
 		entity.command = null
@@ -228,6 +248,13 @@ func _begin_attack_target(entity: Entity, cmd: Commands.AttackTarget) -> void:
 		return
 
 	var attack_range: float = _get_attack_range(entity)
+	var attack_interval: float = _get_attack_interval(entity)
+	if attack_range <= 0.0 or attack_interval <= 0.0:
+		entity.command = null
+		entity.path.clear()
+		entity.path_index = 0
+		return
+
 	var dist: float = entity.pos.distance_to(target.pos)
 	if dist > attack_range + 1e-9:
 		cmd.last_target_tile = target.tile()
@@ -235,6 +262,12 @@ func _begin_attack_target(entity: Entity, cmd: Commands.AttackTarget) -> void:
 
 
 func _update_attack_target(entity: Entity, cmd: Commands.AttackTarget) -> void:
+	if cmd.target_id == entity.id:
+		entity.command = null
+		entity.path.clear()
+		entity.path_index = 0
+		return
+
 	var target: Entity = get_entity(cmd.target_id)
 	if target == null or target.dead:
 		entity.command = null
@@ -243,11 +276,18 @@ func _update_attack_target(entity: Entity, cmd: Commands.AttackTarget) -> void:
 		return
 
 	var attack_range: float = _get_attack_range(entity)
+	var attack_interval: float = _get_attack_interval(entity)
+	if attack_range <= 0.0 or attack_interval <= 0.0:
+		entity.command = null
+		entity.path.clear()
+		entity.path_index = 0
+		return
+
 	var dist: float = entity.pos.distance_to(target.pos)
 
 	if dist > attack_range + 1e-9:
 		var target_tile := target.tile()
-		if entity.path.is_empty() or cmd.last_target_tile != target_tile:
+		if cmd.last_target_tile != target_tile:
 			cmd.last_target_tile = target_tile
 			_path_to_tile(entity, target_tile)
 
@@ -257,9 +297,10 @@ func _update_attack_target(entity: Entity, cmd: Commands.AttackTarget) -> void:
 	if dist <= attack_range + 1e-9:
 		entity.path.clear()
 		entity.path_index = 0
+		cmd.last_target_tile = Vector2i(-1, -1)
 		if tick_count >= entity.attack_ready_tick - 1e-9:
 			_perform_attack(entity, target)
-			var interval_ticks: float = _get_attack_interval(entity) / _tick_len
+			var interval_ticks: float = attack_interval / _tick_len
 			if entity.attack_ready_tick <= float(tick_count - 1) + 1e-9:
 				entity.attack_ready_tick = float(tick_count) + interval_ticks
 			else:
@@ -269,41 +310,54 @@ func _update_attack_target(entity: Entity, cmd: Commands.AttackTarget) -> void:
 func _get_attack_range(entity: Entity) -> float:
 	if entity.stats != null and entity.stats.attack_range > 0.0:
 		return entity.stats.attack_range
-	if registry != null:
-		var val: Variant = registry.get_balance("player.attack_range")
-		if val != null:
+	if registry != null and not entity.kind.is_empty():
+		var val: Variant = registry.get_balance(entity.kind + ".attack_range")
+		if val != null and float(val) > 0.0:
 			return float(val)
-	return 1.0
+	push_error("Entity %d (kind '%s') missing attack_range in stats or data" % [entity.id, entity.kind])
+	return 0.0
 
 
 func _get_attack_interval(entity: Entity) -> float:
 	if entity.stats != null and entity.stats.attack_interval > 0.0:
 		return entity.stats.attack_interval
-	if registry != null:
-		var val: Variant = registry.get_balance("player.attack_interval")
-		if val != null:
+	if registry != null and not entity.kind.is_empty():
+		var val: Variant = registry.get_balance(entity.kind + ".attack_interval")
+		if val != null and float(val) > 0.0:
 			return float(val)
-	return 1.0
+	push_error("Entity %d (kind '%s') missing attack_interval in stats or data" % [entity.id, entity.kind])
+	return 0.0
+
+
+func apply_damage(source_id: int, target: Entity, amount: float) -> void:
+	if target == null or target.dead:
+		return
+	target.hp -= amount
+	_events.append({
+		"type": "damage",
+		"tick": tick_count,
+		"source": source_id,
+		"target": target.id,
+		"amount": amount,
+	})
+	if target.hp <= 0.0:
+		target.dead = true
+		_events.append({
+			"type": "death",
+			"tick": tick_count,
+			"target": target.id,
+			"source": source_id,
+		})
+		_handle_entity_death(target)
 
 
 func _perform_attack(attacker: Entity, target: Entity) -> void:
+	if attacker.stats == null:
+		push_error("Entity %d cannot attack without usable stats" % attacker.id)
+		attacker.command = null
+		return
 	var damage: float = Combat.compute_damage(attacker.stats, target.stats, registry)
-	target.hp -= damage
-	events.append({
-		"type": "damage",
-		"tick": tick_count,
-		"source": attacker.id,
-		"target": target.id,
-		"amount": damage,
-	})
-	if target.hp <= 0.0 and not target.dead:
-		target.dead = true
-		events.append({
-			"type": "death",
-			"tick": tick_count,
-			"id": target.id,
-		})
-		_handle_entity_death(target)
+	apply_damage(attacker.id, target, damage)
 
 
 func _handle_entity_death(dead_entity: Entity) -> void:
