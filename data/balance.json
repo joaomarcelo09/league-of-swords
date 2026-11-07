@@ -1,10 +1,21 @@
 {
+  "combat": {
+    "min_damage": 1.0,
+    "atk_scale": 1.0,
+    "def_scale": 1.0
+  },
   "dash": {
     "distance_tiles": 3.0,
     "cooldown_s": 6.0
   },
   "player": {
-    "move_speed_tiles_per_s": 4.0
+    "move_speed_tiles_per_s": 4.0,
+    "max_hp": 100.0,
+    "atk": 10.0,
+    "defense": 2.0,
+    "attack_range": 1.5,
+    "attack_interval": 1.0,
+    "weapon_damage": 5.0
   },
   "sim": {
     "tick_hz": 30
