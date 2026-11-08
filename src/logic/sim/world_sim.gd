@@ -96,6 +96,44 @@ func spawn(kind: String, tile: Vector2i, speed: float, hp: float = -1.0, stats: 
 	return entity
 
 
+func spawn_enemy(type_id: String, tile: Vector2i, hp: float = -1.0, stats: Stats = null) -> Entity:
+	if registry == null or not registry.has_entry("enemies", type_id):
+		push_error("spawn_enemy: unknown or missing enemy type '%s'" % type_id)
+		return null
+
+	var enemy_cfg: Dictionary = registry.get_entry("enemies", type_id)
+	var errors := EnemyAI.validate_config(enemy_cfg)
+	if not errors.is_empty():
+		push_error("spawn_enemy: invalid enemy config for '%s': %s" % [type_id, ", ".join(errors)])
+		return null
+
+	var speed: float = 0.0
+	if enemy_cfg.has("move_speed_tiles_per_s") and (enemy_cfg["move_speed_tiles_per_s"] is int or enemy_cfg["move_speed_tiles_per_s"] is float):
+		speed = float(enemy_cfg["move_speed_tiles_per_s"])
+	elif registry != null:
+		var balance_speed: Variant = registry.get_balance("enemy.move_speed_tiles_per_s")
+		if balance_speed != null and float(balance_speed) > 0.0:
+			speed = float(balance_speed)
+
+	if speed <= 0.0:
+		push_error("spawn_enemy: enemy '%s' has no valid move speed in config or balance" % type_id)
+		return null
+
+	var entity := spawn("enemy", tile, speed, hp, stats)
+	if entity == null:
+		return null
+	entity.enemy_type_id = type_id
+	entity.state = "idle"
+	entity.spawn_pos = tile_center(tile)
+	if enemy_cfg.has("recovery_damage_mult"):
+		entity.recovery_damage_mult = float(enemy_cfg["recovery_damage_mult"])
+	return entity
+
+
+func record_event(event: Dictionary) -> void:
+	_events.append(event)
+
+
 func get_entity(id: int) -> Entity:
 	return entities.get(id, null)
 
@@ -168,7 +206,9 @@ func _update_entities() -> void:
 				if float(tick_count) < expires - 1e-9:
 					active_buffs.append(buff)
 			entity.buffs = active_buffs
-		if entity.command != null:
+		if entity.kind == "enemy" and not entity.enemy_type_id.is_empty():
+			EnemyAI.update(self, entity)
+		elif entity.command != null:
 			var handler: Callable = _update_handlers.get(entity.command.get_script(), Callable())
 			if handler.is_valid():
 				handler.call(entity, entity.command)
@@ -215,7 +255,7 @@ func _path_to_tile(entity: Entity, target_tile: Vector2i) -> void:
 
 func _step_along_path(entity: Entity, max_dist: float) -> void:
 	var remaining_dist: float = max_dist
-	while remaining_dist > 0.0 and entity.command != null:
+	while remaining_dist > 0.0 and (entity.command != null or not entity.enemy_type_id.is_empty()):
 		if entity.path_index >= entity.path.size():
 			break
 
@@ -354,13 +394,16 @@ func _get_attack_interval(entity: Entity) -> float:
 func apply_damage(source_id: int, target: Entity, amount: float) -> void:
 	if target == null or target.dead:
 		return
-	target.hp -= amount
+	var final_amount := amount
+	if target.state == "recovery" and target.recovery_damage_mult != 1.0:
+		final_amount = amount * target.recovery_damage_mult
+	target.hp -= final_amount
 	_events.append({
 		"type": "damage",
 		"tick": tick_count,
 		"source": source_id,
 		"target": target.id,
-		"amount": amount,
+		"amount": final_amount,
 	})
 	if target.hp <= 0.0:
 		target.dead = true

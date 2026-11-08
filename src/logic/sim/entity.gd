@@ -17,6 +17,16 @@ var skill_ready_ticks: Dictionary = {}
 var dash_ready_tick: float = 0.0
 var buffs: Array[Dictionary] = []
 
+# AI state fields
+var state: String = "idle"
+var state_end_tick: int = 0
+var locked_origin: Vector2 = Vector2.ZERO
+var locked_dir: Vector2 = Vector2.ZERO
+var spawn_pos: Vector2 = Vector2.ZERO
+var enemy_type_id: String = ""
+var recovery_damage_mult: float = 1.0
+var target_id: int = 0
+
 
 func _init(
 	p_id: int = 0,
@@ -29,6 +39,7 @@ func _init(
 	id = p_id
 	kind = p_kind
 	pos = p_pos
+	spawn_pos = p_pos
 	speed = p_speed
 	stats = p_stats
 	if p_hp >= 0.0:

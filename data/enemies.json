@@ -1,0 +1,18 @@
+{
+  "ash_stalker": {
+    "name": "Ash Stalker",
+    "aggro_radius": 5.0,
+    "leash_radius": 8.0,
+    "move_speed_tiles_per_s": 2.5,
+    "windup_s": 0.5,
+    "active_s": 0.2,
+    "recovery_s": 0.5,
+    "recovery_damage_mult": 1.5,
+    "attack": {
+      "shape": "cone",
+      "range": 2.5,
+      "angle_deg": 90.0,
+      "damage_mult": 1.5
+    }
+  }
+}
