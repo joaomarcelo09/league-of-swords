@@ -14,6 +14,7 @@ var command: Commands.Command = null
 var attack_ready_tick: float = 0.0
 var skills: Dictionary = {}
 var skill_ready_ticks: Dictionary = {}
+var dash_ready_tick: float = 0.0
 var buffs: Array[Dictionary] = []
 
 
