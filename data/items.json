@@ -1,0 +1,68 @@
+{
+  "iron_sword": {
+    "id": "iron_sword",
+    "name": "Iron Sword",
+    "type": "weapon",
+    "floor_tier": 1,
+    "stats": {
+      "weapon_damage": 8.0
+    },
+    "effects": {}
+  },
+  "hunting_bow": {
+    "id": "hunting_bow",
+    "name": "Hunting Bow",
+    "type": "weapon",
+    "floor_tier": 1,
+    "stats": {
+      "weapon_damage": 6.0
+    },
+    "effects": {}
+  },
+  "leather_vest": {
+    "id": "leather_vest",
+    "name": "Leather Vest",
+    "type": "armor",
+    "floor_tier": 1,
+    "stats": {
+      "defense": 3.0
+    },
+    "effects": {}
+  },
+  "iron_plate": {
+    "id": "iron_plate",
+    "name": "Iron Plate",
+    "type": "armor",
+    "floor_tier": 1,
+    "stats": {
+      "defense": 6.0
+    },
+    "effects": {}
+  },
+  "healing_draught": {
+    "id": "healing_draught",
+    "name": "Healing Draught",
+    "type": "consumable",
+    "floor_tier": 1,
+    "stats": {},
+    "effects": {
+      "heal": 30.0
+    }
+  },
+  "loot_tables": {
+    "ash_stalker": {
+      "roll_count": 1,
+      "rolls": 1,
+      "entries": [
+        {
+          "item_id": "healing_draught",
+          "chance": 0.5
+        },
+        {
+          "item_id": "iron_sword",
+          "chance": 0.2
+        }
+      ]
+    }
+  }
+}
