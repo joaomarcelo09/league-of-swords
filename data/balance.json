@@ -6,6 +6,7 @@
   },
   "dash": {
     "distance_tiles": 3.0,
+    "duration_s": 0.15,
     "cooldown_s": 6.0
   },
   "enemy": {

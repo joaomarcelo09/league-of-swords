@@ -54,3 +54,21 @@ class CastSkill extends Command:
 static func cast_skill(entity_id: int, slot: String, aim: Vector2) -> CastSkill:
 	return CastSkill.new(entity_id, slot, aim)
 
+
+class Dash extends Command:
+	var aim: Vector2 = Vector2.ZERO
+	var from: Vector2 = Vector2.ZERO
+	var to: Vector2 = Vector2.ZERO
+	var distance: float = 0.0
+	var duration_s: float = 0.0
+
+	func _init(p_entity_id: int = 0, p_aim: Vector2 = Vector2.ZERO) -> void:
+		entity_id = p_entity_id
+		aim = p_aim
+		type = "dash"
+
+
+static func dash(entity_id: int, aim: Vector2) -> Dash:
+	return Dash.new(entity_id, aim)
+
+

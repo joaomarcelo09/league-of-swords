@@ -33,11 +33,13 @@ func _init(p_zone: Zone, p_registry: DataRegistry) -> void:
 		Commands.MoveTo: _begin_move_to,
 		Commands.AttackTarget: _begin_attack_target,
 		Commands.CastSkill: _begin_cast_skill,
+		Commands.Dash: _begin_dash,
 	}
 	_update_handlers = {
 		Commands.MoveTo: _update_move_to,
 		Commands.AttackTarget: _update_attack_target,
 		Commands.CastSkill: _update_cast_skill,
+		Commands.Dash: _update_dash,
 	}
 
 
@@ -135,6 +137,9 @@ func _tick() -> void:
 
 
 func _apply_command(entity: Entity, cmd: Commands.Command) -> void:
+	if entity.command is Commands.Dash:
+		return
+
 	var handler: Callable = _begin_handlers.get(cmd.get_script(), Callable())
 	if not handler.is_valid():
 		entity.command = null
@@ -142,7 +147,7 @@ func _apply_command(entity: Entity, cmd: Commands.Command) -> void:
 		entity.path_index = 0
 		return
 
-	if cmd is Commands.CastSkill:
+	if cmd is Commands.CastSkill or cmd is Commands.Dash:
 		handler.call(entity, cmd)
 	else:
 		entity.command = cmd
@@ -518,6 +523,116 @@ func _update_cast_skill(entity: Entity, cmd: Commands.CastSkill) -> void:
 		var skill: Dictionary = registry.get_entry("skills", skill_id)
 		_resolve_cast_skill(entity, cmd, skill)
 		entity.command = null
+
+
+func _begin_dash(entity: Entity, cmd: Commands.Dash) -> void:
+	var dash_data: Variant = null
+	if registry != null:
+		dash_data = registry.get_balance("dash")
+
+	var param_errors: Array[String] = []
+	if not (dash_data is Dictionary):
+		param_errors.append("dash balance config missing or not a Dictionary")
+	else:
+		param_errors = DashRules.validate_params(dash_data as Dictionary)
+
+	if not param_errors.is_empty():
+		for err in param_errors:
+			push_error("Dash invalid: %s" % err)
+		_events.append({
+			"type": "dash_failed",
+			"tick": tick_count,
+			"source": entity.id,
+			"reason": "invalid_params",
+		})
+		return
+
+	if cmd.aim.is_zero_approx():
+		_events.append({
+			"type": "dash_failed",
+			"tick": tick_count,
+			"source": entity.id,
+			"reason": "invalid_aim",
+		})
+		return
+
+	if float(tick_count) < entity.dash_ready_tick - 1e-9:
+		_events.append({
+			"type": "dash_failed",
+			"tick": tick_count,
+			"source": entity.id,
+			"reason": "cooldown",
+		})
+		return
+
+	var dash_dict: Dictionary = dash_data as Dictionary
+	var distance_tiles: float = float(dash_dict.get("distance_tiles", 0.0))
+	var duration_s: float = float(dash_dict.get("duration_s", 0.0))
+	var cooldown_s: float = float(dash_dict.get("cooldown_s", 0.0))
+
+	var cd_ticks: float = cooldown_s / _tick_len
+	entity.dash_ready_tick = float(tick_count) + cd_ticks
+
+	entity.path.clear()
+	entity.path_index = 0
+
+	var from_pos: Vector2 = entity.pos
+	var to_pos: Vector2 = DashRules.compute_end_position(from_pos, cmd.aim, distance_tiles, zone)
+
+	var duration_ticks: int = int(round(duration_s / _tick_len))
+	if duration_ticks < 1:
+		duration_ticks = 1
+
+	cmd.from = from_pos
+	cmd.to = to_pos
+	cmd.distance = distance_tiles
+	cmd.duration_s = duration_s
+
+	entity.command = cmd
+
+	_events.append({
+		"type": "dash",
+		"tick": tick_count,
+		"entity": entity.id,
+		"from": from_pos,
+		"to": to_pos,
+		"duration_ticks": duration_ticks,
+	})
+
+
+func _update_dash(entity: Entity, cmd: Commands.Dash) -> void:
+	if entity.dead:
+		entity.command = null
+		return
+
+	var to_target: Vector2 = cmd.to - entity.pos
+	var dist_to_target: float = to_target.length()
+	if dist_to_target <= 1e-6:
+		entity.pos = cmd.to
+		entity.command = null
+		return
+
+	var speed: float = cmd.distance / cmd.duration_s
+	var max_dist_this_tick: float = speed * _tick_len
+	var move_dist: float = minf(max_dist_this_tick, dist_to_target)
+	var dir: Vector2 = to_target / dist_to_target
+
+	var remaining := move_dist
+	var max_step := 0.5
+	while remaining > 1e-9:
+		var step := minf(max_step, remaining)
+		var next_pos := entity.pos + dir * step
+		var next_tile := Vector2i(int(floor(next_pos.x)), int(floor(next_pos.y)))
+		if zone != null and not zone.is_walkable(next_tile):
+			entity.command = null
+			return
+		entity.pos = next_pos
+		remaining -= step
+
+	if entity.pos.distance_to(cmd.to) <= 1e-6:
+		entity.pos = cmd.to
+		entity.command = null
+
 
 
 func _resolve_cast_skill(entity: Entity, cmd: Commands.CastSkill, skill: Dictionary) -> void:
