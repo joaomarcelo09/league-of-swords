@@ -33,6 +33,12 @@
     }
   },
   "sim": {
-    "tick_hz": 30
+    "tick_hz": 30,
+    "max_frame_dt_s": 0.1
+  },
+  "view": {
+    "tile_px": 32,
+    "zoom": [1.0, 1.0],
+    "offset": [0.0, 0.0]
   }
 }
