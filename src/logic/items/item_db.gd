@@ -90,9 +90,13 @@ static func validate_item(dict: Dictionary) -> Array[String]:
 					for eff: Variant in eff_arr:
 						if eff is Dictionary:
 							var d: Dictionary = eff
-							if d.get("type") == "heal":
-								var amt: Variant = d.get("amount", d.get("heal", 0.0))
-								if (amt is int or amt is float) and is_finite(float(amt)) and float(amt) > 0.0:
+							if d.has("type") and str(d["type"]) == "heal":
+								var amt: Variant = null
+								if d.has("amount"):
+									amt = d["amount"]
+								elif d.has("heal"):
+									amt = d["heal"]
+								if amt != null and (amt is int or amt is float) and is_finite(float(amt)) and float(amt) > 0.0:
 									heal_found = true
 									break
 				if not heal_found:
@@ -107,11 +111,10 @@ static func validate_loot_table(dict: Dictionary, known_item_ids: Array = []) ->
 		errors.append("loot table dictionary is empty")
 		return errors
 
-	var has_rolls := dict.has("roll_count") or dict.has("rolls")
-	if not has_rolls:
-		errors.append("loot table missing 'roll_count' or 'rolls'")
+	if not dict.has("roll_count"):
+		errors.append("loot table missing 'roll_count'")
 	else:
-		var rolls_val: Variant = dict.get("roll_count", dict.get("rolls"))
+		var rolls_val: Variant = dict["roll_count"]
 		if not (rolls_val is int or rolls_val is float):
 			errors.append("loot table 'roll_count' must be a number")
 		else:
@@ -178,7 +181,13 @@ func load_from_registry(registry: DataRegistry) -> bool:
 			all_ok = false
 
 	# 2. Load loot tables
-	if registry.has_entry("items", "loot_tables"):
+	var loot_table_ids := registry.ids("loot_tables")
+	for enemy_type_id: String in loot_table_ids:
+		var table_dict := registry.get_entry("loot_tables", enemy_type_id)
+		if not register_loot_table(enemy_type_id, table_dict):
+			all_ok = false
+
+	if loot_table_ids.is_empty() and registry.has_entry("items", "loot_tables"):
 		var raw_tables: Dictionary = registry.get_entry("items", "loot_tables")
 		for enemy_type_id: Variant in raw_tables.keys():
 			var table_val: Variant = raw_tables[enemy_type_id]

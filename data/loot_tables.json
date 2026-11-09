@@ -1,0 +1,15 @@
+{
+  "ash_stalker": {
+    "roll_count": 1,
+    "entries": [
+      {
+        "item_id": "healing_draught",
+        "chance": 0.5
+      },
+      {
+        "item_id": "iron_sword",
+        "chance": 0.2
+      }
+    ]
+  }
+}
