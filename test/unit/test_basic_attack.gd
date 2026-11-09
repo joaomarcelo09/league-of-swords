@@ -764,7 +764,7 @@ func test_repath_unreachable_target_only_when_target_tile_changes() -> void:
 	var target_stats := Stats.new(100.0, 0.0, 0.0, 1.0, 1.0, 0.0)
 
 	var attacker := sim.spawn("player", Vector2i(1, 1), 4.0, -1.0, attacker_stats)
-	var target := sim.spawn("enemy", Vector2i(5, 3), 0.0, -1.0, target_stats)
+	var target := sim.spawn("enemy", Vector2i(6, 3), 0.0, -1.0, target_stats)
 
 	sim.submit(Commands.attack_target(attacker.id, target.id))
 
@@ -773,14 +773,14 @@ func test_repath_unreachable_target_only_when_target_tile_changes() -> void:
 	assert_eq(spy_zone.find_path_calls, 1, "Should attempt target path once on initial targeting")
 	assert_true(attacker.path.is_empty(), "Attacker path must be empty for unreachable target")
 
-	# Step for 10 more ticks while target stays on the same tile (5, 3)
+	# Step for 10 more ticks while target stays on the same tile (6, 3)
 	for i in range(10):
 		sim.step(sim.tick_length)
 
 	assert_eq(spy_zone.find_path_calls, 1, "Must NOT call find_path every tick when target tile has not changed")
 
-	# Now target moves to a different tile (5, 2)
-	target.pos = WorldSim.tile_center(Vector2i(5, 2))
+	# Now target moves to a different tile (6, 2)
+	target.pos = WorldSim.tile_center(Vector2i(6, 2))
 	sim.step(sim.tick_length)
 	assert_eq(spy_zone.find_path_calls, 2, "Should re-path once when target tile changes")
 	assert_true(attacker.path.is_empty(), "Attacker path remains empty")

@@ -812,3 +812,81 @@ func test_dash_diagonal_corner_tunnelling_blocked() -> void:
 	assert_gt(open_end.x, 2.0, "On open ground, diagonal dash must cross into tile (2, 2)")
 	assert_gt(open_end.y, 2.0, "On open ground, diagonal dash must cross into tile (2, 2)")
 
+
+func test_far_from_origin_dash_and_move_duration_ticks() -> void:
+	# Wide zone allowing entities far from origin (e.g. col 500)
+	var wide_row := "#" + ".".repeat(598) + "#\n"
+	var border := "#".repeat(600) + "\n"
+	var wide_map := border + wide_row + wide_row + border
+	var wide_json := {
+		"entry": [1, 1],
+		"legend": {
+			"#": {"walkable": false, "type": "wall"},
+			".": {"walkable": true, "type": "floor"}
+		}
+	}
+	var wide_zone := Zone.load_from_strings(wide_map, wide_json)
+	var reg := _create_fixture_registry({
+		"distance_tiles": 3.0,
+		"duration_s": 0.15,
+		"cooldown_s": 0.0,
+	}, 30)
+
+	var sim := WorldSim.new(wide_zone, reg)
+	var start_tile := Vector2i(500, 1)
+	var player := sim.spawn("player", start_tile, 4.0)
+	assert_not_null(player)
+	assert_eq(player.pos, WorldSim.tile_center(start_tile))
+
+	# Dash far from origin: distance 3.0, duration 0.15s, 30Hz -> nominal 5 ticks
+	sim.submit(Commands.dash(player.id, Vector2(1.0, 0.0)))
+	sim.step(sim.tick_length) # Tick 1
+
+	var events := _find_events(sim.drain_events(), "dash")
+	assert_eq(events.size(), 1)
+	var expected_dash_ticks: int = int(events[0].get("duration_ticks", 0))
+	assert_eq(expected_dash_ticks, 5, "Nominal duration_ticks should be 5")
+
+	var elapsed_dash_ticks := 1
+	while player.command != null and elapsed_dash_ticks < 20:
+		sim.step(sim.tick_length)
+		elapsed_dash_ticks += 1
+
+	assert_null(player.command, "Dash should complete and clear command")
+	assert_eq(
+		expected_dash_ticks,
+		elapsed_dash_ticks,
+		"Far-from-origin dash duration_ticks (%d) must match elapsed ticks (%d)" % [expected_dash_ticks, elapsed_dash_ticks]
+	)
+	var expected_dash_dest := WorldSim.tile_center(Vector2i(503, 1))
+	assert_true(
+		player.pos.is_equal_approx(expected_dash_dest),
+		"Player should arrive at (503.5, 1.5), got %s" % str(player.pos)
+	)
+
+	# Far-from-origin MoveTo: distance 4.0 tiles, speed 4.0 tiles/s -> ceil(4.0 / (4.0 * (1/30))) = 30 ticks
+	var move_dest_tile := Vector2i(507, 1)
+	var path_len := float(move_dest_tile.x - player.tile().x) # 4.0 tiles
+	var expected_move_ticks := int(ceil(path_len / (player.speed * sim.tick_length))) # 30 ticks
+	assert_eq(expected_move_ticks, 30)
+
+	sim.submit(Commands.move_to(player.id, move_dest_tile))
+	var elapsed_move_ticks := 0
+	while elapsed_move_ticks < expected_move_ticks + 5:
+		sim.step(sim.tick_length)
+		elapsed_move_ticks += 1
+		if player.command == null:
+			break
+
+	assert_null(player.command, "MoveTo command should clear on arrival")
+	assert_eq(
+		expected_move_ticks,
+		elapsed_move_ticks,
+		"Far-from-origin move ticks (%d) must match expected ticks (%d)" % [elapsed_move_ticks, expected_move_ticks]
+	)
+	var expected_move_dest := WorldSim.tile_center(move_dest_tile)
+	assert_true(
+		player.pos.is_equal_approx(expected_move_dest),
+		"Player should arrive at move destination %s, got %s" % [str(expected_move_dest), str(player.pos)]
+	)
+

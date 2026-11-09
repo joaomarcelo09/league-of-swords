@@ -336,3 +336,43 @@ func test_diagonal_corner_tunnelling_blocked_in_path_stepping() -> void:
 	assert_almost_eq(entity_open.pos.x, 2.5, 0.01)
 	assert_almost_eq(entity_open.pos.y, 2.5, 0.01)
 
+
+func test_spawn_rejects_wall_and_out_of_bounds_tiles() -> void:
+	var sim := WorldSim.new(_zone, _registry)
+
+	# 1. Border wall tile (0, 0)
+	var wall_player := sim.spawn("player", Vector2i(0, 0), _player_speed)
+	assert_null(wall_player, "spawn on border wall tile must return null")
+	assert_push_error_count(1, "spawn on border wall must push error")
+
+	# 2. Interior wall tile (5, 2)
+	var interior_wall_player := sim.spawn("player", Vector2i(5, 2), _player_speed)
+	assert_null(interior_wall_player, "spawn on interior wall tile must return null")
+	assert_push_error_count(2, "spawn on interior wall must push error")
+
+	# 3. Interior wall float coordinate Vector2(5.2, 2.8)
+	var interior_float_player := sim.spawn("player", Vector2(5.2, 2.8), _player_speed)
+	assert_null(interior_float_player, "spawn on interior wall float must return null")
+	assert_push_error_count(3, "spawn on interior wall float must push error")
+
+	# 4. Negative out of bounds (-1, 0)
+	var oob_player := sim.spawn("player", Vector2i(-1, 0), _player_speed)
+	assert_null(oob_player, "spawn out of bounds must return null")
+	assert_push_error_count(4, "spawn out of bounds must push error")
+
+	# 5. Positive out of bounds (99, 99)
+	var oob_player2 := sim.spawn("player", Vector2i(99, 99), _player_speed)
+	assert_null(oob_player2, "spawn out of bounds must return null")
+	assert_push_error_count(5, "spawn out of bounds must push error")
+
+	# 6. Invalid coordinate type (String)
+	var invalid_coord := sim.spawn("player", "not_a_vector", _player_speed)
+	assert_null(invalid_coord, "spawn with invalid coord type must return null")
+	assert_push_error_count(6, "spawn with invalid coord must push error")
+
+	# 7. Walkable tile succeeds
+	var ok_player := sim.spawn("player", Vector2i(1, 1), _player_speed)
+	assert_not_null(ok_player, "spawn on walkable tile must succeed")
+	assert_eq(ok_player.tile(), Vector2i(1, 1))
+	assert_eq(ok_player.pos, Vector2(1.5, 1.5))
+

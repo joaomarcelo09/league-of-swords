@@ -65,14 +65,14 @@ func test_dead_enemies_are_not_picked() -> void:
 func test_nearest_enemy_wins() -> void:
 	# Spawn two enemies at different distances from cursor (3.5, 1.5)
 	var enemy_close := _sim.spawn("enemy", Vector2i(3, 1), 2.0)
-	var enemy_far := _sim.spawn("enemy", Vector2i(5, 1), 2.0)
+	var enemy_far := _sim.spawn("enemy", Vector2i(6, 1), 2.0)
 
 	var cursor := Vector2(3.6, 1.5)
 	var picked := PlayerInput.pick_enemy_at(_sim, cursor, 2.0)
 	assert_not_null(picked)
 	assert_eq(picked.id, enemy_close.id, "Nearest enemy should be chosen")
 
-	cursor = Vector2(5.2, 1.5)
+	cursor = Vector2(6.2, 1.5)
 	picked = PlayerInput.pick_enemy_at(_sim, cursor, 2.0)
 	assert_not_null(picked)
 	assert_eq(picked.id, enemy_far.id, "Nearest enemy should be chosen")
