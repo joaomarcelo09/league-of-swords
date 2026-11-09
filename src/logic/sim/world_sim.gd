@@ -63,14 +63,23 @@ static func _is_on_segment(p: Vector2, a: Vector2, b: Vector2) -> bool:
 	return false
 
 
-func spawn(kind: String, tile: Variant, speed: float, hp: float = -1.0, stats: Stats = null) -> Entity:
-	var target_tile := Vector2i.ZERO
+static func parse_tile_coord(tile: Variant) -> Variant:
 	if tile is Vector2i:
-		target_tile = tile
+		return tile
 	elif tile is Vector2:
-		target_tile = Vector2i(int(floor(tile.x)), int(floor(tile.y)))
-	else:
+		return Vector2i(int(floor(tile.x)), int(floor(tile.y)))
+	return null
+
+
+func spawn(kind: String, tile: Variant, speed: float, hp: float = -1.0, stats: Stats = null) -> Entity:
+	var parsed: Variant = parse_tile_coord(tile)
+	if parsed == null:
 		push_error("spawn: invalid tile coordinate %s" % str(tile))
+		return null
+	var target_tile: Vector2i = parsed
+
+	if zone != null and not zone.is_walkable(target_tile):
+		push_error("spawn: tile %s is not walkable" % str(target_tile))
 		return null
 
 	var entity_id := _next_entity_id
@@ -110,19 +119,6 @@ func spawn_enemy(type_id: String, tile: Variant, hp: float = -1.0, stats: Stats 
 		push_error("spawn_enemy: unknown or missing enemy type '%s'" % type_id)
 		return null
 
-	var target_tile := Vector2i.ZERO
-	if tile is Vector2i:
-		target_tile = tile
-	elif tile is Vector2:
-		target_tile = Vector2i(int(floor(tile.x)), int(floor(tile.y)))
-	else:
-		push_error("spawn_enemy: invalid tile coordinate %s" % str(tile))
-		return null
-
-	if zone != null and not zone.is_walkable(target_tile):
-		push_error("spawn_enemy: tile %s is not walkable" % str(target_tile))
-		return null
-
 	var enemy_cfg: Dictionary = registry.get_entry("enemies", type_id)
 	var errors := EnemyAI.validate_config(enemy_cfg)
 	if not errors.is_empty():
@@ -141,13 +137,12 @@ func spawn_enemy(type_id: String, tile: Variant, hp: float = -1.0, stats: Stats 
 		push_error("spawn_enemy: enemy '%s' has no valid move speed in config or balance" % type_id)
 		return null
 
-	var entity := spawn("enemy", target_tile, speed, hp, stats)
+	var entity := spawn("enemy", tile, speed, hp, stats)
 	if entity == null:
 		return null
 	entity.enemy_type_id = type_id
 	entity.state = "idle"
-	entity.spawn_pos = tile_center(target_tile)
-	entity.pos = entity.spawn_pos
+	entity.spawn_pos = entity.pos
 	if enemy_cfg.has("recovery_damage_mult"):
 		entity.recovery_damage_mult = float(enemy_cfg["recovery_damage_mult"])
 	return entity
@@ -208,15 +203,11 @@ func _apply_command(entity: Entity, cmd: Commands.Command) -> void:
 		entity.path_index = 0
 		return
 
-	if not entity.enemy_type_id.is_empty():
-		entity.state = "idle"
-		entity.target_id = 0
-
-	if cmd is Commands.CastSkill or cmd is Commands.Dash:
-		handler.call(entity, cmd)
-	else:
-		entity.command = cmd
-		handler.call(entity, cmd)
+	var accepted: bool = handler.call(entity, cmd)
+	if accepted:
+		if not entity.enemy_type_id.is_empty():
+			entity.state = "idle"
+			entity.target_id = 0
 
 
 func _update_entities() -> void:
@@ -297,7 +288,7 @@ func step_entity_along_path(entity: Entity, max_dist: float) -> void:
 			entity.path_index = 0
 			break
 
-		if dist <= remaining_dist + 1e-9:
+		if dist <= remaining_dist + 0.001:
 			entity.pos = target_pos
 			remaining_dist -= dist
 			if remaining_dist < 0.0:
@@ -317,21 +308,16 @@ func step_entity_along_path(entity: Entity, max_dist: float) -> void:
 			remaining_dist = 0.0
 
 
-func _path_to_tile(entity: Entity, target_tile: Vector2i) -> void:
-	path_entity_to_tile(entity, target_tile)
-
-
-func _step_along_path(entity: Entity, max_dist: float) -> void:
-	step_entity_along_path(entity, max_dist)
-
-
-func _begin_move_to(entity: Entity, cmd: Commands.MoveTo) -> void:
+func _begin_move_to(entity: Entity, cmd: Commands.MoveTo) -> bool:
 	path_entity_to_tile(entity, cmd.target)
 	if entity.path.is_empty():
 		entity.command = null
-		return
+		return false
 	if entity.path.size() == 1 and entity.pos.is_equal_approx(tile_center(entity.path[0])):
 		entity.command = null
+		return false
+	entity.command = cmd
+	return true
 
 
 func _update_move_to(entity: Entity, _cmd: Commands.MoveTo) -> void:
@@ -344,19 +330,19 @@ func _update_move_to(entity: Entity, _cmd: Commands.MoveTo) -> void:
 		entity.command = null
 
 
-func _begin_attack_target(entity: Entity, cmd: Commands.AttackTarget) -> void:
+func _begin_attack_target(entity: Entity, cmd: Commands.AttackTarget) -> bool:
 	if cmd.target_id == entity.id:
 		entity.command = null
 		entity.path.clear()
 		entity.path_index = 0
-		return
+		return false
 
 	var target: Entity = get_entity(cmd.target_id)
 	if target == null or target.dead:
 		entity.command = null
 		entity.path.clear()
 		entity.path_index = 0
-		return
+		return false
 
 	var attack_range: float = _get_attack_range(entity)
 	var attack_interval: float = _get_attack_interval(entity)
@@ -364,12 +350,18 @@ func _begin_attack_target(entity: Entity, cmd: Commands.AttackTarget) -> void:
 		entity.command = null
 		entity.path.clear()
 		entity.path_index = 0
-		return
+		return false
 
+	entity.command = cmd
 	var dist: float = entity.pos.distance_to(target.pos)
 	if dist > attack_range + 1e-9:
 		cmd.last_target_tile = target.tile()
 		path_entity_to_tile(entity, cmd.last_target_tile)
+	else:
+		entity.path.clear()
+		entity.path_index = 0
+		cmd.last_target_tile = Vector2i(-1, -1)
+	return true
 
 
 func _update_attack_target(entity: Entity, cmd: Commands.AttackTarget) -> void:
@@ -537,7 +529,7 @@ func _perform_attack(attacker: Entity, target: Entity) -> void:
 	apply_damage(attacker.id, target, damage)
 
 
-func _begin_cast_skill(entity: Entity, cmd: Commands.CastSkill) -> void:
+func _begin_cast_skill(entity: Entity, cmd: Commands.CastSkill) -> bool:
 	if not entity.skills.has(cmd.slot):
 		_events.append({
 			"type": "cast_failed",
@@ -546,7 +538,7 @@ func _begin_cast_skill(entity: Entity, cmd: Commands.CastSkill) -> void:
 			"slot": cmd.slot,
 			"reason": "unknown_slot",
 		})
-		return
+		return false
 
 	var skill_id: String = entity.skills.get(cmd.slot, "")
 	if skill_id.is_empty() or registry == null or not registry.has_entry("skills", skill_id):
@@ -557,7 +549,7 @@ func _begin_cast_skill(entity: Entity, cmd: Commands.CastSkill) -> void:
 			"slot": cmd.slot,
 			"reason": "unknown_skill",
 		})
-		return
+		return false
 
 	var skill: Dictionary = registry.get_entry("skills", skill_id)
 	var errors: Array[String] = SkillSystem.validate_skill(skill)
@@ -571,7 +563,7 @@ func _begin_cast_skill(entity: Entity, cmd: Commands.CastSkill) -> void:
 			"slot": cmd.slot,
 			"reason": "invalid_skill",
 		})
-		return
+		return false
 
 	var to_aim := cmd.aim - entity.pos
 	if to_aim.is_zero_approx():
@@ -582,7 +574,7 @@ func _begin_cast_skill(entity: Entity, cmd: Commands.CastSkill) -> void:
 			"slot": cmd.slot,
 			"reason": "zero_direction",
 		})
-		return
+		return false
 
 	var ready_tick: float = entity.skill_ready_ticks.get(cmd.slot, 0.0)
 	if float(tick_count) < ready_tick - 1e-9:
@@ -593,7 +585,7 @@ func _begin_cast_skill(entity: Entity, cmd: Commands.CastSkill) -> void:
 			"slot": cmd.slot,
 			"reason": "cooldown",
 		})
-		return
+		return false
 
 	entity.path.clear()
 	entity.path_index = 0
@@ -607,6 +599,7 @@ func _begin_cast_skill(entity: Entity, cmd: Commands.CastSkill) -> void:
 	else:
 		cmd.resolve_tick = tick_count + cast_ticks - 1
 		entity.command = cmd
+	return true
 
 
 func _update_cast_skill(entity: Entity, cmd: Commands.CastSkill) -> void:
@@ -617,7 +610,7 @@ func _update_cast_skill(entity: Entity, cmd: Commands.CastSkill) -> void:
 		entity.command = null
 
 
-func _begin_dash(entity: Entity, cmd: Commands.Dash) -> void:
+func _begin_dash(entity: Entity, cmd: Commands.Dash) -> bool:
 	var dash_data: Variant = null
 	if registry != null:
 		dash_data = registry.get_balance("dash")
@@ -637,7 +630,7 @@ func _begin_dash(entity: Entity, cmd: Commands.Dash) -> void:
 			"source": entity.id,
 			"reason": "invalid_params",
 		})
-		return
+		return false
 
 	if cmd.aim.is_zero_approx() or not cmd.aim.is_finite():
 		_events.append({
@@ -646,7 +639,7 @@ func _begin_dash(entity: Entity, cmd: Commands.Dash) -> void:
 			"source": entity.id,
 			"reason": "invalid_aim",
 		})
-		return
+		return false
 
 	cmd.aim = cmd.aim.normalized()
 
@@ -657,7 +650,7 @@ func _begin_dash(entity: Entity, cmd: Commands.Dash) -> void:
 			"source": entity.id,
 			"reason": "cooldown",
 		})
-		return
+		return false
 
 	var dash_dict: Dictionary = dash_data as Dictionary
 	var distance_tiles: float = float(dash_dict.get("distance_tiles", 0.0))
@@ -699,6 +692,7 @@ func _begin_dash(entity: Entity, cmd: Commands.Dash) -> void:
 		"to": to_pos,
 		"duration_ticks": duration_ticks,
 	})
+	return true
 
 
 func _update_dash(entity: Entity, cmd: Commands.Dash) -> void:
@@ -708,19 +702,22 @@ func _update_dash(entity: Entity, cmd: Commands.Dash) -> void:
 
 	var to_target: Vector2 = cmd.to - entity.pos
 	var dist_to_target: float = to_target.length()
-	if dist_to_target <= 1e-6:
-		entity.pos = cmd.to
-		entity.command = null
-		return
 
 	var speed: float = 0.0
 	if cmd.duration_s > 1e-9:
 		speed = cmd.distance / cmd.duration_s
 	var max_dist_this_tick: float = speed * _tick_len
-	var move_dist: float = minf(max_dist_this_tick, dist_to_target)
-	var dir: Vector2 = to_target / dist_to_target
 
-	var remaining := move_dist
+	if dist_to_target <= max_dist_this_tick + 0.001:
+		if zone != null and not DashRules.is_segment_walkable(entity.pos, cmd.to, zone):
+			entity.command = null
+			return
+		entity.pos = cmd.to
+		entity.command = null
+		return
+
+	var dir: Vector2 = to_target / dist_to_target
+	var remaining := max_dist_this_tick
 	var max_step := 0.5
 	while remaining > 1e-9:
 		var step := minf(max_step, remaining)
@@ -730,10 +727,6 @@ func _update_dash(entity: Entity, cmd: Commands.Dash) -> void:
 			return
 		entity.pos = next_pos
 		remaining -= step
-
-	if entity.pos.distance_to(cmd.to) <= 1e-6:
-		entity.pos = cmd.to
-		entity.command = null
 
 
 
@@ -816,13 +809,13 @@ func _resolve_cast_skill(entity: Entity, cmd: Commands.CastSkill, skill: Diction
 		match eff_type:
 			"damage":
 				var mult: float = float(effect.get("mult", 1.0))
-				if target_mode == "hit":
-					apply_attack_shape_damage(entity, skill, entity.pos, aim_offset, mult)
-				elif target_mode == "self":
-					var attacker_stats := effective_stats(entity)
-					var target_stats := effective_stats(entity)
+				var attacker_stats := effective_stats(entity)
+				for target: Entity in targets:
+					if target.dead:
+						continue
+					var target_stats := effective_stats(target)
 					var base_dmg: float = Combat.compute_damage(attacker_stats, target_stats, registry)
-					apply_damage(entity.id, entity, mult * base_dmg)
+					apply_damage(entity.id, target, mult * base_dmg)
 			"heal":
 				var amount: float = float(effect.get("amount", 0.0))
 				for target: Entity in targets:

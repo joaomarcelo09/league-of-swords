@@ -659,3 +659,69 @@ func test_spawn_enemy_snap_to_tile_centre_and_reject_unwalkable() -> void:
 	var oob_enemy := sim.spawn_enemy("ash_stalker", Vector2i(-1, 0))
 	assert_null(oob_enemy, "spawn_enemy out of bounds must return null")
 	assert_push_error_count(3, "spawn_enemy out of bounds must push error")
+
+
+func test_rejected_command_preserves_enemy_ai_state_and_resumes_after_command() -> void:
+	var sim := WorldSim.new(_zone, _registry)
+	var enemy := sim.spawn_enemy("ash_stalker", Vector2i(2, 2))
+	var player := sim.spawn("player", Vector2i(3, 2), 0.0, 100.0)
+
+	# Step until enemy enters windup targeting adjacent player
+	sim.step(sim.tick_length)
+	assert_eq(enemy.state, "windup", "Enemy should enter windup targeting adjacent player")
+	var end_tick := enemy.state_end_tick
+
+	# Submit a rejected command: targeting self is invalid
+	sim.submit(Commands.attack_target(enemy.id, enemy.id))
+	sim.step(sim.tick_length)
+
+	assert_null(enemy.command, "Rejected command must not be active")
+	assert_eq(enemy.state, "windup", "Enemy must remain in windup state when command is rejected")
+	assert_eq(enemy.state_end_tick, end_tick, "state_end_tick must not be modified by rejected command")
+
+	# Step until windup completes and transitions to active, dealing damage
+	while enemy.state == "windup":
+		sim.step(sim.tick_length)
+
+	assert_eq(enemy.state, "active", "Windup should complete and transition to active")
+	assert_lt(player.hp, 100.0, "Player must take damage from completed attack")
+
+	# Step until enemy enters recovery
+	while enemy.state == "active":
+		sim.step(sim.tick_length)
+
+	assert_eq(enemy.state, "recovery", "Enemy should transition to recovery")
+
+	# Submit another rejected command while in recovery (dash with zero aim)
+	sim.submit(Commands.dash(enemy.id, Vector2.ZERO))
+	sim.step(sim.tick_length)
+
+	assert_null(enemy.command, "Zero-aim dash must be rejected")
+	assert_eq(enemy.state, "recovery", "Enemy must remain in recovery after rejected dash")
+
+	# Step until recovery finishes and enemy returns to chase/windup
+	while enemy.state == "recovery":
+		sim.step(sim.tick_length)
+
+	assert_true(enemy.state in ["chase", "windup"], "Enemy should resume AI chase/windup after recovery")
+
+	# Issue a valid command (MoveTo away)
+	var move_dest := Vector2i(2, 6)
+	sim.submit(Commands.move_to(enemy.id, move_dest))
+	sim.step(sim.tick_length)
+
+	assert_not_null(enemy.command, "Valid MoveTo should be accepted")
+	assert_eq(enemy.state, "idle", "AI state should reset to idle when command is accepted")
+
+	# Step until MoveTo completes
+	for _i in range(50):
+		if enemy.command == null:
+			break
+		sim.step(sim.tick_length)
+
+	assert_null(enemy.command, "MoveTo command should clear on arrival")
+	assert_eq(enemy.tile(), move_dest)
+
+	# Now step one tick: EnemyAI should resume automatically
+	sim.step(sim.tick_length)
+	assert_true(enemy.state in ["chase", "reset", "idle", "windup"], "Enemy AI must resume after command clears")

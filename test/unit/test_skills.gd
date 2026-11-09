@@ -308,9 +308,11 @@ func test_cooldown_blocks_recast_and_unblocks_exactly_on_time() -> void:
 	var resolve_tick: int = sim.tick_count
 	assert_eq(resolve_tick, 1)
 
-	var cooldown_ticks: int = int(round(float(skill_dict["cooldown_s"]) / sim.tick_length))
-	var ready_tick: int = resolve_tick + cooldown_ticks
-	assert_eq(player.skill_ready_ticks["Q"], float(resolve_tick + cooldown_ticks), "skill_ready_ticks must equal resolve_tick + cooldown ticks")
+	var cooldown_s: float = float(skill_dict["cooldown_s"])
+	var cd_ticks: float = cooldown_s / sim.tick_length
+	var ready_tick_float: float = float(resolve_tick) + cd_ticks
+	assert_almost_eq(player.skill_ready_ticks["Q"], ready_tick_float, 1e-6, "skill_ready_ticks must equal resolve_tick + cooldown ticks")
+	var ready_tick: int = int(round(ready_tick_float))
 
 	var events := sim.drain_events()
 	assert_eq(events[0]["type"], "skill_cast")
