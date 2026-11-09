@@ -263,6 +263,12 @@ func _step_along_path(entity: Entity, max_dist: float) -> void:
 		var to_target: Vector2 = target_pos - entity.pos
 		var dist: float = to_target.length()
 
+		if zone != null and not DashRules.is_segment_walkable(entity.pos, target_pos, zone):
+			entity.command = null
+			entity.path.clear()
+			entity.path_index = 0
+			break
+
 		if dist <= remaining_dist + 1e-9:
 			entity.pos = target_pos
 			remaining_dist -= dist
@@ -272,7 +278,14 @@ func _step_along_path(entity: Entity, max_dist: float) -> void:
 			if entity.path_index >= entity.path.size():
 				break
 		else:
-			entity.pos += (to_target / dist) * remaining_dist
+			var step_move: Vector2 = (to_target / dist) * remaining_dist
+			var next_pos: Vector2 = entity.pos + step_move
+			if zone != null and not DashRules.is_segment_walkable(entity.pos, next_pos, zone):
+				entity.command = null
+				entity.path.clear()
+				entity.path_index = 0
+				break
+			entity.pos = next_pos
 			remaining_dist = 0.0
 
 
@@ -590,7 +603,7 @@ func _begin_dash(entity: Entity, cmd: Commands.Dash) -> void:
 		})
 		return
 
-	if cmd.aim.is_zero_approx():
+	if cmd.aim.is_zero_approx() or not cmd.aim.is_finite():
 		_events.append({
 			"type": "dash_failed",
 			"tick": tick_count,
@@ -598,6 +611,8 @@ func _begin_dash(entity: Entity, cmd: Commands.Dash) -> void:
 			"reason": "invalid_aim",
 		})
 		return
+
+	cmd.aim = cmd.aim.normalized()
 
 	if float(tick_count) < entity.dash_ready_tick - 1e-9:
 		_events.append({
@@ -622,14 +637,21 @@ func _begin_dash(entity: Entity, cmd: Commands.Dash) -> void:
 	var from_pos: Vector2 = entity.pos
 	var to_pos: Vector2 = DashRules.compute_end_position(from_pos, cmd.aim, distance_tiles, zone)
 
-	var duration_ticks: int = int(round(duration_s / _tick_len))
-	if duration_ticks < 1:
-		duration_ticks = 1
+	var nominal_speed: float = distance_tiles / duration_s
+	var real_distance: float = from_pos.distance_to(to_pos)
+	var real_duration_s: float = real_distance / nominal_speed if nominal_speed > 0.0 else 0.0
+	var step_dist: float = nominal_speed * _tick_len
+
+	var duration_ticks: int = 1
+	if real_distance > 1e-6 and step_dist > 0.0:
+		duration_ticks = int(ceil(real_distance / step_dist - 1e-9))
+		if duration_ticks < 1:
+			duration_ticks = 1
 
 	cmd.from = from_pos
 	cmd.to = to_pos
-	cmd.distance = distance_tiles
-	cmd.duration_s = duration_s
+	cmd.distance = real_distance
+	cmd.duration_s = real_duration_s
 
 	entity.command = cmd
 
@@ -655,7 +677,9 @@ func _update_dash(entity: Entity, cmd: Commands.Dash) -> void:
 		entity.command = null
 		return
 
-	var speed: float = cmd.distance / cmd.duration_s
+	var speed: float = 0.0
+	if cmd.duration_s > 1e-9:
+		speed = cmd.distance / cmd.duration_s
 	var max_dist_this_tick: float = speed * _tick_len
 	var move_dist: float = minf(max_dist_this_tick, dist_to_target)
 	var dir: Vector2 = to_target / dist_to_target
@@ -665,8 +689,7 @@ func _update_dash(entity: Entity, cmd: Commands.Dash) -> void:
 	while remaining > 1e-9:
 		var step := minf(max_step, remaining)
 		var next_pos := entity.pos + dir * step
-		var next_tile := Vector2i(int(floor(next_pos.x)), int(floor(next_pos.y)))
-		if zone != null and not zone.is_walkable(next_tile):
+		if zone != null and not DashRules.is_segment_walkable(entity.pos, next_pos, zone):
 			entity.command = null
 			return
 		entity.pos = next_pos

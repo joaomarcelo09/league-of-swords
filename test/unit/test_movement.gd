@@ -277,3 +277,62 @@ func test_latest_queued_command_in_same_tick_replaces_earlier() -> void:
 	assert_eq(move_cmd.target, Vector2i(4, 1))
 	assert_true(entity.pos.x > 1.5)
 	assert_almost_eq(entity.pos.y, 1.5, 0.001)
+
+
+func test_diagonal_corner_tunnelling_blocked_in_path_stepping() -> void:
+	# Map where (1, 1) is floor, (2, 1) is wall, (1, 2) is floor, (2, 2) is floor
+	var corner_map := """####
+#.##
+#..#
+####"""
+	var corner_json := {
+		"entry": [1, 1],
+		"legend": {
+			"#": {"walkable": false, "type": "wall"},
+			".": {"walkable": true, "type": "floor"}
+		}
+	}
+	var corner_zone := Zone.load_from_strings(corner_map, corner_json)
+	var sim := WorldSim.new(corner_zone, _registry)
+	var entity := sim.spawn("player", Vector2i(1, 1), _player_speed)
+	assert_eq(entity.pos, Vector2(1.5, 1.5))
+
+	# Assign a diagonal path waypoint to (2, 2) whose shared neighbour (2, 1) is blocked
+	var move_cmd := Commands.move_to(entity.id, Vector2i(2, 2))
+	entity.command = move_cmd
+	entity.path = [Vector2i(2, 2)]
+	entity.path_index = 0
+
+	# Step sim: path stepping must detect the wall corner and abort the move
+	sim.step(sim.tick_length)
+
+	assert_null(entity.command, "Command must be cleared when diagonal path waypoint cuts wall corner")
+	assert_eq(entity.path.size(), 0, "Path must be cleared")
+	assert_eq(entity.tile(), Vector2i(1, 1), "Entity must remain in tile (1, 1)")
+	assert_lt(entity.pos.x, 2.0, "Entity pos.x must not enter col 2")
+	assert_lt(entity.pos.y, 2.0, "Entity pos.y must not enter row 2")
+
+	# On open ground, diagonal stepping succeeds
+	var open_map := """####
+#..#
+#..#
+####"""
+	var open_zone := Zone.load_from_strings(open_map, corner_json)
+	var sim_open := WorldSim.new(open_zone, _registry)
+	var entity_open := sim_open.spawn("player", Vector2i(1, 1), _player_speed)
+
+	var move_cmd_open := Commands.move_to(entity_open.id, Vector2i(2, 2))
+	entity_open.command = move_cmd_open
+	entity_open.path = [Vector2i(2, 2)]
+	entity_open.path_index = 0
+
+	for i in range(20):
+		sim_open.step(sim_open.tick_length)
+		if entity_open.command == null:
+			break
+
+	assert_null(entity_open.command)
+	assert_eq(entity_open.tile(), Vector2i(2, 2), "On open ground, entity reaches target tile (2, 2)")
+	assert_almost_eq(entity_open.pos.x, 2.5, 0.01)
+	assert_almost_eq(entity_open.pos.y, 2.5, 0.01)
+
