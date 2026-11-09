@@ -6,11 +6,17 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 VERSION_FILE="$SCRIPT_DIR/godot-version.txt"
 
 if [[ ! -f "$VERSION_FILE" ]]; then
-  echo "Error: Version file not found at $VERSION_FILE. Please run tools/install_godot.sh" >&2
+  echo "Error: Version file not found at $VERSION_FILE. The version file is missing/corrupt, restore tools/godot-version.txt (it is checked into the repo)." >&2
   exit 1
 fi
 
-GODOT_VERSION="$(grep -E '^GODOT_VERSION=' "$VERSION_FILE" | cut -d= -f2-)"
+GODOT_VERSION="$(grep -E '^GODOT_VERSION=' "$VERSION_FILE" | cut -d= -f2- || true)"
+
+if [[ -z "$GODOT_VERSION" ]]; then
+  echo "Error: GODOT_VERSION missing or corrupt in $VERSION_FILE. Restore tools/godot-version.txt (it is checked into the repo)." >&2
+  exit 1
+fi
+
 BINARY_PATH="$REPO_ROOT/.tools/godot/Godot_v${GODOT_VERSION}_linux.x86_64"
 
 if [[ ! -x "$BINARY_PATH" ]]; then

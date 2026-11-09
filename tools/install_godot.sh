@@ -1,6 +1,24 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Upfront system and tool checks
+if [[ "$(uname -s)" != "Linux" ]]; then
+  echo "Error: Unsupported OS '$(uname -s)'. This script requires Linux." >&2
+  exit 1
+fi
+
+if [[ "$(uname -m)" != "x86_64" ]]; then
+  echo "Error: Unsupported architecture '$(uname -m)'. This script requires x86_64." >&2
+  exit 1
+fi
+
+for cmd in curl unzip sha512sum; do
+  if ! command -v "$cmd" >/dev/null 2>&1; then
+    echo "Error: Required command '$cmd' not found in PATH." >&2
+    exit 1
+  fi
+done
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 VERSION_FILE="$SCRIPT_DIR/godot-version.txt"
@@ -10,8 +28,8 @@ if [[ ! -f "$VERSION_FILE" ]]; then
   exit 1
 fi
 
-GODOT_VERSION="$(grep -E '^GODOT_VERSION=' "$VERSION_FILE" | cut -d= -f2-)"
-GODOT_SHA512="$(grep -E '^GODOT_SHA512=' "$VERSION_FILE" | cut -d= -f2-)"
+GODOT_VERSION="$(grep -E '^GODOT_VERSION=' "$VERSION_FILE" | cut -d= -f2- || true)"
+GODOT_SHA512="$(grep -E '^GODOT_SHA512=' "$VERSION_FILE" | cut -d= -f2- || true)"
 
 if [[ -z "$GODOT_VERSION" || -z "$GODOT_SHA512" ]]; then
   echo "Error: GODOT_VERSION or GODOT_SHA512 missing in $VERSION_FILE" >&2
@@ -28,8 +46,9 @@ if [[ -x "$BINARY_PATH" ]]; then
   exit 0
 fi
 
-# Download into a fresh temporary directory
-TMP_DIR="$(mktemp -d)"
+# Download and extract into a temporary directory inside the same filesystem
+mkdir -p "$REPO_ROOT/.tools"
+TMP_DIR="$(mktemp -d "$REPO_ROOT/.tools/tmp.XXXXXXXXXX")"
 cleanup() {
   rm -rf "$TMP_DIR"
 }
@@ -54,16 +73,21 @@ if [[ "$CALCULATED_SHA512" != "$GODOT_SHA512" ]]; then
   exit 1
 fi
 
-# Extract into .tools/godot/
-mkdir -p "$INSTALL_DIR"
-echo "Extracting $ZIP_NAME into $INSTALL_DIR..."
-unzip -q -o "$ZIP_PATH" -d "$INSTALL_DIR"
+# Extract into temp directory, verify binary, chmod +x, and mv into .tools/godot/ last
+UNPACK_DIR="$TMP_DIR/unpack"
+mkdir -p "$UNPACK_DIR"
+echo "Extracting $ZIP_NAME into temporary directory..."
+unzip -q -o "$ZIP_PATH" -d "$UNPACK_DIR"
 
-if [[ ! -f "$BINARY_PATH" ]]; then
-  echo "Error: Expected binary $BINARY_PATH not found after extraction." >&2
+EXTRACTED_BINARY="$UNPACK_DIR/$BINARY_NAME"
+if [[ ! -f "$EXTRACTED_BINARY" ]]; then
+  echo "Error: Expected binary $BINARY_NAME not found after extraction." >&2
   exit 1
 fi
 
-chmod +x "$BINARY_PATH"
+chmod +x "$EXTRACTED_BINARY"
+mkdir -p "$INSTALL_DIR"
+mv -f "$EXTRACTED_BINARY" "$INSTALL_DIR/"
+
 echo "Godot installed successfully:"
 "$BINARY_PATH" --version
