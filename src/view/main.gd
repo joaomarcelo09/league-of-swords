@@ -8,6 +8,7 @@ const DATA_DIR: String = "res://data"
 @onready var zone_view: ZoneView = $ZoneView if has_node("ZoneView") else null
 @onready var entities_root: Node2D = $Entities if has_node("Entities") else null
 @onready var camera: GameCamera = $Camera if has_node("Camera") else null
+@onready var player_input: PlayerInput = $PlayerInput if has_node("PlayerInput") else null
 
 var registry: DataRegistry = null
 var zone: Zone = null
@@ -67,6 +68,13 @@ func _init_game() -> void:
 		add_child(camera)
 	camera.enabled = true
 	camera.setup(registry)
+
+	# 8. Setup PlayerInput
+	if player_input == null:
+		player_input = PlayerInput.new()
+		player_input.name = "PlayerInput"
+		add_child(player_input)
+	player_input.setup(player.id, world, zone_view, registry)
 
 	# Initial view update
 	_update_views()
