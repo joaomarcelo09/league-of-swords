@@ -175,8 +175,8 @@ static func _process_chase(
 
 	var target_tile := target.tile()
 	if entity.path.is_empty() or entity.path[entity.path.size() - 1] != target_tile:
-		sim._path_to_tile(entity, target_tile)
-	sim._step_along_path(entity, entity.speed * sim.tick_length)
+		sim.path_entity_to_tile(entity, target_tile)
+	sim.step_entity_along_path(entity, entity.speed * sim.tick_length)
 
 	dist = entity.pos.distance_to(target.pos)
 	if dist <= attack_range + 1e-9:
@@ -225,19 +225,8 @@ static func _perform_attack(
 	_enemy_cfg: Dictionary,
 	attack: Dictionary
 ) -> void:
-	var attacker_stats := sim.effective_stats(entity)
 	var mult: float = float(attack.get("damage_mult", 1.0))
-
-	var sorted_ids: Array = sim.entities.keys()
-	sorted_ids.sort()
-	for other_id: Variant in sorted_ids:
-		var other: Entity = sim.entities[other_id]
-		if other.id == entity.id or other.dead or other.kind != "player":
-			continue
-		if SkillSystem.in_shape(attack, entity.locked_origin, entity.locked_dir, other.pos):
-			var target_stats := sim.effective_stats(other)
-			var base_dmg: float = Combat.compute_damage(attacker_stats, target_stats, sim.registry)
-			sim.apply_damage(entity.id, other, mult * base_dmg)
+	sim.apply_attack_shape_damage(entity, attack, entity.locked_origin, entity.locked_dir, mult, "player")
 
 
 static func _step_toward_spawn(sim: WorldSim, entity: Entity) -> void:
@@ -250,9 +239,9 @@ static func _step_toward_spawn(sim: WorldSim, entity: Entity) -> void:
 		return
 
 	if entity.path.is_empty() or entity.path[entity.path.size() - 1] != spawn_tile:
-		sim._path_to_tile(entity, spawn_tile)
+		sim.path_entity_to_tile(entity, spawn_tile)
 
-	sim._step_along_path(entity, entity.speed * sim.tick_length)
+	sim.step_entity_along_path(entity, entity.speed * sim.tick_length)
 
 	if entity.tile() == spawn_tile or entity.pos.is_equal_approx(entity.spawn_pos):
 		entity.pos = entity.spawn_pos

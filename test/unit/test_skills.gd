@@ -181,10 +181,16 @@ func test_shape_circle_inclusion_and_edge_cases() -> void:
 		"radius": 2.5
 	}
 	var caster_pos := Vector2(10.0, 10.0)
+	# Inside radius (dist 1.5 < 2.5 and dist 2.0 < 2.5)
 	assert_true(SkillSystem.in_shape(self_circle, caster_pos, Vector2(1.0, 0.0), Vector2(11.5, 10.0)))
 	assert_true(SkillSystem.in_shape(self_circle, caster_pos, Vector2(1.0, 0.0), Vector2(10.0, 12.0)))
-	# Beyond radius (dist 3.0 > 2.5)
+	# Exactly on the edge (dist 2.5 == 2.5)
+	assert_true(SkillSystem.in_shape(self_circle, caster_pos, Vector2(1.0, 0.0), Vector2(12.5, 10.0)))
+	assert_true(SkillSystem.in_shape(self_circle, caster_pos, Vector2(1.0, 0.0), Vector2(10.0, 12.5)))
+	assert_true(SkillSystem.in_shape(self_circle, caster_pos, Vector2(1.0, 0.0), Vector2(7.5, 10.0)))
+	# Beyond radius (dist 3.0 > 2.5 and dist 2.55 > 2.5)
 	assert_false(SkillSystem.in_shape(self_circle, caster_pos, Vector2(1.0, 0.0), Vector2(13.0, 10.0)))
+	assert_false(SkillSystem.in_shape(self_circle, caster_pos, Vector2(1.0, 0.0), Vector2(12.55, 10.0)))
 
 	# Case 2: Ground-targeted with range > 0 (aim within range)
 	var aoe_circle: Dictionary = {
@@ -193,14 +199,24 @@ func test_shape_circle_inclusion_and_edge_cases() -> void:
 		"radius": 2.0
 	}
 	var aim_offset := Vector2(3.0, 0.0) # within range 5.0, center is at (13, 10)
+	# Inside: dist 0.5 < 2.0
 	assert_true(SkillSystem.in_shape(aoe_circle, caster_pos, aim_offset, Vector2(13.5, 10.0)))
+	# On the edge: dist 2.0 == radius 2.0
+	assert_true(SkillSystem.in_shape(aoe_circle, caster_pos, aim_offset, Vector2(15.0, 10.0)))
+	assert_true(SkillSystem.in_shape(aoe_circle, caster_pos, aim_offset, Vector2(11.0, 10.0)))
+	# Outside: dist 2.5 > 2.0 and dist 2.05 > 2.0
 	assert_false(SkillSystem.in_shape(aoe_circle, caster_pos, aim_offset, Vector2(15.5, 10.0)))
+	assert_false(SkillSystem.in_shape(aoe_circle, caster_pos, aim_offset, Vector2(15.05, 10.0)))
 
 	# Case 3: Ground-targeted aimed beyond range -> clamped to range 5.0 (center at (15, 10))
 	var far_aim_offset := Vector2(10.0, 0.0)
+	# Inside: dist 0.5 < 2.0
 	assert_true(SkillSystem.in_shape(aoe_circle, caster_pos, far_aim_offset, Vector2(15.5, 10.0)))
-	# Point at (12, 10) is dist 3.0 from clamped center (15, 10) -> outside radius 2.0
+	# On the edge: dist 2.0 == radius 2.0 (center is 15.0, edge at 17.0)
+	assert_true(SkillSystem.in_shape(aoe_circle, caster_pos, far_aim_offset, Vector2(17.0, 10.0)))
+	# Outside: point at (12, 10) is dist 3.0 from clamped center (15, 10) -> outside radius 2.0
 	assert_false(SkillSystem.in_shape(aoe_circle, caster_pos, far_aim_offset, Vector2(12.0, 10.0)))
+	assert_false(SkillSystem.in_shape(aoe_circle, caster_pos, far_aim_offset, Vector2(17.05, 10.0)))
 
 
 func test_cast_skill_unknown_slot_and_zero_aim_fail() -> void:
