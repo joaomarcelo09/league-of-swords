@@ -1,0 +1,41 @@
+{
+  "legend": {
+    "#": {
+      "type": "wall",
+      "walkable": false
+    },
+    ".": {
+      "type": "floor",
+      "walkable": true
+    },
+    ",": {
+      "type": "grass",
+      "walkable": true,
+      "decor": "grass_tuft"
+    }
+  },
+  "entry": [3, 2],
+  "spawns": [
+    {
+      "enemy": "ash_stalker",
+      "tile": [4, 10],
+      "respawn_s": 30
+    },
+    {
+      "enemy": "ash_stalker",
+      "tile": [19, 4],
+      "respawn_s": 30
+    },
+    {
+      "enemy": "ash_stalker",
+      "tile": [19, 13],
+      "respawn_s": 30
+    }
+  ],
+  "exits": [
+    {
+      "tile": [24, 15],
+      "to_zone": "town"
+    }
+  ]
+}
