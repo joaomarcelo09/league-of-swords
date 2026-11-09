@@ -18,6 +18,10 @@
     "attack_interval": 1.0,
     "weapon_damage": 0.0
   },
+  "input": {
+    "move_repeat_s": 0.15,
+    "enemy_pick_radius": 0.5
+  },
   "player": {
     "move_speed_tiles_per_s": 4.0,
     "max_hp": 100.0,
