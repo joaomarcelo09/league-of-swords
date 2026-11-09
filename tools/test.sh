@@ -61,17 +61,19 @@ fi
 
 # GUT may treat GDScript parse errors in test scripts as warnings and exit 0.
 # Detect parse/load failures in output and fail. Plain runtime SCRIPT ERRORs are handled by GUT assertions.
-if grep -i -E "Parse Error|Failed to load script|Failed to compile" "$OUTPUT_FILE" > /dev/null; then
+if grep -E "Parse Error|Failed to load script|Failed to compile" "$OUTPUT_FILE" > /dev/null; then
   echo "Error: GDScript parse error or script load failure detected during test run." >&2
   exit 1
 fi
 
-if [[ -n "$FILTER" ]]; then
-  TESTS_COUNT=$(sed -nE 's/^[[:space:]]*Tests[[:space:]]+([0-9]+).*/\1/p' "$OUTPUT_FILE" | tail -n 1)
-  if [[ -z "$TESTS_COUNT" || "$TESTS_COUNT" -eq 0 ]]; then
+TESTS_COUNT=$(sed -nE 's/^[[:space:]]*Tests[[:space:]]+([0-9]+).*/\1/p' "$OUTPUT_FILE" | tail -n 1)
+if grep -F "Nothing was run." "$OUTPUT_FILE" > /dev/null || [[ -z "$TESTS_COUNT" || "$TESTS_COUNT" -eq 0 ]]; then
+  if [[ -n "$FILTER" ]]; then
     echo "Error: No tests ran for filter '$FILTER'." >&2
-    exit 1
+  else
+    echo "Error: No tests ran." >&2
   fi
+  exit 1
 fi
 
 exit 0
