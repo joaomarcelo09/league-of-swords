@@ -475,3 +475,187 @@ func test_leash_walk_back_to_spawn_over_several_tiles() -> void:
 	assert_eq(enemy.state, "idle")
 	assert_eq(enemy.tile(), spawn_tile)
 	assert_true(enemy.pos.is_equal_approx(enemy.spawn_pos))
+
+
+func test_ai_enemy_accepts_commands_and_cleans_up() -> void:
+	var sim := WorldSim.new(_zone, _registry)
+	var spawn_tile := Vector2i(2, 2)
+	var enemy := sim.spawn_enemy("ash_stalker", spawn_tile)
+	assert_not_null(enemy)
+
+	# Case 1: Enemy accepts MoveTo command and reaches destination
+	var move_dest := Vector2i(4, 2)
+	sim.submit(Commands.move_to(enemy.id, move_dest))
+	sim.step(sim.tick_length)
+	assert_not_null(enemy.command, "Enemy should have active MoveTo command")
+
+	for _i in range(50):
+		if enemy.command == null:
+			break
+		sim.step(sim.tick_length)
+	assert_null(enemy.command, "Command should clear upon arrival")
+	assert_eq(enemy.tile(), move_dest)
+	assert_true(enemy.pos.is_equal_approx(WorldSim.tile_center(move_dest)))
+
+	# Case 2: MoveTo interrupts windup cleanly
+	var sim2 := WorldSim.new(_zone, _registry)
+	var enemy2 := sim2.spawn_enemy("ash_stalker", Vector2i(2, 2))
+	var player := sim2.spawn("player", Vector2i(3, 2), 0.0, 100.0)
+	# Step until enemy enters windup targeting adjacent player
+	sim2.step(sim2.tick_length)
+	assert_eq(enemy2.state, "windup", "Enemy should enter windup targeting adjacent player")
+
+	# Issue MoveTo to cancel windup and move away
+	sim2.submit(Commands.move_to(enemy2.id, Vector2i(2, 6)))
+	sim2.step(sim2.tick_length)
+	assert_not_null(enemy2.command, "MoveTo should replace windup")
+	assert_eq(enemy2.state, "idle", "AI state should reset to idle when command is received")
+
+	# Step past original windup duration: verify player took no damage from cancelled telegraph
+	var cfg := _registry.get_entry("enemies", "ash_stalker")
+	var windup_ticks := int(round(float(cfg.get("windup_s")) / sim2.tick_length))
+	for _i in range(windup_ticks + 2):
+		sim2.step(sim2.tick_length)
+	assert_eq(player.hp, 100.0, "Interrupted attack should not deal damage")
+
+	# Case 3: Enemy accepts AttackTarget command
+	var target_dummy := sim.spawn("player", Vector2i(2, 3), 0.0, 100.0)
+	var enemy3 := sim.spawn_enemy("ash_stalker", Vector2i(2, 2))
+	sim.submit(Commands.attack_target(enemy3.id, target_dummy.id))
+	sim.step(sim.tick_length)
+	assert_not_null(enemy3.command, "Enemy should process AttackTarget command")
+
+	# Step until enemy hits target
+	for _i in range(30):
+		sim.step(sim.tick_length)
+		if target_dummy.hp < 100.0:
+			break
+	assert_lt(target_dummy.hp, 100.0, "Enemy executing AttackTarget should damage target")
+
+	# Case 4: Invalid/unhandled command or targeting self/unknown is rejected cleanly
+	sim.submit(Commands.attack_target(enemy3.id, enemy3.id))
+	sim.step(sim.tick_length)
+	assert_null(enemy3.command, "Targeting self should clear command cleanly without crash")
+
+	sim.submit(Commands.attack_target(enemy3.id, 99999))
+	sim.step(sim.tick_length)
+	assert_null(enemy3.command, "Targeting unknown id should clear command cleanly without crash")
+
+	# Dead target ends command
+	target_dummy.hp = 0.0
+	target_dummy.dead = true
+	sim.submit(Commands.attack_target(enemy3.id, target_dummy.id))
+	sim.step(sim.tick_length)
+	assert_null(enemy3.command, "Targeting dead entity should clear command cleanly")
+
+	# Case 5: Enemy accepts Dash command
+	sim.submit(Commands.dash(enemy3.id, Vector2(1.0, 0.0)))
+	sim.step(sim.tick_length)
+	var events := sim.drain_events()
+	var dash_found := false
+	for ev in events:
+		if ev.get("type") == "dash" and ev.get("entity") == enemy3.id:
+			dash_found = true
+			break
+	assert_true(dash_found, "Enemy should successfully emit dash event")
+
+
+func test_circle_attack_shape_inside_edge_outside() -> void:
+	var circle_attack: Dictionary = {
+		"shape": "circle",
+		"range": 3.0,
+		"radius": 1.5,
+		"damage_mult": 1.0,
+	}
+	var origin := Vector2(10.0, 10.0)
+	var dir := Vector2(2.0, 0.0) # dir offset length 2.0 <= range 3.0 -> center is (12.0, 10.0)
+	var center := Vector2(12.0, 10.0)
+	var radius := 1.5
+
+	# Inside: dist 0.5 < 1.5
+	var inside_point := center + Vector2(0.5, 0.0)
+	assert_true(SkillSystem.in_shape(circle_attack, origin, dir, inside_point), "Point inside radius must return true")
+
+	# On the edge: dist 1.5 == radius
+	var edge_point_x := center + Vector2(radius, 0.0)
+	var edge_point_y := center + Vector2(0.0, radius)
+	var edge_point_neg := center - Vector2(radius, 0.0)
+	assert_true(SkillSystem.in_shape(circle_attack, origin, dir, edge_point_x), "Point on circle edge (+x) must return true")
+	assert_true(SkillSystem.in_shape(circle_attack, origin, dir, edge_point_y), "Point on circle edge (+y) must return true")
+	assert_true(SkillSystem.in_shape(circle_attack, origin, dir, edge_point_neg), "Point on circle edge (-x) must return true")
+
+	# Outside: dist 1.51 > 1.5
+	var outside_point := center + Vector2(radius + 0.05, 0.0)
+	assert_false(SkillSystem.in_shape(circle_attack, origin, dir, outside_point), "Point outside radius must return false")
+
+	# Centered circle (range 0.0, PBAoE)
+	var centered_circle: Dictionary = {
+		"shape": "circle",
+		"range": 0.0,
+		"radius": 2.0,
+	}
+	var center_origin := Vector2(5.0, 5.0)
+	assert_true(SkillSystem.in_shape(centered_circle, center_origin, Vector2.ZERO, center_origin + Vector2(1.0, 0.0)), "Inside centered circle")
+	assert_true(SkillSystem.in_shape(centered_circle, center_origin, Vector2.ZERO, center_origin + Vector2(2.0, 0.0)), "On edge of centered circle")
+	assert_false(SkillSystem.in_shape(centered_circle, center_origin, Vector2.ZERO, center_origin + Vector2(2.05, 0.0)), "Outside centered circle")
+
+	# Test in combat simulation with WorldSim
+	var sim := WorldSim.new(_zone, _registry)
+	var enemy := sim.spawn_enemy("ash_stalker", Vector2i(2, 2))
+	var player_inside := sim.spawn("player", Vector2i(3, 2), 0.0, 100.0)
+	var player_outside := sim.spawn("player", Vector2i(7, 2), 0.0, 100.0)
+
+	enemy.locked_origin = enemy.pos
+	enemy.locked_dir = Vector2.RIGHT
+	EnemyAI._perform_attack(sim, enemy, {}, circle_attack)
+
+	assert_lt(player_inside.hp, 100.0, "Player inside circle attack must take damage")
+	assert_eq(player_outside.hp, 100.0, "Player outside circle attack must take no damage")
+
+
+func test_world_sim_public_path_and_step_methods() -> void:
+	var sim := WorldSim.new(_zone, _registry)
+	var enemy := sim.spawn_enemy("ash_stalker", Vector2i(2, 2))
+	assert_not_null(enemy)
+
+	# Public pathing method
+	sim.path_entity_to_tile(enemy, Vector2i(4, 2))
+	assert_gt(enemy.path.size(), 0, "path_entity_to_tile should compute path")
+	assert_eq(enemy.path[enemy.path.size() - 1], Vector2i(4, 2))
+
+	# Public stepping method
+	var initial_x := enemy.pos.x
+	sim.step_entity_along_path(enemy, 0.5)
+	assert_almost_eq(enemy.pos.x, initial_x + 0.5, 0.001, "step_entity_along_path should advance entity position")
+
+
+func test_spawn_enemy_snap_to_tile_centre_and_reject_unwalkable() -> void:
+	var sim := WorldSim.new(_zone, _registry)
+
+	# Snap from float Vector2 to walkable tile center (2.5, 2.5)
+	var enemy_float := sim.spawn_enemy("ash_stalker", Vector2(2.2, 2.8))
+	assert_not_null(enemy_float, "spawn_enemy with float Vector2 on walkable tile should succeed")
+	assert_eq(enemy_float.tile(), Vector2i(2, 2))
+	assert_eq(enemy_float.pos, Vector2(2.5, 2.5), "Enemy pos must snap to tile center")
+	assert_eq(enemy_float.spawn_pos, Vector2(2.5, 2.5), "Enemy spawn_pos must snap to tile center")
+
+	# Snap from Vector2i to tile center
+	var enemy_int := sim.spawn_enemy("ash_stalker", Vector2i(3, 3))
+	assert_not_null(enemy_int)
+	assert_eq(enemy_int.pos, Vector2(3.5, 3.5), "Enemy pos must snap to tile center")
+	assert_eq(enemy_int.spawn_pos, Vector2(3.5, 3.5), "Enemy spawn_pos must snap to tile center")
+
+	# Rejection on unwalkable border wall (0, 0)
+	var wall_enemy := sim.spawn_enemy("ash_stalker", Vector2i(0, 0))
+	assert_null(wall_enemy, "spawn_enemy on wall tile must return null")
+	assert_push_error_count(1, "spawn_enemy on unwalkable tile must push error")
+
+	# Rejection on interior wall (5, 2)
+	var interior_wall := sim.spawn_enemy("ash_stalker", Vector2(5.1, 2.9))
+	assert_null(interior_wall, "spawn_enemy on interior wall float must return null")
+	assert_push_error_count(2, "spawn_enemy on interior wall must push error")
+
+	# Rejection on out-of-bounds coordinates
+	var oob_enemy := sim.spawn_enemy("ash_stalker", Vector2i(-1, 0))
+	assert_null(oob_enemy, "spawn_enemy out of bounds must return null")
+	assert_push_error_count(3, "spawn_enemy out of bounds must push error")

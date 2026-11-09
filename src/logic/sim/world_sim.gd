@@ -63,10 +63,19 @@ static func _is_on_segment(p: Vector2, a: Vector2, b: Vector2) -> bool:
 	return false
 
 
-func spawn(kind: String, tile: Vector2i, speed: float, hp: float = -1.0, stats: Stats = null) -> Entity:
+func spawn(kind: String, tile: Variant, speed: float, hp: float = -1.0, stats: Stats = null) -> Entity:
+	var target_tile := Vector2i.ZERO
+	if tile is Vector2i:
+		target_tile = tile
+	elif tile is Vector2:
+		target_tile = Vector2i(int(floor(tile.x)), int(floor(tile.y)))
+	else:
+		push_error("spawn: invalid tile coordinate %s" % str(tile))
+		return null
+
 	var entity_id := _next_entity_id
 	_next_entity_id += 1
-	var entity_pos := tile_center(tile)
+	var entity_pos := tile_center(target_tile)
 
 	var final_stats := stats
 	if final_stats == null and registry != null and not kind.is_empty():
@@ -96,9 +105,22 @@ func spawn(kind: String, tile: Vector2i, speed: float, hp: float = -1.0, stats: 
 	return entity
 
 
-func spawn_enemy(type_id: String, tile: Vector2i, hp: float = -1.0, stats: Stats = null) -> Entity:
+func spawn_enemy(type_id: String, tile: Variant, hp: float = -1.0, stats: Stats = null) -> Entity:
 	if registry == null or not registry.has_entry("enemies", type_id):
 		push_error("spawn_enemy: unknown or missing enemy type '%s'" % type_id)
+		return null
+
+	var target_tile := Vector2i.ZERO
+	if tile is Vector2i:
+		target_tile = tile
+	elif tile is Vector2:
+		target_tile = Vector2i(int(floor(tile.x)), int(floor(tile.y)))
+	else:
+		push_error("spawn_enemy: invalid tile coordinate %s" % str(tile))
+		return null
+
+	if zone != null and not zone.is_walkable(target_tile):
+		push_error("spawn_enemy: tile %s is not walkable" % str(target_tile))
 		return null
 
 	var enemy_cfg: Dictionary = registry.get_entry("enemies", type_id)
@@ -119,12 +141,13 @@ func spawn_enemy(type_id: String, tile: Vector2i, hp: float = -1.0, stats: Stats
 		push_error("spawn_enemy: enemy '%s' has no valid move speed in config or balance" % type_id)
 		return null
 
-	var entity := spawn("enemy", tile, speed, hp, stats)
+	var entity := spawn("enemy", target_tile, speed, hp, stats)
 	if entity == null:
 		return null
 	entity.enemy_type_id = type_id
 	entity.state = "idle"
-	entity.spawn_pos = tile_center(tile)
+	entity.spawn_pos = tile_center(target_tile)
+	entity.pos = entity.spawn_pos
 	if enemy_cfg.has("recovery_damage_mult"):
 		entity.recovery_damage_mult = float(enemy_cfg["recovery_damage_mult"])
 	return entity
@@ -185,6 +208,10 @@ func _apply_command(entity: Entity, cmd: Commands.Command) -> void:
 		entity.path_index = 0
 		return
 
+	if not entity.enemy_type_id.is_empty():
+		entity.state = "idle"
+		entity.target_id = 0
+
 	if cmd is Commands.CastSkill or cmd is Commands.Dash:
 		handler.call(entity, cmd)
 	else:
@@ -206,9 +233,8 @@ func _update_entities() -> void:
 				if float(tick_count) < expires - 1e-9:
 					active_buffs.append(buff)
 			entity.buffs = active_buffs
-		if entity.kind == "enemy" and not entity.enemy_type_id.is_empty():
-			EnemyAI.update(self, entity)
-		elif entity.command != null:
+		# Active command takes priority over AI; when no command is active, EnemyAI drives the entity.
+		if entity.command != null:
 			var handler: Callable = _update_handlers.get(entity.command.get_script(), Callable())
 			if handler.is_valid():
 				handler.call(entity, entity.command)
@@ -216,9 +242,11 @@ func _update_entities() -> void:
 				entity.command = null
 				entity.path.clear()
 				entity.path_index = 0
+		elif entity.kind == "enemy" and not entity.enemy_type_id.is_empty():
+			EnemyAI.update(self, entity)
 
 
-func _path_to_tile(entity: Entity, target_tile: Vector2i) -> void:
+func path_entity_to_tile(entity: Entity, target_tile: Vector2i) -> void:
 	if zone == null:
 		entity.path.clear()
 		entity.path_index = 0
@@ -253,7 +281,7 @@ func _path_to_tile(entity: Entity, target_tile: Vector2i) -> void:
 			entity.path_index = 0
 
 
-func _step_along_path(entity: Entity, max_dist: float) -> void:
+func step_entity_along_path(entity: Entity, max_dist: float) -> void:
 	var remaining_dist: float = max_dist
 	while remaining_dist > 0.0 and (entity.command != null or not entity.enemy_type_id.is_empty()):
 		if entity.path_index >= entity.path.size():
@@ -276,8 +304,16 @@ func _step_along_path(entity: Entity, max_dist: float) -> void:
 			remaining_dist = 0.0
 
 
+func _path_to_tile(entity: Entity, target_tile: Vector2i) -> void:
+	path_entity_to_tile(entity, target_tile)
+
+
+func _step_along_path(entity: Entity, max_dist: float) -> void:
+	step_entity_along_path(entity, max_dist)
+
+
 func _begin_move_to(entity: Entity, cmd: Commands.MoveTo) -> void:
-	_path_to_tile(entity, cmd.target)
+	path_entity_to_tile(entity, cmd.target)
 	if entity.path.is_empty():
 		entity.command = null
 		return
@@ -290,7 +326,7 @@ func _update_move_to(entity: Entity, _cmd: Commands.MoveTo) -> void:
 		entity.command = null
 		return
 
-	_step_along_path(entity, entity.speed * _tick_len)
+	step_entity_along_path(entity, entity.speed * _tick_len)
 	if entity.path_index >= entity.path.size():
 		entity.command = null
 
@@ -320,7 +356,7 @@ func _begin_attack_target(entity: Entity, cmd: Commands.AttackTarget) -> void:
 	var dist: float = entity.pos.distance_to(target.pos)
 	if dist > attack_range + 1e-9:
 		cmd.last_target_tile = target.tile()
-		_path_to_tile(entity, cmd.last_target_tile)
+		path_entity_to_tile(entity, cmd.last_target_tile)
 
 
 func _update_attack_target(entity: Entity, cmd: Commands.AttackTarget) -> void:
@@ -351,9 +387,9 @@ func _update_attack_target(entity: Entity, cmd: Commands.AttackTarget) -> void:
 		var target_tile := target.tile()
 		if cmd.last_target_tile != target_tile:
 			cmd.last_target_tile = target_tile
-			_path_to_tile(entity, target_tile)
+			path_entity_to_tile(entity, target_tile)
 
-		_step_along_path(entity, entity.speed * _tick_len)
+		step_entity_along_path(entity, entity.speed * _tick_len)
 		dist = entity.pos.distance_to(target.pos)
 
 	if dist <= attack_range + 1e-9:
@@ -678,6 +714,46 @@ func _update_dash(entity: Entity, cmd: Commands.Dash) -> void:
 
 
 
+func get_entities_in_shape(
+	shape_def: Dictionary,
+	origin: Vector2,
+	dir: Vector2,
+	ignore_id: int = -1,
+	target_kind: String = ""
+) -> Array[Entity]:
+	var result: Array[Entity] = []
+	var sorted_ids: Array = entities.keys()
+	sorted_ids.sort()
+	for other_id: Variant in sorted_ids:
+		var other: Entity = entities[other_id]
+		if other.id == ignore_id or other.dead:
+			continue
+		if not target_kind.is_empty() and other.kind != target_kind:
+			continue
+		if SkillSystem.in_shape(shape_def, origin, dir, other.pos):
+			result.append(other)
+	return result
+
+
+func apply_attack_shape_damage(
+	attacker: Entity,
+	shape_def: Dictionary,
+	origin: Vector2,
+	dir: Vector2,
+	mult: float = 1.0,
+	target_kind: String = ""
+) -> Array[Entity]:
+	var hit_targets := get_entities_in_shape(shape_def, origin, dir, attacker.id, target_kind)
+	var attacker_stats := effective_stats(attacker)
+	for target: Entity in hit_targets:
+		if target.dead:
+			continue
+		var target_stats := effective_stats(target)
+		var base_dmg: float = Combat.compute_damage(attacker_stats, target_stats, registry)
+		apply_damage(attacker.id, target, mult * base_dmg)
+	return hit_targets
+
+
 func _resolve_cast_skill(entity: Entity, cmd: Commands.CastSkill, skill: Dictionary) -> void:
 	if entity.dead:
 		return
@@ -695,16 +771,8 @@ func _resolve_cast_skill(entity: Entity, cmd: Commands.CastSkill, skill: Diction
 		"slot": cmd.slot,
 	})
 
-	var hit_entities: Array[Entity] = []
 	var aim_offset := cmd.aim - entity.pos
-	var sorted_ids: Array = entities.keys()
-	sorted_ids.sort()
-	for other_id: Variant in sorted_ids:
-		var other: Entity = entities[other_id]
-		if other.id == entity.id or other.dead:
-			continue
-		if SkillSystem.in_shape(skill, entity.pos, aim_offset, other.pos):
-			hit_entities.append(other)
+	var hit_entities := get_entities_in_shape(skill, entity.pos, aim_offset, entity.id)
 
 	for effect: Dictionary in skill.get("effects", []):
 		var eff_type: String = str(effect.get("type", ""))
@@ -725,13 +793,13 @@ func _resolve_cast_skill(entity: Entity, cmd: Commands.CastSkill, skill: Diction
 		match eff_type:
 			"damage":
 				var mult: float = float(effect.get("mult", 1.0))
-				var attacker_stats := effective_stats(entity)
-				for target: Entity in targets:
-					if target.dead:
-						continue
-					var target_stats := effective_stats(target)
+				if target_mode == "hit":
+					apply_attack_shape_damage(entity, skill, entity.pos, aim_offset, mult)
+				elif target_mode == "self":
+					var attacker_stats := effective_stats(entity)
+					var target_stats := effective_stats(entity)
 					var base_dmg: float = Combat.compute_damage(attacker_stats, target_stats, registry)
-					apply_damage(entity.id, target, mult * base_dmg)
+					apply_damage(entity.id, entity, mult * base_dmg)
 			"heal":
 				var amount: float = float(effect.get("amount", 0.0))
 				for target: Entity in targets:
