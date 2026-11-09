@@ -56,6 +56,8 @@ static func cast_skill(entity_id: int, slot: String, aim: Vector2) -> CastSkill:
 
 
 class Dash extends Command:
+	# aim is a direction vector (not a world position), normalised;
+	# zero or non-finite aim yields dash_failed with reason 'invalid_aim'.
 	var aim: Vector2 = Vector2.ZERO
 	var from: Vector2 = Vector2.ZERO
 	var to: Vector2 = Vector2.ZERO

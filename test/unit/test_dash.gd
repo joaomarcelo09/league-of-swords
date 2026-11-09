@@ -621,3 +621,194 @@ func test_determinism_identical_sims_yield_identical_events() -> void:
 	assert_eq(events1.size(), events2.size(), "Total event count must be identical")
 	for i in range(events1.size()):
 		assert_eq(events1[i], events2[i], "Event %d must be identical" % i)
+
+
+func test_dash_aim_semantics_nan_inf_and_normalized() -> void:
+	var sim := WorldSim.new(_zone, _registry)
+	var player := sim.spawn("player", Vector2i(1, 1), 4.0)
+
+	# 1. Non-finite aims must fail with invalid_aim
+	var non_finite_aims: Array[Vector2] = [
+		Vector2(NAN, 1.0),
+		Vector2(1.0, NAN),
+		Vector2(NAN, NAN),
+		Vector2(INF, 0.0),
+		Vector2(0.0, -INF),
+		Vector2(INF, INF),
+		Vector2(-INF, -INF),
+	]
+
+	for bad_aim in non_finite_aims:
+		sim.submit(Commands.dash(player.id, bad_aim))
+		sim.step(sim.tick_length)
+		var fail_events := _find_events(sim.drain_events(), "dash_failed")
+		assert_eq(fail_events.size(), 1, "Non-finite aim %s must emit dash_failed" % str(bad_aim))
+		if not fail_events.is_empty():
+			assert_eq(fail_events[0].get("reason"), "invalid_aim")
+		assert_null(player.command, "Command must be null after invalid aim")
+
+		# Also test compute_end_position directly returns from
+		var end_computed := DashRules.compute_end_position(player.pos, bad_aim, 3.0, _zone)
+		assert_eq(end_computed, player.pos, "compute_end_position must return from for non-finite aim %s" % str(bad_aim))
+
+	# 2. Valid non-unit aim: normalized by sim, aim is a direction
+	var unnormalized_aim := Vector2(10.0, 0.0)
+	sim.submit(Commands.dash(player.id, unnormalized_aim))
+	sim.step(sim.tick_length)
+
+	var dash_cmd := player.command as Commands.Dash
+	assert_not_null(dash_cmd, "Dash command should be active")
+	assert_almost_eq(dash_cmd.aim.x, 1.0, 0.0001, "cmd.aim must be normalized direction")
+	assert_almost_eq(dash_cmd.aim.y, 0.0, 0.0001)
+	assert_almost_eq(dash_cmd.aim.length(), 1.0, 0.0001)
+
+
+func test_dash_duration_ticks_free_and_wall_shortened() -> void:
+	# 1. Free dash (nominal distance = 3.0, duration = 0.15s, 30Hz)
+	# At 30Hz: 0.15s / (1/30) = 4.5 -> duration_ticks is 5.
+	# Open map without obstacles between col 1 and 6.
+	var open_map := """########
+#......#
+#......#
+########"""
+	var open_json := {
+		"entry": [1, 1],
+		"legend": {
+			"#": {"walkable": false, "type": "wall"},
+			".": {"walkable": true, "type": "floor"}
+		}
+	}
+	var open_zone := Zone.load_from_strings(open_map, open_json)
+	var reg := _create_fixture_registry({
+		"distance_tiles": 3.0,
+		"duration_s": 0.15,
+		"cooldown_s": 0.0,
+	}, 30)
+
+	var sim_free := WorldSim.new(open_zone, reg)
+	var player_free := sim_free.spawn("player", Vector2i(1, 1), 4.0)
+
+	sim_free.submit(Commands.dash(player_free.id, Vector2(1.0, 0.0)))
+	sim_free.step(sim_free.tick_length)
+
+	var free_events := _find_events(sim_free.drain_events(), "dash")
+	assert_eq(free_events.size(), 1)
+	var free_event_ticks: int = int(free_events[0].get("duration_ticks", 0))
+
+	# Count ticks until command clears (including tick 1 already stepped)
+	var elapsed_free_ticks := 1
+	while player_free.command != null and elapsed_free_ticks < 20:
+		sim_free.step(sim_free.tick_length)
+		elapsed_free_ticks += 1
+
+	assert_null(player_free.command, "Free dash should have completed")
+	assert_eq(free_event_ticks, elapsed_free_ticks, "Free dash event duration_ticks (%d) must equal ticks until command clears (%d)" % [free_event_ticks, elapsed_free_ticks])
+	assert_eq(free_event_ticks, 5, "Free dash nominal duration_ticks should be 5")
+
+	# 2. Wall-shortened dash:
+	# Wall at col 3 (distance is 1.0 tile from col 1 center to col 2 center, wall at col 3).
+	# Nominal speed = 3.0 / 0.15 = 20 tiles/s. At 30Hz, step = 20 * (1/30) = 0.6667 tiles/tick.
+	# Distance = 1.0 tile -> tick 1: 0.6667, tick 2: 0.3333 -> exactly 2 ticks.
+	var wall_map := """######
+#..###
+#..###
+######"""
+	var wall_json := {
+		"entry": [1, 1],
+		"legend": {
+			"#": {"walkable": false, "type": "wall"},
+			".": {"walkable": true, "type": "floor"}
+		}
+	}
+	var wall_zone := Zone.load_from_strings(wall_map, wall_json)
+	var sim_wall := WorldSim.new(wall_zone, reg)
+	var player_wall := sim_wall.spawn("player", Vector2i(1, 1), 4.0)
+
+	sim_wall.submit(Commands.dash(player_wall.id, Vector2(1.0, 0.0)))
+	sim_wall.step(sim_wall.tick_length)
+
+	var wall_events := _find_events(sim_wall.drain_events(), "dash")
+	assert_eq(wall_events.size(), 1)
+	var wall_event_ticks: int = int(wall_events[0].get("duration_ticks", 0))
+
+	var elapsed_wall_ticks := 1
+	while player_wall.command != null and elapsed_wall_ticks < 20:
+		sim_wall.step(sim_wall.tick_length)
+		elapsed_wall_ticks += 1
+
+	assert_null(player_wall.command, "Wall dash should have completed")
+	assert_eq(wall_event_ticks, elapsed_wall_ticks, "Wall-shortened dash event duration_ticks (%d) must equal ticks until command clears (%d)" % [wall_event_ticks, elapsed_wall_ticks])
+	assert_eq(wall_event_ticks, 2, "Wall-shortened dash duration_ticks should be 2")
+	assert_eq(player_wall.tile().x, 2, "Player should stop in col 2 before wall at col 3")
+
+	# 3. Wall right in front (0.0 real distance)
+	var player_zero := sim_wall.spawn("player", Vector2i(2, 1), 4.0)
+	sim_wall.submit(Commands.dash(player_zero.id, Vector2(1.0, 0.0)))
+	sim_wall.step(sim_wall.tick_length)
+
+	var zero_events := _find_events(sim_wall.drain_events(), "dash")
+	assert_eq(zero_events.size(), 1)
+	var zero_event_ticks: int = int(zero_events[0].get("duration_ticks", 0))
+	assert_null(player_zero.command, "Command must clear on tick 1 when wall right in front")
+	assert_eq(zero_event_ticks, 1, "Zero-length dash event duration_ticks must be 1")
+
+
+func test_dash_diagonal_corner_tunnelling_blocked() -> void:
+	# Map layout:
+	# row 0: ####
+	# row 1: #.##   (1, 1) is floor, (2, 1) is WALL
+	# row 2: #..#   (1, 2) is floor, (2, 2) is floor
+	# row 3: ####
+	# Diagonal move between (1, 1) and (2, 2): shared neighbour (2, 1) is blocked!
+	var corner_map := """####
+#.##
+#..#
+####"""
+	var corner_json := {
+		"entry": [1, 1],
+		"legend": {
+			"#": {"walkable": false, "type": "wall"},
+			".": {"walkable": true, "type": "floor"}
+		}
+	}
+	var corner_zone := Zone.load_from_strings(corner_map, corner_json)
+
+	# 1. DashRules.compute_end_position must stop before cutting the corner
+	var start_pos := Vector2(1.5, 1.5) # center of (1, 1)
+	var aim := Vector2(1.0, 1.0)
+	var end_pos := DashRules.compute_end_position(start_pos, aim, 3.0, corner_zone)
+
+	assert_lt(end_pos.x, 2.0, "End position x must not cross into col 2")
+	assert_lt(end_pos.y, 2.0, "End position y must not cross into row 2")
+	var end_tile := Vector2i(int(floor(end_pos.x)), int(floor(end_pos.y)))
+	assert_eq(end_tile, Vector2i(1, 1), "End tile must remain (1, 1)")
+
+	# 2. Simulation execution of dash must not cut through wall corner
+	var reg := _create_fixture_registry({
+		"distance_tiles": 3.0,
+		"duration_s": 0.15,
+		"cooldown_s": 0.0,
+	})
+	var sim := WorldSim.new(corner_zone, reg)
+	var player := sim.spawn("player", Vector2i(1, 1), 4.0)
+
+	sim.submit(Commands.dash(player.id, aim))
+	for i in range(10):
+		sim.step(sim.tick_length)
+
+	assert_null(player.command, "Dash command should complete")
+	assert_eq(player.tile(), Vector2i(1, 1), "Player must remain in tile (1, 1) and not cut corner into (2, 2)")
+	assert_lt(player.pos.x, 2.0)
+	assert_lt(player.pos.y, 2.0)
+
+	# 3. Open ground diagonal move past walkable neighbours is unchanged
+	var open_corner_map := """####
+#..#
+#..#
+####"""
+	var open_corner_zone := Zone.load_from_strings(open_corner_map, corner_json)
+	var open_end := DashRules.compute_end_position(start_pos, aim, 1.0, open_corner_zone)
+	# On open ground, moving 1.0 tile diagonally from (1.5, 1.5) reaches into (2, 2)
+	assert_gt(open_end.x, 2.0, "On open ground, diagonal dash must cross into tile (2, 2)")
+	assert_gt(open_end.y, 2.0, "On open ground, diagonal dash must cross into tile (2, 2)")
+
