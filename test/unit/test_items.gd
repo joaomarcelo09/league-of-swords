@@ -383,14 +383,22 @@ func test_register_invalid_loot_table_pushes_error() -> void:
 
 
 func test_register_loot_table_unknown_item_with_items_pushes_error() -> void:
+	var isolated_db := ItemDB.new()
+	isolated_db.register_item({
+		"id": "iron_sword",
+		"name": "Iron Sword",
+		"type": "weapon",
+		"floor_tier": 1,
+		"stats": {"weapon_damage": 8.0}
+	})
 	var bad_table: Dictionary = {
 		"roll_count": 1,
 		"entries": [{"item_id": "nonexistent_item_id", "chance": 0.5}]
 	}
-	var reg_bad_lt := _item_db.register_loot_table("bad_mob", bad_table)
+	var reg_bad_lt := isolated_db.register_loot_table("bad_mob", bad_table)
 	assert_push_error_count(1, "register_loot_table with unknown item_id should push error")
 	assert_false(reg_bad_lt)
-	assert_false(_item_db.has_loot_table("bad_mob"))
+	assert_false(isolated_db.has_loot_table("bad_mob"))
 
 
 func test_register_loot_table_on_empty_item_db_pushes_error() -> void:
@@ -481,3 +489,308 @@ func test_deterministic_loot_rolls_with_seeded_rng() -> void:
 
 	assert_eq(drops1, drops2, "Seeded RNG must produce identical loot drops across separate instances")
 	assert_gt(drops1.size(), 0, "Should have rolled some drops across 10 rolls")
+
+
+func test_use_enforces_acting_character_ownership() -> void:
+	var dummy1_stats := Stats.new(100.0, 10.0, 0.0, 1.0, 1.0, 0.0)
+	var dummy1 := Entity.new(1, "player", Vector2(0, 0), 4.0, 50.0, dummy1_stats)
+	var dummy2_stats := Stats.new(100.0, 10.0, 0.0, 1.0, 1.0, 0.0)
+	var dummy2 := Entity.new(2, "player", Vector2(0, 0), 4.0, 50.0, dummy2_stats)
+
+	var potion_uid := _inventory.create("healing_draught", "character:1")
+	assert_gt(potion_uid, 0)
+	assert_eq(_inventory.owner_of(potion_uid), "character:1")
+
+	# Wrong character owner attempting to use character:1's potion
+	var wrong_use := _inventory.use(potion_uid, dummy2)
+	assert_push_error_count(1, "Using item owned by another character must push error")
+	assert_false(wrong_use, "Using item owned by another character must fail")
+	assert_eq(dummy2.hp, 50.0, "Wrong owner HP must not change")
+	assert_false(_inventory.is_consumed(potion_uid), "Item must not be consumed on failed owner check")
+	assert_eq(_inventory.owner_of(potion_uid), "character:1", "Owner must remain character:1")
+
+	# Correct character owner uses the potion
+	var ok_use := _inventory.use(potion_uid, dummy1)
+	assert_true(ok_use, "Acting character owning item can use it successfully")
+	assert_eq(dummy1.hp, 80.0, "Dummy1 HP should increase from 50 to 80")
+	assert_true(_inventory.is_consumed(potion_uid), "Item must now be consumed")
+	assert_eq(_inventory.owner_of(potion_uid), "consumed")
+
+
+func test_use_with_non_character_acting_owner_fails() -> void:
+	var dummy1_stats := Stats.new(100.0, 10.0, 0.0, 1.0, 1.0, 0.0)
+	var dummy1 := Entity.new(1, "player", Vector2(0, 0), 4.0, 50.0, dummy1_stats)
+	var potion_uid := _inventory.create("healing_draught", "character:1")
+
+	# Wrong owner via explicit non-character string parameter
+	var bad_str_owner := _inventory.use(potion_uid, dummy1, "merchant:alchemist")
+	assert_push_error_count(1, "Non-character acting owner must push error")
+	assert_false(bad_str_owner)
+	assert_eq(dummy1.hp, 50.0)
+	assert_false(_inventory.is_consumed(potion_uid))
+
+
+func test_loot_tables_json_separation() -> void:
+	var registry := DataRegistry.new()
+	registry.load_dir("res://data")
+
+	# loot_tables must be in its own table, not inside items.json
+	assert_true(registry.has_entry("loot_tables", "ash_stalker"), "ash_stalker should exist in loot_tables table")
+	assert_false(registry.has_entry("items", "loot_tables"), "items table should not contain loot_tables entry")
+
+	var db := ItemDB.new(registry)
+	assert_true(db.has_loot_table("ash_stalker"), "ItemDB should load ash_stalker from loot_tables")
+	var lt := db.get_loot_table("ash_stalker")
+	assert_eq(lt.get("roll_count"), 1)
+	assert_false(lt.has("rolls"), "loot_tables should not carry deprecated rolls alias")
+	assert_true(lt.has("entries"))
+
+
+func test_loot_table_validator_rejects_rolls_alias() -> void:
+	var rolls_only_table: Dictionary = {
+		"rolls": 1,
+		"entries": [{"item_id": "iron_sword", "chance": 0.5}]
+	}
+	var val_errs := ItemDB.validate_loot_table(rolls_only_table, ["iron_sword"])
+	assert_gt(val_errs.size(), 0, "validate_loot_table must reject table without 'roll_count'")
+	var found_roll_err := false
+	for err in val_errs:
+		if "roll_count" in err:
+			found_roll_err = true
+			break
+	assert_true(found_roll_err, "Expected error mentioning missing 'roll_count'")
+
+
+func test_loot_roll_rejects_missing_roll_count() -> void:
+	var isolated_db := ItemDB.new()
+	isolated_db.register_item({
+		"id": "iron_sword", "name": "Iron Sword", "type": "weapon", "floor_tier": 1,
+		"stats": {"weapon_damage": 8.0}
+	})
+	isolated_db._loot_tables["bad_mob_no_rolls"] = {
+		"entries": [{"item_id": "iron_sword", "chance": 1.0}]
+	}
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 42
+	var drops := Loot.roll("bad_mob_no_rolls", "floor1", _inventory, rng, isolated_db)
+	assert_push_error_count(1, "Loot.roll without roll_count must push error")
+	assert_eq(drops.size(), 0)
+
+
+func test_loot_roll_rejects_missing_entries() -> void:
+	var isolated_db := ItemDB.new()
+	isolated_db.register_item({
+		"id": "iron_sword", "name": "Iron Sword", "type": "weapon", "floor_tier": 1,
+		"stats": {"weapon_damage": 8.0}
+	})
+	isolated_db._loot_tables["bad_mob_no_entries"] = {
+		"roll_count": 1
+	}
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 42
+	var drops := Loot.roll("bad_mob_no_entries", "floor1", _inventory, rng, isolated_db)
+	assert_push_error_count(1, "Loot.roll without entries must push error")
+	assert_eq(drops.size(), 0)
+
+
+func test_loot_roll_rejects_entry_missing_chance() -> void:
+	var isolated_db := ItemDB.new()
+	isolated_db.register_item({
+		"id": "iron_sword", "name": "Iron Sword", "type": "weapon", "floor_tier": 1,
+		"stats": {"weapon_damage": 8.0}
+	})
+	isolated_db._loot_tables["bad_mob_entry_no_chance"] = {
+		"roll_count": 1,
+		"entries": [{"item_id": "iron_sword"}]
+	}
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 42
+	var drops := Loot.roll("bad_mob_entry_no_chance", "floor1", _inventory, rng, isolated_db)
+	assert_push_error_count(1, "Loot.roll with entry missing chance must push error")
+	assert_eq(drops.size(), 0)
+
+
+func test_create_requires_non_null_item_db() -> void:
+	var null_db_inv := Inventory.new(null)
+	var res := null_db_inv.create("iron_sword", "character:1")
+	assert_push_error_count(1, "Inventory.create with null item_db must push error")
+	assert_eq(res, 0, "Inventory.create with null item_db must return 0")
+
+
+func test_inventory_roundtrip_to_dict_from_dict() -> void:
+	var inv := Inventory.new(_item_db)
+	var sword_uid := inv.create("iron_sword", "character:1")
+	var vest_uid := inv.create("leather_vest", "character:1")
+	var potion_uid := inv.create("healing_draught", "character:1")
+	var ground_uid := inv.create("hunting_bow", "ground:floor1")
+	assert_gt(sword_uid, 0)
+	assert_gt(vest_uid, 0)
+	assert_gt(potion_uid, 0)
+	assert_gt(ground_uid, 0)
+
+	assert_true(inv.equip("character:1", sword_uid))
+	assert_true(inv.equip("character:1", vest_uid))
+
+	var dict := inv.to_dict()
+	assert_true(dict.has("next_uid"))
+	assert_true(dict.has("items"))
+	assert_true(dict.has("equipment"))
+	assert_gte(dict["next_uid"], 5)
+
+	# Direct from_dict roundtrip
+	var restored := Inventory.from_dict(dict, _item_db)
+	assert_not_null(restored, "from_dict should successfully restore valid inventory")
+	assert_eq(restored.to_dict(), dict, "Roundtrip to_dict() must match original")
+
+	assert_eq(restored.owner_of(sword_uid), "character:1")
+	assert_eq(restored.owner_of(ground_uid), "ground:floor1")
+	assert_eq(restored.get_equipped("character:1", "weapon"), sword_uid)
+	assert_eq(restored.get_equipped("character:1", "armor"), vest_uid)
+
+	var base_stats := Stats.from_dict(_registry.get_balance("player"))
+	var eq_stats := restored.equipped_stats(base_stats, "character:1")
+	assert_eq(eq_stats.weapon_damage, 8.0)
+	assert_eq(eq_stats.defense, 5.0)
+
+	# JSON serialization roundtrip
+	var json_str := JSON.stringify(dict)
+	var json_parsed: Variant = JSON.parse_string(json_str)
+	assert_true(json_parsed is Dictionary)
+	var from_json := Inventory.from_dict(json_parsed, _item_db)
+	assert_not_null(from_json, "from_dict should restore from parsed JSON with string keys")
+	assert_eq(from_json.to_dict(), dict, "JSON roundtrip should match original dict")
+
+
+func test_from_dict_rejects_empty_dict() -> void:
+	var res := Inventory.from_dict({}, _item_db)
+	assert_push_error_count(1, "Empty dict should push error")
+	assert_null(res)
+
+
+func test_from_dict_rejects_missing_next_uid() -> void:
+	var res := Inventory.from_dict({"items": {}, "equipment": {}}, _item_db)
+	assert_push_error_count(1, "Missing next_uid should push error")
+	assert_null(res)
+
+
+func test_from_dict_rejects_missing_items() -> void:
+	var res := Inventory.from_dict({"next_uid": 1, "equipment": {}}, _item_db)
+	assert_push_error_count(1, "Missing items should push error")
+	assert_null(res)
+
+
+func test_from_dict_rejects_missing_equipment() -> void:
+	var res := Inventory.from_dict({"next_uid": 1, "items": {}}, _item_db)
+	assert_push_error_count(1, "Missing equipment should push error")
+	assert_null(res)
+
+
+func test_from_dict_rejects_item_uid_gte_next_uid() -> void:
+	var bad_next_uid: Dictionary = {
+		"next_uid": 1,
+		"items": {
+			1: {"uid": 1, "def_id": "iron_sword", "owner": "character:1"}
+		},
+		"equipment": {}
+	}
+	var res := Inventory.from_dict(bad_next_uid, _item_db)
+	assert_push_error_count(1, "item uid >= next_uid should push error")
+	assert_null(res)
+
+
+func test_from_dict_rejects_unknown_def_id() -> void:
+	var bad_def: Dictionary = {
+		"next_uid": 2,
+		"items": {
+			1: {"uid": 1, "def_id": "nonexistent_item_id", "owner": "character:1"}
+		},
+		"equipment": {}
+	}
+	var res := Inventory.from_dict(bad_def, _item_db)
+	assert_push_error_count(1, "Unknown item def_id should push error")
+	assert_null(res)
+
+
+func test_from_dict_rejects_invalid_owner() -> void:
+	var bad_owner: Dictionary = {
+		"next_uid": 2,
+		"items": {
+			1: {"uid": 1, "def_id": "iron_sword", "owner": "invalid_owner_format"}
+		},
+		"equipment": {}
+	}
+	var res := Inventory.from_dict(bad_owner, _item_db)
+	assert_push_error_count(1, "Invalid item owner should push error")
+	assert_null(res)
+
+
+func test_from_dict_rejects_unowned_equipment() -> void:
+	var unowned_eq: Dictionary = {
+		"next_uid": 2,
+		"items": {
+			1: {"uid": 1, "def_id": "iron_sword", "owner": "character:2"}
+		},
+		"equipment": {
+			"character:1": {"weapon": 1}
+		}
+	}
+	var res := Inventory.from_dict(unowned_eq, _item_db)
+	assert_push_error_count(1, "Equipping unowned item should push error")
+	assert_null(res)
+
+
+func test_from_dict_rejects_equipment_slot_mismatch() -> void:
+	var mismatch_eq: Dictionary = {
+		"next_uid": 2,
+		"items": {
+			1: {"uid": 1, "def_id": "iron_sword", "owner": "character:1"}
+		},
+		"equipment": {
+			"character:1": {"armor": 1}
+		}
+	}
+	var res := Inventory.from_dict(mismatch_eq, _item_db)
+	assert_push_error_count(1, "Equipping weapon into armor slot should push error")
+	assert_null(res)
+
+
+func test_isolated_loot_table_bad_rolls_pushes_error() -> void:
+	var custom_db := ItemDB.new()
+	custom_db.register_item({
+		"id": "test_sword",
+		"name": "Test Sword",
+		"type": "weapon",
+		"floor_tier": 1,
+		"stats": {"weapon_damage": 5.0}
+	})
+
+	var bad_rolls: Dictionary = {
+		"roll_count": 0,
+		"entries": [{"item_id": "test_sword", "chance": 0.5}]
+	}
+	var reg1 := custom_db.register_loot_table("bad_mob1", bad_rolls)
+	assert_push_error_count(1, "register_loot_table with bad rolls should push error")
+	assert_false(reg1)
+	assert_false(custom_db.has_loot_table("bad_mob1"))
+	assert_false(_item_db.has_loot_table("bad_mob1"))
+
+
+func test_isolated_loot_table_bad_chance_pushes_error() -> void:
+	var custom_db := ItemDB.new()
+	custom_db.register_item({
+		"id": "test_sword",
+		"name": "Test Sword",
+		"type": "weapon",
+		"floor_tier": 1,
+		"stats": {"weapon_damage": 5.0}
+	})
+
+	var bad_chance: Dictionary = {
+		"roll_count": 1,
+		"entries": [{"item_id": "test_sword", "chance": 1.5}]
+	}
+	var reg2 := custom_db.register_loot_table("bad_mob2", bad_chance)
+	assert_push_error_count(1, "register_loot_table with bad chance should push error")
+	assert_false(reg2)
+	assert_false(custom_db.has_loot_table("bad_mob2"))
+	assert_false(_item_db.has_loot_table("bad_mob2"))
