@@ -8,9 +8,9 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 usage() {
   local exit_code="${1:-0}"
   if [[ "$exit_code" -eq 0 ]]; then
-    echo "Usage: $0 [--scene=res://path.tscn] [--frames=N] [--out=path.png] [--timeout=SECS]"
+    echo "Usage: $0 [--scene=res://path.tscn] [--frames=N] [--out=path.png] [--timeout=SECS] [--preview=NAME] [-- ...]"
   else
-    echo "Usage: $0 [--scene=res://path.tscn] [--frames=N] [--out=path.png] [--timeout=SECS]" >&2
+    echo "Usage: $0 [--scene=res://path.tscn] [--frames=N] [--out=path.png] [--timeout=SECS] [--preview=NAME] [-- ...]" >&2
   fi
   exit "$exit_code"
 }
@@ -21,6 +21,7 @@ FRAMES=60
 OUT=""
 DEFAULT_OUT="$REPO_ROOT/.screenshots/shot.png"
 TIMEOUT="${SCREENSHOT_TIMEOUT:-60}"
+EXTRA_ARGS=()
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -71,6 +72,23 @@ while [[ $# -gt 0 ]]; do
       fi
       TIMEOUT="$2"
       shift 2
+      ;;
+    --preview=*)
+      EXTRA_ARGS+=("$1")
+      shift
+      ;;
+    --preview)
+      if [[ $# -lt 2 ]]; then
+        echo "Error: --preview requires an argument." >&2
+        usage 1
+      fi
+      EXTRA_ARGS+=("--preview=$2")
+      shift 2
+      ;;
+    --)
+      shift
+      EXTRA_ARGS+=("$@")
+      break
       ;;
     -h|--help)
       usage 0
@@ -190,7 +208,8 @@ timeout --kill-after=5s "${TIMEOUT}s" xvfb-run -a -s "-screen 0 1280x720x24" "$R
   "$SCENE" \
   -- \
   --screenshot="$ABS_OUT" \
-  --frames="$FRAMES" > "$OUTPUT_FILE" 2>&1
+  --frames="$FRAMES" \
+  ${EXTRA_ARGS[@]+"${EXTRA_ARGS[@]}"} > "$OUTPUT_FILE" 2>&1
 EXIT_CODE="$?"
 set -e
 
