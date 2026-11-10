@@ -99,6 +99,8 @@ static func from_dict(dict: Dictionary, item_db: ItemDB = null, out_error: Array
 			return _fail("Cemetery entry %d missing or invalid 'date'" % i, out_error)
 		if not c_dict.has("appearance") or not (c_dict["appearance"] is Dictionary):
 			return _fail("Cemetery entry %d missing or invalid 'appearance'" % i, out_error)
+		if c_dict.has("character_id") and not (c_dict["character_id"] is String):
+			return _fail("Cemetery entry %d invalid 'character_id' (expected String)" % i, out_error)
 
 	if not dict.has("killed_enemies"):
 		return _fail("Missing 'killed_enemies' field", out_error)

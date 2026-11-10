@@ -82,5 +82,18 @@
   "save": {
     "version": 1,
     "default_root": "user://saves"
+  },
+  "permadeath": {
+    "merchant_id": "floor1_smith",
+    "default_zone": "floor1",
+    "default_entry": [3.0, 2.0],
+    "default_stats": {
+      "max_hp": 100.0,
+      "atk": 10.0,
+      "defense": 2.0,
+      "attack_range": 1.5,
+      "attack_interval": 1.0,
+      "weapon_damage": 5.0
+    }
   }
 }
