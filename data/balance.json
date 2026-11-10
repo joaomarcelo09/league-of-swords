@@ -78,5 +78,9 @@
     "loot_marker_color": [1.0, 0.84, 0.0, 1.0],
     "loot_marker_border_color": [0.1, 0.1, 0.1, 0.9],
     "loot_label_color": [1.0, 1.0, 1.0, 1.0]
+  },
+  "save": {
+    "version": 1,
+    "default_root": "user://saves"
   }
 }

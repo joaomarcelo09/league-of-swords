@@ -36,5 +36,16 @@ static func from_dict(d: Dictionary) -> Stats:
 	return s
 
 
+func to_dict() -> Dictionary:
+	return {
+		"max_hp": max_hp,
+		"atk": atk,
+		"defense": defense,
+		"attack_range": attack_range,
+		"attack_interval": attack_interval,
+		"weapon_damage": weapon_damage,
+	}
+
+
 func duplicate() -> Stats:
 	return Stats.new(max_hp, atk, defense, attack_range, attack_interval, weapon_damage)
