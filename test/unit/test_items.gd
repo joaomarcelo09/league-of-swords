@@ -334,13 +334,13 @@ func test_item_db_validation_rejects_malformed_definitions() -> void:
 		"roll_count": 0,
 		"entries": [{"item_id": "iron_sword", "chance": 0.5}]
 	}
-	assert_gt(ItemDB.validate_loot_table(bad_rolls).size(), 0)
+	assert_gt(ItemDB.validate_loot_table(bad_rolls, ["iron_sword"]).size(), 0)
 
 	var bad_chance: Dictionary = {
 		"roll_count": 1,
 		"entries": [{"item_id": "iron_sword", "chance": 1.5}]
 	}
-	assert_gt(ItemDB.validate_loot_table(bad_chance).size(), 0)
+	assert_gt(ItemDB.validate_loot_table(bad_chance, ["iron_sword"]).size(), 0)
 
 	var bad_entries: Dictionary = {
 		"roll_count": 1,
@@ -530,6 +530,54 @@ func test_use_with_non_character_acting_owner_fails() -> void:
 	assert_false(_inventory.is_consumed(potion_uid))
 
 
+func test_use_rejects_enemy_kind_entity() -> void:
+	var enemy_stats := Stats.new(100.0, 5.0, 0.0, 1.0, 1.0, 0.0)
+	var enemy := Entity.new(2, "enemy", Vector2(0, 0), 2.0, 50.0, enemy_stats)
+	var potion_uid := _inventory.create("healing_draught", "character:2")
+	assert_gt(potion_uid, 0)
+
+	# Implicit owner derivation fails for enemy and rejects
+	var res := _inventory.use(potion_uid, enemy)
+	assert_push_error_count(1, "Enemy-kind entity using item must push error")
+	assert_false(res, "Enemy-kind entity using item must return false")
+	assert_eq(enemy.hp, 50.0, "Enemy HP must not change on failed use")
+	assert_false(_inventory.is_consumed(potion_uid), "Item must not be consumed")
+	assert_eq(_inventory.owner_of(potion_uid), "character:2", "Item owner must remain unchanged")
+
+
+func test_use_rejects_enemy_kind_entity_with_explicit_character_owner() -> void:
+	var enemy_stats := Stats.new(100.0, 5.0, 0.0, 1.0, 1.0, 0.0)
+	var enemy := Entity.new(2, "enemy", Vector2(0, 0), 2.0, 50.0, enemy_stats)
+	var potion_uid := _inventory.create("healing_draught", "character:2")
+	assert_gt(potion_uid, 0)
+
+	# Explicit character_owner parameter also cannot bypass enemy restriction
+	var res_explicit := _inventory.use(potion_uid, enemy, "character:2")
+	assert_push_error_count(1, "Enemy entity with explicit character_owner must push error")
+	assert_false(res_explicit)
+	assert_eq(enemy.hp, 50.0)
+	assert_false(_inventory.is_consumed(potion_uid))
+
+
+func test_use_with_null_entity_fails() -> void:
+	var potion_uid := _inventory.create("healing_draught", "character:1")
+	assert_gt(potion_uid, 0)
+	var res := _inventory.use(potion_uid, null)
+	assert_push_error_count(1, "Null entity in use must push error")
+	assert_false(res)
+	assert_false(_inventory.is_consumed(potion_uid))
+
+
+func test_use_with_entity_missing_kind_fails() -> void:
+	var potion_uid := _inventory.create("healing_draught", "character:1")
+	assert_gt(potion_uid, 0)
+	var dummy_no_kind := RefCounted.new()
+	var res := _inventory.use(potion_uid, dummy_no_kind, "character:1")
+	assert_push_error_count(1, "Entity missing player kind must push error")
+	assert_false(res)
+	assert_false(_inventory.is_consumed(potion_uid))
+
+
 func test_loot_tables_json_separation() -> void:
 	var registry := DataRegistry.new()
 	registry.load_dir("res://data")
@@ -614,7 +662,13 @@ func test_create_requires_non_null_item_db() -> void:
 	var null_db_inv := Inventory.new(null)
 	var res := null_db_inv.create("iron_sword", "character:1")
 	assert_push_error_count(1, "Inventory.create with null item_db must push error")
-	assert_eq(res, 0, "Inventory.create with null item_db must return 0")
+	assert_eq(res, -1, "Inventory.create with null item_db must return -1")
+
+
+func test_create_empty_def_id_pushes_error() -> void:
+	var res := _inventory.create("", "character:1")
+	assert_push_error_count(1, "Inventory.create with empty def_id must push error")
+	assert_eq(res, -1, "Inventory.create with empty def_id must return -1")
 
 
 func test_inventory_roundtrip_to_dict_from_dict() -> void:
@@ -659,6 +713,12 @@ func test_inventory_roundtrip_to_dict_from_dict() -> void:
 	var from_json := Inventory.from_dict(json_parsed, _item_db)
 	assert_not_null(from_json, "from_dict should restore from parsed JSON with string keys")
 	assert_eq(from_json.to_dict(), dict, "JSON roundtrip should match original dict")
+
+
+func test_from_dict_rejects_null_item_db() -> void:
+	var res := Inventory.from_dict({"next_uid": 1, "items": {}, "equipment": {}}, null)
+	assert_push_error_count(1, "Inventory.from_dict with null item_db must push error")
+	assert_null(res, "Inventory.from_dict with null item_db must return null")
 
 
 func test_from_dict_rejects_empty_dict() -> void:

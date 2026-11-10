@@ -107,7 +107,8 @@ func test_target_out_of_range_approaches_and_hits_on_expected_arrival() -> void:
 	assert_eq(ev.get("tick"), expected_ticks, "First hit tick should match expected arrival tick")
 	assert_eq(ev.get("source"), attacker.id)
 	assert_eq(ev.get("target"), target.id)
-	assert_gt(ev.get("amount"), 0.0)
+	var expected_arrival_dmg := Combat.compute_damage(attacker_stats, target_stats, _registry)
+	assert_eq(ev.get("amount"), expected_arrival_dmg)
 
 	assert_almost_eq(attacker.pos.x, 3.5, 0.001)
 	assert_almost_eq(attacker.pos.y, 1.5, 0.001)
@@ -117,21 +118,26 @@ func test_damage_formula_and_floor() -> void:
 	# Acceptance criterion 2:
 	# Damage equals the formula from balance.json (test with two different stat sets; min damage floor).
 	# Formula: max(min_damage, (atk + weapon_damage) * atk_scale - defense * def_scale)
+	var atk_scale: float = float(_registry.get_balance("combat.atk_scale"))
+	var def_scale: float = float(_registry.get_balance("combat.def_scale"))
+	var min_damage: float = float(_registry.get_balance("combat.min_damage"))
+
 	var stats_atk1 := Stats.new(100.0, 12.0, 0.0, 1.5, 1.0, 8.0) # (12 + 8) = 20
 	var stats_def1 := Stats.new(100.0, 0.0, 4.0, 1.5, 1.0, 0.0) # 4 * 1 = 4 -> dmg 16
+	var expected_dmg1 := maxf(min_damage, (stats_atk1.atk + stats_atk1.weapon_damage) * atk_scale - stats_def1.defense * def_scale)
 	var dmg1 := Combat.compute_damage(stats_atk1, stats_def1, _registry)
-	assert_eq(dmg1, 16.0, "Stat set 1 damage: (12 + 8) * 1 - 4 * 1 = 16")
+	assert_eq(dmg1, expected_dmg1, "Stat set 1 damage: (12 + 8) * atk_scale - 4 * def_scale")
 
 	var stats_atk2 := Stats.new(100.0, 25.0, 0.0, 1.5, 1.0, 15.0) # (25 + 15) = 40
 	var stats_def2 := Stats.new(100.0, 0.0, 15.0, 1.5, 1.0, 0.0) # 15 * 1 = 15 -> dmg 25
+	var expected_dmg2 := maxf(min_damage, (stats_atk2.atk + stats_atk2.weapon_damage) * atk_scale - stats_def2.defense * def_scale)
 	var dmg2 := Combat.compute_damage(stats_atk2, stats_def2, _registry)
-	assert_eq(dmg2, 25.0, "Stat set 2 damage: (25 + 15) * 1 - 15 * 1 = 25")
+	assert_eq(dmg2, expected_dmg2, "Stat set 2 damage: (25 + 15) * atk_scale - 15 * def_scale")
 
 	# Min damage floor
 	var stats_weak_atk := Stats.new(100.0, 1.0, 0.0, 1.5, 1.0, 0.0) # 1
 	var stats_high_def := Stats.new(100.0, 0.0, 50.0, 1.5, 1.0, 0.0) # 50
 	var dmg_floor := Combat.compute_damage(stats_weak_atk, stats_high_def, _registry)
-	var min_damage: float = float(_registry.get_balance("combat.min_damage"))
 	assert_eq(dmg_floor, min_damage, "Floor damage should match combat.min_damage (1.0)")
 
 	# Verify in simulation
@@ -144,8 +150,8 @@ func test_damage_formula_and_floor() -> void:
 
 	var events := sim.drain_events()
 	assert_eq(events.size(), 1)
-	assert_eq(events[0].get("amount"), 16.0)
-	assert_almost_eq(target.hp, 84.0, 0.001)
+	assert_eq(events[0].get("amount"), expected_dmg1)
+	assert_almost_eq(target.hp, 100.0 - expected_dmg1, 0.001)
 
 
 func test_hits_repeat_every_attack_interval() -> void:
@@ -205,12 +211,13 @@ func test_target_death_emits_one_death_event_and_stops_attacker() -> void:
 
 	var dmg_count := 0
 	var death_count := 0
+	var expected_kill_damage := Combat.compute_damage(attacker_stats, target_stats, _registry)
 	for ev in events:
 		if ev.get("type") == "damage":
 			dmg_count += 1
 			assert_eq(ev.get("source"), attacker.id)
 			assert_eq(ev.get("target"), target.id)
-			assert_eq(ev.get("amount"), 25.0)
+			assert_eq(ev.get("amount"), expected_kill_damage)
 		elif ev.get("type") == "death":
 			death_count += 1
 			assert_eq(ev.get("target"), target.id)
