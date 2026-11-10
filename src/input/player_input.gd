@@ -265,3 +265,51 @@ static func command_for_action(
 			return command_for_dash(p_player_id, player_pos, mouse_entity_pos)
 		_:
 			return null
+
+
+static func pickup_loot(p_inventory: Inventory, uid: int, p_player_id: int) -> bool:
+	if p_inventory == null or p_player_id <= 0:
+		return false
+	return p_inventory.pickup(uid, "character:%d" % p_player_id)
+
+
+static func equip_item(p_inventory: Inventory, p_player_id: int, uid: int) -> bool:
+	if p_inventory == null or p_player_id <= 0:
+		return false
+	return p_inventory.equip("character:%d" % p_player_id, uid)
+
+
+static func unequip_item(p_inventory: Inventory, p_player_id: int, slot: String) -> bool:
+	if p_inventory == null or p_player_id <= 0:
+		return false
+	return p_inventory.unequip("character:%d" % p_player_id, slot)
+
+
+static func use_item(p_inventory: Inventory, uid: int, player_entity: Entity) -> bool:
+	if p_inventory == null or player_entity == null:
+		return false
+	return p_inventory.use(uid, player_entity, "character:%d" % player_entity.id)
+
+
+static func activate_inventory_item(
+	p_inventory: Inventory,
+	p_item_db: ItemDB,
+	uid: int,
+	player_entity: Entity
+) -> bool:
+	if p_inventory == null or p_item_db == null or player_entity == null:
+		return false
+	var def_id := p_inventory.def_id_of(uid)
+	var item := p_item_db.get_item(def_id)
+	if item.is_empty():
+		return false
+	var item_type := str(item.get("type", ""))
+	var char_owner := "character:%d" % player_entity.id
+	if item_type in ["weapon", "armor"]:
+		var current_equipped := p_inventory.get_equipped(char_owner, item_type)
+		if current_equipped == uid:
+			return p_inventory.unequip(char_owner, item_type)
+		return p_inventory.equip(char_owner, uid)
+	elif item_type == "consumable":
+		return p_inventory.use(uid, player_entity, char_owner)
+	return false
