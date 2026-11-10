@@ -1,0 +1,54 @@
+{
+  "frame_width": 64,
+  "frame_height": 64,
+  "frame_size": [64, 64],
+  "layer_draw_order": [
+    "body",
+    "clothes",
+    "armor",
+    "hair",
+    "weapon"
+  ],
+  "layers": [
+    "body",
+    "clothes",
+    "armor",
+    "hair",
+    "weapon"
+  ],
+  "animations": {
+    "walk": {
+      "frame_count": 9,
+      "fps": 8.0,
+      "loop": true,
+      "rows": {
+        "up": 8,
+        "left": 9,
+        "down": 10,
+        "right": 11
+      }
+    },
+    "slash": {
+      "frame_count": 6,
+      "fps": 12.0,
+      "loop": false,
+      "rows": {
+        "up": 12,
+        "left": 13,
+        "down": 14,
+        "right": 15
+      }
+    },
+    "hurt": {
+      "frame_count": 6,
+      "fps": 10.0,
+      "loop": false,
+      "rows": {
+        "up": 20,
+        "left": 20,
+        "down": 20,
+        "right": 20
+      }
+    }
+  }
+}
