@@ -13,6 +13,8 @@ const DATA_DIR: String = "res://data"
 @onready var camera: GameCamera = $Camera if has_node("Camera") else null
 @onready var player_input: PlayerInput = $PlayerInput if has_node("PlayerInput") else null
 
+signal event_emitted(event: Dictionary)
+
 var registry: DataRegistry = null
 var zone: Zone = null
 var item_db: ItemDB = null
@@ -21,7 +23,12 @@ var session: GameSession = null
 var world: WorldSim = null
 var player: Entity = null
 var player_marker: Node2D = null
+var entity_layer: EntityLayer = null
 var max_frame_dt_s: float = 0.0
+
+var last_events: Array[Dictionary]:
+	get:
+		return entity_layer.last_events if entity_layer != null else []
 
 
 func _ready() -> void:
@@ -75,6 +82,9 @@ func _init_game() -> void:
 	# 7. Create Player Marker
 	_create_player_marker()
 
+	# 7b. Create EntityLayer
+	_create_entity_layer()
+
 	# 8. Setup Camera
 	if camera == null:
 		camera = GameCamera.new()
@@ -90,8 +100,25 @@ func _init_game() -> void:
 		add_child(player_input)
 	player_input.setup(player.id, world, zone_view, registry)
 
+	TelegraphWindupPreview.setup_if_requested(self)
+
 	# Initial view update
 	_update_views()
+
+
+func _create_entity_layer() -> void:
+	if entities_root == null:
+		return
+	if entities_root.has_node("EntityLayer"):
+		entity_layer = entities_root.get_node("EntityLayer") as EntityLayer
+		return
+
+	var layer := EntityLayer.new()
+	layer.name = "EntityLayer"
+	entities_root.add_child(layer)
+	entity_layer = layer
+	entity_layer.setup(session, zone_view, registry, player_marker)
+	entity_layer.event_emitted.connect(func(ev: Dictionary) -> void: event_emitted.emit(ev))
 
 
 func _create_player_marker() -> void:
@@ -140,6 +167,10 @@ func _create_player_marker() -> void:
 
 
 func _process(delta: float) -> void:
+	if TelegraphWindupPreview.is_active:
+		_update_views()
+		return
+
 	if session != null:
 		var clamped_dt := clamp_frame_dt(delta, max_frame_dt_s)
 		session.step(clamped_dt)
@@ -166,6 +197,9 @@ func _update_views() -> void:
 	var world_pos := zone_view.entity_to_world(player.pos)
 	if player_marker != null:
 		player_marker.position = world_pos
+
+	if entity_layer != null:
+		entity_layer.sync()
 
 	if camera != null:
 		camera.follow(world_pos)
