@@ -626,6 +626,18 @@ func get_loot_marker(uid: int) -> LootDropView:
 	return loot_markers.get(uid, null)
 
 
+func clear_loot_markers() -> void:
+	for uid_val: Variant in loot_markers.keys():
+		var marker: LootDropView = loot_markers[uid_val]
+		if marker != null and is_instance_valid(marker):
+			marker.queue_free()
+	loot_markers.clear()
+
+
+func reset_loot_markers() -> void:
+	clear_loot_markers()
+
+
 # --- Inventory Operations ---
 
 func toggle_inventory() -> void:

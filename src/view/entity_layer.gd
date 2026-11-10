@@ -43,6 +43,26 @@ func _ready() -> void:
 	_init_containers()
 
 
+func reset() -> void:
+	for id_val: Variant in views.keys():
+		var view: EntityView = views[id_val]
+		if is_instance_valid(view):
+			view.queue_free()
+	views.clear()
+
+	if telegraphs_root != null:
+		for child: Node in telegraphs_root.get_children():
+			if is_instance_valid(child):
+				child.queue_free()
+
+	if floating_texts_root != null:
+		for child: Node in floating_texts_root.get_children():
+			if is_instance_valid(child):
+				child.queue_free()
+
+	last_events.clear()
+
+
 func _init_containers() -> void:
 	if telegraphs_root == null:
 		telegraphs_root = Node2D.new()

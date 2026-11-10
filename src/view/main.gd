@@ -4,9 +4,14 @@ extends Node2D
 const ZONE_MAP_PATH: String = "res://data/zones/floor1/test_arena.map"
 const ZONE_JSON_PATH: String = "res://data/zones/floor1/test_arena.json"
 const DATA_DIR: String = "res://data"
+const DEFAULT_SAVE_ROOT: String = "user://saves"
+const DEFAULT_SAVE_SLOT: String = "slot_1"
+const DEFAULT_PLAYER_NAME: String = "Hero"
 
 @export var zone_map_path: String = ZONE_MAP_PATH
 @export var zone_json_path: String = ZONE_JSON_PATH
+@export var save_root: String = ""
+@export var save_slot: String = ""
 
 @onready var zone_view: ZoneView = $ZoneView if has_node("ZoneView") else null
 @onready var entities_root: Node2D = $Entities if has_node("Entities") else null
@@ -26,6 +31,14 @@ var player_marker: Node2D = null
 var entity_layer: EntityLayer = null
 var hud: HUD = null
 var max_frame_dt_s: float = 0.0
+
+var world_state: WorldState = null
+var character_state: CharacterState = null
+var save_store: SaveStore = null
+var death_screen: DeathScreen = null
+var merchant_id: String = ""
+var _pending_death_event: Dictionary = {}
+var _death_persisted: bool = false
 
 var last_events: Array[Dictionary]:
 	get:
@@ -69,15 +82,91 @@ func _init_game() -> void:
 		add_child(entities_root)
 	entities_root.y_sort_enabled = true
 
-	# 5. Create ItemDB and Inventory from registry
+	# 5. Create ItemDB and SaveStore / WorldState
 	item_db = ItemDB.new(registry)
-	inventory = Inventory.new(item_db)
+
+	var root_path := save_root
+	if root_path.is_empty() and registry != null:
+		var root_val: Variant = registry.get_balance("save.default_root")
+		if root_val != null and not str(root_val).is_empty():
+			root_path = str(root_val)
+	if root_path.is_empty():
+		root_path = DEFAULT_SAVE_ROOT
+	save_root = root_path
+
+	var slot_name := save_slot
+	if slot_name.is_empty() and registry != null:
+		var slot_val: Variant = registry.get_balance("save.default_slot")
+		if slot_val != null and not str(slot_val).is_empty():
+			slot_name = str(slot_val)
+	if slot_name.is_empty():
+		slot_name = DEFAULT_SAVE_SLOT
+	save_slot = slot_name
+
+	save_store = SaveStore.new(save_root, item_db)
+
+	if world_state == null:
+		var world_path := save_store.get_world_file_path(save_slot)
+		var world_file_exists := FileAccess.file_exists(world_path)
+		if world_file_exists:
+			var w_res := save_store.load_world(save_slot)
+			if w_res.get("ok", false) and w_res.get("value") is WorldState:
+				world_state = w_res["value"]
+			else:
+				push_error("Failed to load existing world '%s': %s" % [world_path, str(w_res.get("error", "unknown error"))])
+				# Existing world file failed to load: do not write anything, do not overwrite!
+		else:
+			world_state = WorldState.new()
+			var seed_val: Variant = registry.get_balance("sim.seed")
+			if seed_val != null:
+				world_state.seed = int(seed_val)
+			world_state.floors_unlocked = 1
+			world_state.inventory = Inventory.new(item_db)
+			save_store.save_world(save_slot, world_state)
+
+	if world_state != null:
+		if world_state.inventory == null:
+			world_state.inventory = Inventory.new(item_db)
+		inventory = world_state.inventory
+	else:
+		inventory = Inventory.new(item_db)
+
+	if character_state == null and world_state != null:
+		var list_res := save_store.list_characters(save_slot)
+		if list_res.get("ok", false) and list_res.get("value") is Array:
+			for cid in list_res["value"]:
+				var load_res := Lifecycle.load_playable(save_store, save_slot, str(cid), item_db)
+				if load_res.get("ok", false) and load_res.get("value") is CharacterState:
+					character_state = load_res["value"]
+					break
+		if character_state == null:
+			var init_name: String = DEFAULT_PLAYER_NAME
+			if registry != null:
+				var name_val: Variant = registry.get_balance("permadeath.default_player_name")
+				if name_val != null and not str(name_val).is_empty():
+					init_name = str(name_val)
+			var create_res := Lifecycle.new_character(
+				world_state,
+				init_name,
+				{},
+				zone.entry if zone != null else null,
+				save_store,
+				save_slot,
+				null,
+				"floor1",
+				registry
+			)
+			if create_res.get("ok", false):
+				character_state = create_res.get("value")
 
 	# 6. Create GameSession, spawn player and zone enemies
 	session = GameSession.new(zone, registry, inventory, item_db)
 	world = session.world
 	var player_speed: float = float(registry.get_balance("player.move_speed_tiles_per_s", 4.0))
-	player = session.spawn_player(zone.entry, player_speed)
+	var spawn_pos: Variant = zone.entry
+	if character_state != null and character_state.position.size() >= 2:
+		spawn_pos = Vector2(character_state.position[0], character_state.position[1])
+	player = session.spawn_player(spawn_pos, player_speed)
 	session.spawn_enemies()
 
 	# 7. Create Player Marker
@@ -104,9 +193,16 @@ func _init_game() -> void:
 	# 10. Setup HUD
 	_create_hud()
 
+	# 11. Setup DeathScreen
+	_create_death_screen()
+
+	if not event_emitted.is_connected(_on_event_emitted):
+		event_emitted.connect(_on_event_emitted)
+
 	TelegraphWindupPreview.setup_if_requested(self)
 	LayeredSpritePreview.setup_if_requested(self)
 	HudPreview.setup_if_requested(self)
+	DeathScreenPreview.setup_if_requested(self)
 
 	# Initial view update
 	_update_views()
@@ -129,6 +225,160 @@ func _create_hud() -> void:
 		if hud != null:
 			hud.handle_event(ev)
 	)
+
+
+func _create_death_screen() -> void:
+	if death_screen == null:
+		if has_node("DeathScreen"):
+			death_screen = get_node("DeathScreen") as DeathScreen
+		else:
+			death_screen = DeathScreen.new()
+			death_screen.name = "DeathScreen"
+			add_child(death_screen)
+
+	if not death_screen.new_character_requested.is_connected(_on_new_character_requested):
+		death_screen.new_character_requested.connect(_on_new_character_requested)
+
+
+func _on_event_emitted(ev: Dictionary) -> void:
+	if ev.get("type") == "death":
+		var target_id := int(ev.get("target", -1))
+		if player != null and target_id == player.id:
+			_handle_player_death(ev)
+
+
+func _persist_player_death(death_event: Dictionary) -> Dictionary:
+	if world_state != null and world_state.inventory != null and player != null and character_state != null:
+		var ent_owner := "character:%d" % player.id
+		var char_owner := character_state.id if character_state.id.begins_with("character:") else "character:" + character_state.id
+		if ent_owner != char_owner:
+			var ent_items := world_state.inventory.items_of(ent_owner)
+			for uid: int in ent_items:
+				world_state.inventory.transfer(uid, char_owner)
+			var ent_equipped := world_state.inventory.get_all_equipped(ent_owner)
+			for s in ent_equipped.keys():
+				world_state.inventory.equip(char_owner, int(ent_equipped[s]))
+
+	var date_str := SaveDate.get_date_string()
+	var merch := merchant_id
+	if merch.is_empty() and registry != null:
+		var m_val: Variant = registry.get_balance("permadeath.merchant_id")
+		if m_val != null:
+			merch = str(m_val)
+
+	return Lifecycle.on_player_death_event(
+		death_event,
+		world_state,
+		character_state,
+		date_str,
+		save_store,
+		save_slot,
+		world,
+		player.id if player != null else -1,
+		merch,
+		registry
+	)
+
+
+func _handle_player_death(death_event: Dictionary) -> void:
+	if death_screen != null and death_screen.is_open():
+		return
+
+	if player_input != null:
+		player_input.process_mode = Node.PROCESS_MODE_DISABLED
+
+	_pending_death_event = death_event.duplicate(true)
+
+	var res := _persist_player_death(_pending_death_event)
+	_death_persisted = bool(res.get("ok", false))
+
+	var cem_entry: Dictionary = {}
+	if world_state != null:
+		for entry: Dictionary in world_state.cemetery:
+			if character_state != null and entry.get("character_id") == character_state.id:
+				cem_entry = entry
+				break
+
+	if cem_entry.is_empty() and character_state != null:
+		cem_entry = {
+			"character_id": character_state.id,
+			"name": character_state.name,
+			"level": character_state.level,
+			"zone": character_state.zone,
+			"cause": Lifecycle.cause_from_death_event(death_event, world),
+			"date": SaveDate.get_date_string(),
+		}
+
+	if death_screen != null:
+		death_screen.show_death(cem_entry)
+		if not _death_persisted:
+			death_screen.show_error(str(res.get("error", "Failed to save player death")))
+
+
+func _on_new_character_requested(new_name: String) -> void:
+	if not _death_persisted:
+		var retry_res := _persist_player_death(_pending_death_event)
+		if not retry_res.get("ok", false):
+			if death_screen != null:
+				death_screen.show_error(str(retry_res.get("error", "Failed to save player death")))
+			return
+		_death_persisted = true
+
+	var validation := CharacterNaming.validate_name(new_name)
+	if not validation.get("valid", false):
+		if death_screen != null:
+			death_screen.show_error(str(validation.get("error", "Invalid character name")))
+		return
+
+	var valid_name: String = str(validation.get("value", new_name))
+	var create_res := Lifecycle.new_character(
+		world_state,
+		valid_name,
+		{},
+		zone.entry if zone != null else null,
+		save_store,
+		save_slot,
+		null,
+		"floor1",
+		registry
+	)
+
+	if not create_res.get("ok", false):
+		if death_screen != null:
+			death_screen.show_error(str(create_res.get("error", "Failed to create character")))
+		return
+
+	character_state = create_res.get("value") as CharacterState
+	_respawn_new_character()
+
+
+func _respawn_new_character() -> void:
+	session = GameSession.new(zone, registry, inventory, item_db)
+	world = session.world
+
+	var player_speed: float = float(registry.get_balance("player.move_speed_tiles_per_s", 4.0))
+	player = session.spawn_player(zone.entry, player_speed)
+	session.spawn_enemies()
+
+	if player_input != null:
+		player_input.process_mode = Node.PROCESS_MODE_INHERIT
+		player_input.setup(player.id, world, zone_view, registry)
+
+	if entity_layer != null:
+		entity_layer.reset()
+		entity_layer.setup(session, zone_view, registry, player_marker)
+
+	if hud != null:
+		hud.clear_loot_markers()
+		hud.setup(session, world, player, inventory, item_db, registry, entities_root, zone_view)
+
+	if death_screen != null:
+		death_screen.close()
+
+	_pending_death_event.clear()
+	_death_persisted = false
+
+	_update_views()
 
 
 func _create_entity_layer() -> void:
@@ -192,8 +442,11 @@ func _create_player_marker() -> void:
 
 
 func _process(delta: float) -> void:
-	if TelegraphWindupPreview.is_active or LayeredSpritePreview.is_active or HudPreview.is_active:
+	if TelegraphWindupPreview.is_active or LayeredSpritePreview.is_active or HudPreview.is_active or DeathScreenPreview.is_active:
 		_update_views()
+		return
+
+	if death_screen != null and death_screen.is_open():
 		return
 
 	if session != null:

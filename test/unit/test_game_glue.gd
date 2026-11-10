@@ -158,7 +158,11 @@ func test_same_seed_gives_same_drops() -> void:
 
 
 func test_main_view_integration() -> void:
+	var temp_root := "user://test_saves/main_view_glue_%d" % int(Time.get_unix_time_from_system() * 1000.0)
+	_clean_dir(temp_root)
 	var view := MainView.new()
+	view.save_root = temp_root
+	view.save_slot = "glue_slot"
 	autofree(view)
 	view._ready()
 
@@ -180,6 +184,27 @@ func test_main_view_integration() -> void:
 	var initial_tick: int = view.world.tick_count
 	view._process(0.05)
 	assert_gt(view.world.tick_count, initial_tick, "MainView _process must step simulation")
+
+	_clean_dir(temp_root)
+
+
+func _clean_dir(path: String) -> void:
+	if not DirAccess.dir_exists_absolute(path):
+		return
+	var dir := DirAccess.open(path)
+	if dir != null:
+		dir.list_dir_begin()
+		var file_name := dir.get_next()
+		while not file_name.is_empty():
+			var full_sub := path.path_join(file_name)
+			if dir.current_is_dir():
+				if file_name != "." and file_name != "..":
+					_clean_dir(full_sub)
+			else:
+				DirAccess.remove_absolute(full_sub)
+			file_name = dir.get_next()
+		dir.list_dir_end()
+	DirAccess.remove_absolute(path)
 
 
 func test_enemy_without_loot_table_produces_no_loot_drop() -> void:
