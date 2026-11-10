@@ -81,7 +81,8 @@
   },
   "save": {
     "version": 1,
-    "default_root": "user://saves"
+    "default_root": "user://saves",
+    "default_slot": "slot_1"
   },
   "permadeath": {
     "merchant_id": "floor1_smith",

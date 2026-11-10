@@ -45,6 +45,11 @@ var last_events: Array[Dictionary]:
 		return entity_layer.last_events if entity_layer != null else []
 
 
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_WM_CLOSE_REQUEST:
+		save_now()
+
+
 func _ready() -> void:
 	_init_game()
 
@@ -132,13 +137,24 @@ func _init_game() -> void:
 		inventory = Inventory.new(item_db)
 
 	if character_state == null and world_state != null:
-		var list_res := save_store.list_characters(save_slot)
-		if list_res.get("ok", false) and list_res.get("value") is Array:
-			for cid in list_res["value"]:
-				var load_res := Lifecycle.load_playable(save_store, save_slot, str(cid), item_db)
-				if load_res.get("ok", false) and load_res.get("value") is CharacterState:
-					character_state = load_res["value"]
-					break
+		var target_char_id := ""
+		if LaunchRequest.mode == "continue" and not LaunchRequest.character_id.is_empty():
+			target_char_id = LaunchRequest.character_id
+
+		if not target_char_id.is_empty():
+			var load_res := Lifecycle.load_playable(save_store, save_slot, target_char_id, item_db)
+			if load_res.get("ok", false) and load_res.get("value") is CharacterState:
+				character_state = load_res["value"]
+
+		if character_state == null and LaunchRequest.mode != "new":
+			var list_res := save_store.list_characters(save_slot)
+			if list_res.get("ok", false) and list_res.get("value") is Array:
+				for cid in list_res["value"]:
+					var load_res := Lifecycle.load_playable(save_store, save_slot, str(cid), item_db)
+					if load_res.get("ok", false) and load_res.get("value") is CharacterState:
+						character_state = load_res["value"]
+						break
+
 		if character_state == null:
 			var init_name: String = DEFAULT_PLAYER_NAME
 			if registry != null:
@@ -159,6 +175,8 @@ func _init_game() -> void:
 			if create_res.get("ok", false):
 				character_state = create_res.get("value")
 
+	LaunchRequest.reset()
+
 	# 6. Create GameSession, spawn player and zone enemies
 	session = GameSession.new(zone, registry, inventory, item_db)
 	world = session.world
@@ -167,7 +185,12 @@ func _init_game() -> void:
 	if character_state != null and character_state.position.size() >= 2:
 		spawn_pos = Vector2(character_state.position[0], character_state.position[1])
 	player = session.spawn_player(spawn_pos, player_speed)
+	if character_state != null and character_state.position.size() >= 2:
+		player.pos = Vector2(character_state.position[0], character_state.position[1])
+	if character_state != null and character_state.stats != null:
+		player.stats = character_state.stats.duplicate()
 	session.spawn_enemies()
+	_sync_items_to_entity()
 
 	# 7. Create Player Marker
 	_create_player_marker()
@@ -248,16 +271,7 @@ func _on_event_emitted(ev: Dictionary) -> void:
 
 
 func _persist_player_death(death_event: Dictionary) -> Dictionary:
-	if world_state != null and world_state.inventory != null and player != null and character_state != null:
-		var ent_owner := "character:%d" % player.id
-		var char_owner := character_state.id if character_state.id.begins_with("character:") else "character:" + character_state.id
-		if ent_owner != char_owner:
-			var ent_items := world_state.inventory.items_of(ent_owner)
-			for uid: int in ent_items:
-				world_state.inventory.transfer(uid, char_owner)
-			var ent_equipped := world_state.inventory.get_all_equipped(ent_owner)
-			for s in ent_equipped.keys():
-				world_state.inventory.equip(char_owner, int(ent_equipped[s]))
+	_sync_items_to_character()
 
 	var date_str := SaveDate.get_date_string()
 	var merch := merchant_id
@@ -359,6 +373,7 @@ func _respawn_new_character() -> void:
 	var player_speed: float = float(registry.get_balance("player.move_speed_tiles_per_s", 4.0))
 	player = session.spawn_player(zone.entry, player_speed)
 	session.spawn_enemies()
+	_sync_items_to_entity()
 
 	if player_input != null:
 		player_input.process_mode = Node.PROCESS_MODE_INHERIT
@@ -484,3 +499,64 @@ func _update_views() -> void:
 
 	if hud != null:
 		hud.update_view()
+
+
+func save_now() -> Dictionary:
+	if save_store == null or world_state == null:
+		return {"ok": false, "error": "MainView is not initialized", "value": null}
+
+	if character_state != null and character_state.status != "dead" and player != null:
+		character_state.position = [player.pos.x, player.pos.y]
+		if player.stats != null:
+			character_state.stats = player.stats.duplicate()
+		if character_state.zone.is_empty():
+			character_state.zone = "floor1"
+
+	_sync_items_to_character()
+
+	var save_c: Dictionary = {"ok": true}
+	if character_state != null:
+		save_c = save_store.save_character(save_slot, character_state)
+		if not save_c.get("ok", false):
+			return save_c
+
+	var save_w := save_store.save_world(save_slot, world_state)
+	if not save_w.get("ok", false):
+		return save_w
+
+	if player != null and not player.dead:
+		_sync_items_to_entity()
+
+	return {"ok": true, "error": "", "value": null}
+
+
+func _sync_items_to_entity() -> void:
+	if world_state == null or world_state.inventory == null or player == null or character_state == null:
+		return
+	var ent_owner := "character:%d" % player.id
+	var char_owner := character_state.id if character_state.id.begins_with("character:") else "character:" + character_state.id
+	if ent_owner == char_owner:
+		return
+
+	var char_equipped := world_state.inventory.get_all_equipped(char_owner)
+	var char_items := world_state.inventory.items_of(char_owner)
+	for uid: int in char_items:
+		world_state.inventory.transfer(uid, ent_owner)
+	for s in char_equipped.keys():
+		world_state.inventory.equip(ent_owner, int(char_equipped[s]))
+
+
+func _sync_items_to_character() -> void:
+	if world_state == null or world_state.inventory == null or player == null or character_state == null:
+		return
+	var ent_owner := "character:%d" % player.id
+	var char_owner := character_state.id if character_state.id.begins_with("character:") else "character:" + character_state.id
+	if ent_owner == char_owner:
+		return
+
+	var ent_equipped := world_state.inventory.get_all_equipped(ent_owner)
+	var ent_items := world_state.inventory.items_of(ent_owner)
+	for uid: int in ent_items:
+		world_state.inventory.transfer(uid, char_owner)
+	for s in ent_equipped.keys():
+		world_state.inventory.equip(char_owner, int(ent_equipped[s]))
