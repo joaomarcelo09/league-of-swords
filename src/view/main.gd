@@ -1,9 +1,12 @@
 class_name MainView
 extends Node2D
 
-const ZONE_MAP_PATH: String = "res://data/zones/floor1/test_small.map"
-const ZONE_JSON_PATH: String = "res://data/zones/floor1/test_small.json"
+const ZONE_MAP_PATH: String = "res://data/zones/floor1/test_arena.map"
+const ZONE_JSON_PATH: String = "res://data/zones/floor1/test_arena.json"
 const DATA_DIR: String = "res://data"
+
+@export var zone_map_path: String = ZONE_MAP_PATH
+@export var zone_json_path: String = ZONE_JSON_PATH
 
 @onready var zone_view: ZoneView = $ZoneView if has_node("ZoneView") else null
 @onready var entities_root: Node2D = $Entities if has_node("Entities") else null
@@ -12,6 +15,9 @@ const DATA_DIR: String = "res://data"
 
 var registry: DataRegistry = null
 var zone: Zone = null
+var item_db: ItemDB = null
+var inventory: Inventory = null
+var session: GameSession = null
 var world: WorldSim = null
 var player: Entity = null
 var player_marker: Node2D = null
@@ -33,7 +39,9 @@ func _init_game() -> void:
 		push_error("MainView: Missing sim.max_frame_dt_s in balance data")
 
 	# 2. Load zone
-	zone = Zone.load_files(ZONE_MAP_PATH, ZONE_JSON_PATH)
+	var map_path := zone_map_path if not zone_map_path.is_empty() else ZONE_MAP_PATH
+	var json_path := zone_json_path if not zone_json_path.is_empty() else ZONE_JSON_PATH
+	zone = Zone.load_files(map_path, json_path)
 	if not zone.is_valid():
 		push_error("MainView: Failed to load zone: %s" % str(zone.errors))
 		return
@@ -53,15 +61,21 @@ func _init_game() -> void:
 		add_child(entities_root)
 	entities_root.y_sort_enabled = true
 
-	# 5. Create WorldSim and spawn player
-	world = WorldSim.new(zone, registry)
-	var player_speed: float = float(registry.get_balance("player.move_speed_tiles_per_s", 4.0))
-	player = world.spawn("player", zone.entry, player_speed)
+	# 5. Create ItemDB and Inventory from registry
+	item_db = ItemDB.new(registry)
+	inventory = Inventory.new(item_db)
 
-	# 6. Create Player Marker
+	# 6. Create GameSession, spawn player and zone enemies
+	session = GameSession.new(zone, registry, inventory, item_db)
+	world = session.world
+	var player_speed: float = float(registry.get_balance("player.move_speed_tiles_per_s", 4.0))
+	player = session.spawn_player(zone.entry, player_speed)
+	session.spawn_enemies()
+
+	# 7. Create Player Marker
 	_create_player_marker()
 
-	# 7. Setup Camera
+	# 8. Setup Camera
 	if camera == null:
 		camera = GameCamera.new()
 		camera.name = "Camera"
@@ -69,7 +83,7 @@ func _init_game() -> void:
 	camera.enabled = true
 	camera.setup(registry)
 
-	# 8. Setup PlayerInput
+	# 9. Setup PlayerInput
 	if player_input == null:
 		player_input = PlayerInput.new()
 		player_input.name = "PlayerInput"
@@ -126,7 +140,10 @@ func _create_player_marker() -> void:
 
 
 func _process(delta: float) -> void:
-	if world != null:
+	if session != null:
+		var clamped_dt := clamp_frame_dt(delta, max_frame_dt_s)
+		session.step(clamped_dt)
+	elif world != null:
 		var clamped_dt := clamp_frame_dt(delta, max_frame_dt_s)
 		world.step(clamped_dt)
 	_update_views()

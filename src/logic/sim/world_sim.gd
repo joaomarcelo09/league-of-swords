@@ -3,6 +3,10 @@ extends RefCounted
 
 var zone: Zone = null
 var registry: DataRegistry = null
+var inventory: Inventory = null
+var item_db: ItemDB = null
+var rng: RandomNumberGenerator = null
+var zone_id: String = "floor1"
 var _tick_len: float = 0.0
 var tick_length: float:
 	get:
@@ -19,9 +23,21 @@ var _begin_handlers: Dictionary = {}
 var _update_handlers: Dictionary = {}
 
 
-func _init(p_zone: Zone, p_registry: DataRegistry) -> void:
+func _init(
+	p_zone: Zone,
+	p_registry: DataRegistry,
+	p_inventory: Inventory = null,
+	p_item_db: ItemDB = null,
+	p_rng: RandomNumberGenerator = null,
+	p_zone_id: String = ""
+) -> void:
 	zone = p_zone
 	registry = p_registry
+	inventory = p_inventory
+	item_db = p_item_db
+	rng = p_rng
+	if not p_zone_id.is_empty():
+		zone_id = p_zone_id
 	var tick_hz: float = 30.0
 	if registry != null:
 		var hz_val: Variant = registry.get_balance("sim.tick_hz")
@@ -68,6 +84,9 @@ static func parse_tile_coord(tile: Variant) -> Variant:
 		return tile
 	elif tile is Vector2:
 		return Vector2i(int(floor(tile.x)), int(floor(tile.y)))
+	elif (tile is Array or tile is PackedInt32Array or tile is PackedFloat32Array) and tile.size() >= 2:
+		if (tile[0] is int or tile[0] is float) and (tile[1] is int or tile[1] is float):
+			return Vector2i(int(tile[0]), int(tile[1]))
 	return null
 
 
@@ -146,6 +165,25 @@ func spawn_enemy(type_id: String, tile: Variant, hp: float = -1.0, stats: Stats 
 	if enemy_cfg.has("recovery_damage_mult"):
 		entity.recovery_damage_mult = float(enemy_cfg["recovery_damage_mult"])
 	return entity
+
+
+func spawn_zone_enemies() -> Array[Entity]:
+	var spawned: Array[Entity] = []
+	if zone == null:
+		return spawned
+	for s: Dictionary in zone.spawns:
+		var enemy_type: String = str(s.get("enemy", s.get("enemy_type_id", s.get("type", ""))))
+		var tile_val: Variant = s.get("tile")
+		if enemy_type.is_empty() or tile_val == null:
+			continue
+		var entity := spawn_enemy(enemy_type, tile_val)
+		if entity != null:
+			spawned.append(entity)
+	return spawned
+
+
+func spawn_enemies() -> Array[Entity]:
+	return spawn_zone_enemies()
 
 
 func record_event(event: Dictionary) -> void:
@@ -856,3 +894,18 @@ func _handle_entity_death(dead_entity: Entity) -> void:
 			entity.command = null
 			entity.path.clear()
 			entity.path_index = 0
+
+	# Roll loot for enemy death
+	if dead_entity.kind == "enemy" and inventory != null and rng != null and item_db != null:
+		if not dead_entity.enemy_type_id.is_empty() and item_db.has_loot_table(dead_entity.enemy_type_id):
+			var tile := Vector2i(int(floor(dead_entity.pos.x)), int(floor(dead_entity.pos.y)))
+			var eff_zone := zone_id if not zone_id.is_empty() else "floor1"
+			var drops: Array[int] = Loot.roll(dead_entity.enemy_type_id, eff_zone, inventory, rng, item_db)
+			if not drops.is_empty():
+				_events.append({
+					"type": "loot_drop",
+					"tick": tick_count,
+					"entity": dead_entity.id,
+					"items": drops,
+					"tile": tile,
+				})

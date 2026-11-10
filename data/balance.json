@@ -38,7 +38,8 @@
   },
   "sim": {
     "tick_hz": 30,
-    "max_frame_dt_s": 0.1
+    "max_frame_dt_s": 0.1,
+    "seed": 1337
   },
   "view": {
     "tile_px": 32,
