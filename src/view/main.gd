@@ -268,6 +268,8 @@ func _on_event_emitted(ev: Dictionary) -> void:
 		var target_id := int(ev.get("target", -1))
 		if player != null and target_id == player.id:
 			_handle_player_death(ev)
+		elif world_state != null:
+			world_state.killed_enemies += 1
 
 
 func _persist_player_death(death_event: Dictionary) -> Dictionary:
