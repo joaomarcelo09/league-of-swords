@@ -45,6 +45,11 @@ func _ready() -> void:
 		get_tree().quit(1)
 		return
 
+	if TitlePreview.check_preview_flag():
+		var cur_scene := get_tree().current_scene
+		if cur_scene == null or cur_scene.scene_file_path != "res://scenes/title.tscn":
+			get_tree().change_scene_to_file("res://scenes/title.tscn")
+
 	var frames_to_wait := DEFAULT_FRAMES
 	if args.has("frames"):
 		var parsed_frames := int(args["frames"])

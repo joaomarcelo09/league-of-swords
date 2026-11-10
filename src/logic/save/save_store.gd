@@ -208,6 +208,57 @@ func list_characters(slot: String) -> Dictionary:
 	}
 
 
+func delete_slot(slot: String) -> Dictionary:
+	if not is_valid_name(slot):
+		return {
+			"ok": false,
+			"error": "Invalid or unsafe slot name '%s'" % slot
+		}
+
+	var slot_dir := get_slot_dir(slot)
+	if not DirAccess.dir_exists_absolute(slot_dir):
+		return {
+			"ok": true,
+			"error": ""
+		}
+
+	var err := _remove_dir_recursive(slot_dir)
+	if err != OK:
+		return {
+			"ok": false,
+			"error": "Failed to remove slot directory '%s' (error %d)" % [slot_dir, err]
+		}
+
+	return {
+		"ok": true,
+		"error": ""
+	}
+
+
+static func _remove_dir_recursive(dir_path: String) -> int:
+	var dir := DirAccess.open(dir_path)
+	if dir == null:
+		return DirAccess.get_open_error()
+	dir.list_dir_begin()
+	var item := dir.get_next()
+	while not item.is_empty():
+		if item != "." and item != "..":
+			var item_path := dir_path.path_join(item)
+			if dir.current_is_dir():
+				var err := _remove_dir_recursive(item_path)
+				if err != OK:
+					dir.list_dir_end()
+					return err
+			else:
+				var err := DirAccess.remove_absolute(item_path)
+				if err != OK:
+					dir.list_dir_end()
+					return err
+		item = dir.get_next()
+	dir.list_dir_end()
+	return DirAccess.remove_absolute(dir_path)
+
+
 func get_character_ids(slot: String) -> Array[String]:
 	var res := list_characters(slot)
 	if res.get("ok", false) and res.get("value") is Array:
