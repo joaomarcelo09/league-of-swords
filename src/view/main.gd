@@ -101,6 +101,7 @@ func _init_game() -> void:
 	player_input.setup(player.id, world, zone_view, registry)
 
 	TelegraphWindupPreview.setup_if_requested(self)
+	LayeredSpritePreview.setup_if_requested(self)
 
 	# Initial view update
 	_update_views()
@@ -167,7 +168,7 @@ func _create_player_marker() -> void:
 
 
 func _process(delta: float) -> void:
-	if TelegraphWindupPreview.is_active:
+	if TelegraphWindupPreview.is_active or LayeredSpritePreview.is_active:
 		_update_views()
 		return
 
