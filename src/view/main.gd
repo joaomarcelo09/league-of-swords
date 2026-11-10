@@ -24,6 +24,7 @@ var world: WorldSim = null
 var player: Entity = null
 var player_marker: Node2D = null
 var entity_layer: EntityLayer = null
+var hud: HUD = null
 var max_frame_dt_s: float = 0.0
 
 var last_events: Array[Dictionary]:
@@ -100,11 +101,34 @@ func _init_game() -> void:
 		add_child(player_input)
 	player_input.setup(player.id, world, zone_view, registry)
 
+	# 10. Setup HUD
+	_create_hud()
+
 	TelegraphWindupPreview.setup_if_requested(self)
 	LayeredSpritePreview.setup_if_requested(self)
+	HudPreview.setup_if_requested(self)
 
 	# Initial view update
 	_update_views()
+
+
+func _create_hud() -> void:
+	if has_node("HUD"):
+		hud = get_node("HUD") as HUD
+	else:
+		var hud_scene := load("res://scenes/hud.tscn") as PackedScene
+		if hud_scene != null:
+			hud = hud_scene.instantiate() as HUD
+		else:
+			hud = HUD.new()
+		hud.name = "HUD"
+		add_child(hud)
+
+	hud.setup(session, world, player, inventory, item_db, registry, entities_root, zone_view)
+	event_emitted.connect(func(ev: Dictionary) -> void:
+		if hud != null:
+			hud.handle_event(ev)
+	)
 
 
 func _create_entity_layer() -> void:
@@ -168,7 +192,7 @@ func _create_player_marker() -> void:
 
 
 func _process(delta: float) -> void:
-	if TelegraphWindupPreview.is_active or LayeredSpritePreview.is_active:
+	if TelegraphWindupPreview.is_active or LayeredSpritePreview.is_active or HudPreview.is_active:
 		_update_views()
 		return
 
@@ -204,3 +228,6 @@ func _update_views() -> void:
 
 	if camera != null:
 		camera.follow(world_pos)
+
+	if hud != null:
+		hud.update_view()
