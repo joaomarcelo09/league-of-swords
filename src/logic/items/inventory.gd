@@ -31,7 +31,7 @@ static func is_valid_owner(owner_str: String) -> bool:
 func create(def_id: String, owner: String) -> int:
 	if _item_db == null:
 		push_error("Inventory.create: item_db is required to create items")
-		return 0
+		return -1
 
 	if def_id.strip_edges().is_empty():
 		push_error("Inventory.create: def_id is empty")
@@ -241,14 +241,15 @@ func use(uid: int, entity: Variant, character_owner: String = "") -> bool:
 		push_error("Inventory.use: entity is null")
 		return false
 
+	if not ("kind" in entity and entity.kind == "player"):
+		var kind_str := str(entity.kind) if "kind" in entity else "<unknown>"
+		push_error("Inventory.use: non-player entity (kind '%s') cannot use items" % kind_str)
+		return false
+
 	var acting_owner := character_owner
 	if acting_owner.is_empty():
 		if "id" in entity:
 			acting_owner = "character:%s" % str(entity.id)
-		elif "owner" in entity:
-			acting_owner = str(entity.owner)
-		elif entity is String:
-			acting_owner = entity
 
 	if not acting_owner.begins_with("character:"):
 		push_error("Inventory.use: only characters can use items, got '%s'" % acting_owner)
@@ -260,7 +261,7 @@ func use(uid: int, entity: Variant, character_owner: String = "") -> bool:
 		])
 		return false
 
-	if entity.dead or ("hp" in entity and entity.hp <= 0.0):
+	if ("dead" in entity and entity.dead) or ("hp" in entity and entity.hp <= 0.0):
 		push_error("Inventory.use: cannot use consumable on dead entity")
 		return false
 
@@ -336,6 +337,10 @@ func to_dict() -> Dictionary:
 
 
 static func from_dict(dict: Dictionary, p_item_db: ItemDB = null) -> Inventory:
+	if p_item_db == null:
+		push_error("Inventory.from_dict: item_db is required")
+		return null
+
 	if dict.is_empty():
 		push_error("Inventory.from_dict: dict is empty")
 		return null
@@ -390,7 +395,7 @@ static func from_dict(dict: Dictionary, p_item_db: ItemDB = null) -> Inventory:
 			push_error("Inventory.from_dict: item %d missing valid 'def_id'" % item_uid)
 			return null
 		var def_id := str(item_dict["def_id"])
-		if p_item_db != null and not p_item_db.has_item(def_id):
+		if not p_item_db.has_item(def_id):
 			push_error("Inventory.from_dict: item %d references unknown def_id '%s'" % [item_uid, def_id])
 			return null
 
@@ -441,13 +446,12 @@ static func from_dict(dict: Dictionary, p_item_db: ItemDB = null) -> Inventory:
 				push_error("Inventory.from_dict: equipped item %d in slot '%s' not owned by '%s'" % [eq_uid, slot, char_owner])
 				return null
 
-			if p_item_db != null:
-				var item_def := p_item_db.get_item(parsed_items[eq_uid]["def_id"])
-				if item_def.has("type") and str(item_def["type"]) != slot:
-					push_error("Inventory.from_dict: item %d type '%s' does not match slot '%s'" % [
-						eq_uid, str(item_def["type"]), slot
-					])
-					return null
+			var item_def := p_item_db.get_item(parsed_items[eq_uid]["def_id"])
+			if item_def.has("type") and str(item_def["type"]) != slot:
+				push_error("Inventory.from_dict: item %d type '%s' does not match slot '%s'" % [
+					eq_uid, str(item_def["type"]), slot
+				])
+				return null
 
 			slots_eq[slot] = eq_uid
 

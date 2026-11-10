@@ -169,8 +169,6 @@ func load_from_registry(registry: DataRegistry) -> bool:
 				raw_items[str(k)] = item_val
 	else:
 		for item_id in all_ids:
-			if item_id == "loot_tables":
-				continue
 			var item_dict := registry.get_entry("items", item_id)
 			if not item_dict.is_empty():
 				raw_items[item_id] = item_dict
@@ -186,18 +184,6 @@ func load_from_registry(registry: DataRegistry) -> bool:
 		var table_dict := registry.get_entry("loot_tables", enemy_type_id)
 		if not register_loot_table(enemy_type_id, table_dict):
 			all_ok = false
-
-	if loot_table_ids.is_empty() and registry.has_entry("items", "loot_tables"):
-		var raw_tables: Dictionary = registry.get_entry("items", "loot_tables")
-		for enemy_type_id: Variant in raw_tables.keys():
-			var table_val: Variant = raw_tables[enemy_type_id]
-			if not (table_val is Dictionary):
-				push_error("ItemDB: loot table for '%s' must be an object" % enemy_type_id)
-				all_ok = false
-				continue
-			var table_dict: Dictionary = table_val
-			if not register_loot_table(str(enemy_type_id), table_dict):
-				all_ok = false
 
 	return all_ok
 
