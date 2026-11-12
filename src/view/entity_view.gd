@@ -13,6 +13,7 @@ const DEFAULT_HP_BAR_BORDER_COLOR := Color(0.0, 0.0, 0.0, 0.9)
 const ENEMIES_TABLE: String = "enemies"
 const APPEARANCES_TABLE: String = "appearances"
 const LAYOUT_DIR: String = "res://data/sprites/"
+const DEFAULT_VIEW_SCALE: float = 1.0
 
 var entity_id: int = 0
 var entity: Entity = null
@@ -36,6 +37,8 @@ var hp_bar_border_color: Color = DEFAULT_HP_BAR_BORDER_COLOR
 ## Layered LPC sprite built from the enemy type's "appearance" (null = hexagon fallback).
 var sprite: LayeredSprite = null
 var sprite_source: String = CharacterAppearance.SOURCE_NONE
+## Visual-only sprite scale from the enemy type's "view_scale" (logic hitbox unchanged).
+var view_scale: float = DEFAULT_VIEW_SCALE
 var animator: CharacterAnimator = CharacterAnimator.new()
 ## Sim clock, set by EntityLayer before each sync (drives the hurt reaction).
 var now_tick: int = 0
@@ -175,6 +178,14 @@ static func death_seconds_from_layout(p_layout: Dictionary) -> float:
 	return float(frames) / fps
 
 
+## Pure: an enemy entry's "view_scale" (default 1.0; non-numbers or <= 0 fall back).
+static func view_scale_from_entry(enemy_entry: Dictionary) -> float:
+	var val: Variant = enemy_entry.get("view_scale", null)
+	if (val is float or val is int) and float(val) > 0.0:
+		return float(val)
+	return DEFAULT_VIEW_SCALE
+
+
 ## True if this view draws a layered sprite (false = hexagon fallback).
 func has_sprite() -> bool:
 	return sprite != null
@@ -211,6 +222,7 @@ func _build_sprite() -> void:
 		return
 	var type_id := entity.enemy_type_id if not entity.enemy_type_id.is_empty() else entity.kind
 	var enemy_entry := registry.get_entry(ENEMIES_TABLE, type_id)
+	view_scale = view_scale_from_entry(enemy_entry)
 	var appearance_id := str(enemy_entry.get("appearance", "")).strip_edges()
 	if appearance_id.is_empty():
 		return
@@ -234,12 +246,15 @@ func _build_sprite() -> void:
 	new_sprite.show_behind_parent = true
 	new_sprite.set_layer_textures(textures)
 	new_sprite.play(CharacterAnimator.ANIM_IDLE, AnimState.DIR_DOWN)
+	new_sprite.scale = Vector2(view_scale, view_scale)
 	add_child(new_sprite)
 	sprite = new_sprite
 	animator.reset(entity.pos)
 	var hp_off: Variant = sprite.layout.get("hp_bar_y_offset", null)
 	if hp_off is float or hp_off is int:
 		hp_bar_y_offset = float(hp_off)
+	# Keep the HP bar above a scaled-up sprite's head.
+	hp_bar_y_offset *= view_scale
 
 
 func get_hp_ratio() -> float:

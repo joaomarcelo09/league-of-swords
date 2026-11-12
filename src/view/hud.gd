@@ -174,6 +174,9 @@ var inventory_panel: PanelContainer = null
 var inventory_items_vbox: VBoxContainer = null
 var inventory_empty_label: Label = null
 
+var boss_bar: BossBar = null
+var floor_cleared_panel: FloorClearedPanel = null
+
 
 # --- Lifecycle & Setup ---
 
@@ -227,6 +230,8 @@ func _ensure_ui_tree() -> void:
 
 	_build_bottom_hud()
 	_build_inventory_panel()
+	_build_boss_bar()
+	_build_floor_cleared_panel()
 
 
 func _build_bottom_hud() -> void:
@@ -409,6 +414,28 @@ func _build_inventory_panel() -> void:
 	root_control.add_child(inventory_panel)
 
 
+func _viewport_size() -> Vector2:
+	var vp_size := Vector2(1280.0, 720.0)
+	if get_viewport() != null:
+		var vp_rect := get_viewport().get_visible_rect()
+		if vp_rect.size.x > 0.0:
+			vp_size = vp_rect.size
+	return vp_size
+
+
+func _build_boss_bar() -> void:
+	boss_bar = BossBar.new()
+	boss_bar.apply_registry(registry)
+	boss_bar.place_top_center(_viewport_size().x)
+	root_control.add_child(boss_bar)
+
+
+func _build_floor_cleared_panel() -> void:
+	floor_cleared_panel = FloorClearedPanel.new()
+	floor_cleared_panel.place_center(_viewport_size())
+	root_control.add_child(floor_cleared_panel)
+
+
 # --- Input Handling ---
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -458,7 +485,13 @@ func _process(_delta: float) -> void:
 func update_view() -> void:
 	_update_hp_bar()
 	_update_skill_slots()
+	_update_boss_bar()
 	_check_loot_proximity()
+
+
+func _update_boss_bar() -> void:
+	if boss_bar != null:
+		boss_bar.update_from_world(world, registry)
 
 
 func _update_hp_bar() -> void:
@@ -554,6 +587,15 @@ func handle_event(event: Dictionary) -> void:
 	var event_type: String = str(event.get("type", ""))
 	if event_type == "loot_drop":
 		spawn_loot_drop(event)
+	elif event_type == "floor_cleared":
+		show_floor_cleared(event)
+
+
+func show_floor_cleared(event: Dictionary) -> void:
+	if floor_cleared_panel == null:
+		return
+	var zone_id := world.zone_id if world != null else ""
+	floor_cleared_panel.show_for_event(event, zone_id)
 
 
 func spawn_loot_drop(event: Dictionary) -> Array[LootDropView]:
@@ -737,6 +779,14 @@ func get_skill_slot(slot: String) -> Control:
 
 func get_inventory_panel() -> Control:
 	return inventory_panel
+
+
+func get_boss_bar() -> BossBar:
+	return boss_bar
+
+
+func get_floor_cleared_panel() -> FloorClearedPanel:
+	return floor_cleared_panel
 
 
 # --- Pure Static Helper Functions ---
