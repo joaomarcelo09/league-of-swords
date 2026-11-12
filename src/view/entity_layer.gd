@@ -33,6 +33,8 @@ var player_marker: Node2D = null
 var player_hp_bar: PlayerHPBar = null
 
 var views: Dictionary = {}
+## Dead enemy views kept alive to play their death animation: id -> sim tick to free at.
+var dying_until_tick: Dictionary = {}
 var last_events: Array[Dictionary] = []
 
 var telegraphs_root: Node2D = null
@@ -49,6 +51,7 @@ func reset() -> void:
 		if is_instance_valid(view):
 			view.queue_free()
 	views.clear()
+	dying_until_tick.clear()
 
 	if telegraphs_root != null:
 		for child: Node in telegraphs_root.get_children():
@@ -192,22 +195,50 @@ func sync() -> void:
 			view.name = "EntityView_%d" % entity_id
 			views[entity_id] = view
 			add_child(view)
+			_set_view_clock(view)
 			view.setup(entity, zone_view, registry)
 		else:
+			_set_view_clock(view)
 			view.sync()
 
-	# Remove views for dead or removed entities
+	# Remove views for dead or removed entities. A sprite enemy that just died keeps its
+	# view until its death animation (layout frame_count / fps) has played.
+	var now_tick: int = world.tick_count
 	var to_remove: Array[int] = []
 	for id_val: Variant in views.keys():
 		var id: int = int(id_val)
-		if not current_living_ids.has(id):
+		if current_living_ids.has(id):
+			continue
+		var view: EntityView = views[id]
+		if not is_instance_valid(view):
 			to_remove.append(id)
+			continue
+		if not dying_until_tick.has(id):
+			var linger := CharacterAnimator.hurt_ticks_for(view.death_seconds(), world.tick_length)
+			var still_in_world: bool = world.entities.has(id)
+			if linger <= 0 or not still_in_world:
+				to_remove.append(id)
+				continue
+			dying_until_tick[id] = now_tick + linger
+		if now_tick >= int(dying_until_tick[id]):
+			to_remove.append(id)
+			continue
+		_set_view_clock(view)
+		view.sync()
 
 	for id: int in to_remove:
 		var view: EntityView = views[id]
 		views.erase(id)
+		dying_until_tick.erase(id)
 		if is_instance_valid(view):
 			view.queue_free()
+
+
+func _set_view_clock(view: EntityView) -> void:
+	if world == null:
+		return
+	view.now_tick = world.tick_count
+	view.tick_length = world.tick_length
 
 
 func _update_player(entity: Entity) -> void:
@@ -231,8 +262,27 @@ func _handle_sim_event(event: Dictionary) -> void:
 	match event_type:
 		"telegraph_start":
 			_spawn_telegraph(event)
+			_notify_view_attack(event)
 		"damage":
 			_spawn_floating_text(event)
+			_notify_view_hurt(event)
+
+
+## View-only: an enemy started its attack; its sprite slashes toward the locked direction.
+func _notify_view_attack(event: Dictionary) -> void:
+	var view: EntityView = views.get(int(event.get("source", 0)), null)
+	if view == null or not is_instance_valid(view):
+		return
+	var dir: Variant = event.get("dir", null)
+	view.notify_attack(dir as Vector2 if dir is Vector2 else Vector2.ZERO)
+
+
+## View-only: an enemy took damage; its sprite plays the hurt reaction.
+func _notify_view_hurt(event: Dictionary) -> void:
+	var view: EntityView = views.get(int(event.get("target", 0)), null)
+	if view == null or not is_instance_valid(view) or world == null:
+		return
+	view.notify_hurt(int(event.get("tick", world.tick_count)), world.tick_length)
 
 
 func _spawn_telegraph(event: Dictionary) -> void:

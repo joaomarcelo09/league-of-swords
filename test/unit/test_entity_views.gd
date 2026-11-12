@@ -40,6 +40,14 @@ func test_layer_creates_view_for_spawned_enemy_and_removes_it_after_death() -> v
 	assert_true(enemy.dead)
 
 	layer.sync()
+	# JGT-74: a sprite enemy (LPC art fetched) lingers to play its death animation;
+	# the hexagon fallback is removed at once.
+	var guard := 0
+	while layer.has_entity_view(enemy.id) and guard < 1000:
+		assert_true(view.has_sprite(), "Only sprite enemies may linger after death")
+		session.step(session.world.tick_length)
+		layer.sync()
+		guard += 1
 	assert_false(layer.has_entity_view(enemy.id), "Layer must remove EntityView after entity death")
 	assert_true(view.is_queued_for_deletion(), "Removed view should be queued for deletion")
 

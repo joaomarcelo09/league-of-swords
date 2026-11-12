@@ -1,6 +1,8 @@
 {
   "ash_stalker": {
     "name": "Ash Stalker",
+    "appearance": "ash_stalker",
+    "layout": "lpc",
     "aggro_radius": 5.0,
     "leash_radius": 8.0,
     "move_speed_tiles_per_s": 2.5,
