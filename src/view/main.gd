@@ -200,6 +200,8 @@ func _init_game() -> void:
 		player.pos = saved_pos
 	if character_state != null and character_state.stats != null:
 		player.stats = character_state.stats.duplicate()
+	if world_state != null:
+		world.set_bosses_defeated(world_state.bosses_defeated)
 	session.spawn_enemies()
 	_sync_items_to_entity()
 

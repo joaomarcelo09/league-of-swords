@@ -14,6 +14,11 @@ var tick_length: float:
 var tick_count: int = 0
 var entities: Dictionary = {}
 var _events: Array[Dictionary] = []
+## Boss spawn ids already defeated. Callers may assign WorldState.bosses_defeated
+## (shared by reference) so kills are recorded straight into the save state.
+var bosses_defeated: Array[String] = []
+## Last exit tile each entity stood on (entity id -> Vector2i); cleared when it leaves.
+var _exit_tiles: Dictionary = {}
 
 var _next_entity_id: int = 1
 var _command_queue: Array[Commands.Command] = []
@@ -198,14 +203,84 @@ func spawn_zone_enemies() -> Array[Entity]:
 		var tile_val: Variant = s.get("tile")
 		if enemy_type.is_empty() or tile_val == null:
 			continue
+		var spawn_id: String = str(s.get("id", ""))
+		var is_boss: bool = typeof(s.get("boss", false)) == TYPE_BOOL and bool(s.get("boss", false))
+		if is_boss and not spawn_id.is_empty() and bosses_defeated.has(spawn_id):
+			continue
 		var entity := spawn_enemy(enemy_type, tile_val)
 		if entity != null:
+			entity.spawn_id = spawn_id
+			entity.is_boss = is_boss
 			spawned.append(entity)
 	return spawned
 
 
 func spawn_enemies() -> Array[Entity]:
 	return spawn_zone_enemies()
+
+
+## Shares the caller's defeated-boss list (e.g. WorldState.bosses_defeated) by reference.
+func set_bosses_defeated(list: Array[String]) -> void:
+	bosses_defeated = list
+
+
+func is_boss_defeated(boss_id: String) -> bool:
+	return bosses_defeated.has(boss_id)
+
+
+## Returns the zone exit at tile `t` or an empty Dictionary.
+func exit_at(t: Vector2i) -> Dictionary:
+	if zone == null:
+		return {}
+	for e: Dictionary in zone.exits:
+		var et: Variant = parse_tile_coord(e.get("tile"))
+		if et != null and et == t:
+			return e
+	return {}
+
+
+## True when the exit's required boss (if any) has been defeated.
+func is_exit_unlocked(exit: Dictionary) -> bool:
+	var req: String = str(exit.get("requires_boss", ""))
+	return req.is_empty() or bosses_defeated.has(req)
+
+
+## Checks whether the entity stands on an exit tile. Emits `floor_cleared` or
+## `exit_locked` once per entry onto the tile and returns that event; returns {}
+## when off any exit, still on the same exit, or the entity is missing/dead.
+func check_exit(entity_id: int) -> Dictionary:
+	var entity: Entity = get_entity(entity_id)
+	if entity == null or entity.dead:
+		_exit_tiles.erase(entity_id)
+		return {}
+	var t: Vector2i = entity.tile()
+	var exit: Dictionary = exit_at(t)
+	if exit.is_empty():
+		_exit_tiles.erase(entity_id)
+		return {}
+	if _exit_tiles.get(entity_id) == t:
+		return {}
+	_exit_tiles[entity_id] = t
+	var label: String = str(exit.get("label", ""))
+	var ev: Dictionary
+	if is_exit_unlocked(exit):
+		ev = {
+			"type": "floor_cleared",
+			"tick": tick_count,
+			"to_zone": str(exit.get("to_zone", "")),
+			"label": label,
+			"tile": t,
+		}
+	else:
+		ev = {
+			"type": "exit_locked",
+			"tick": tick_count,
+			"boss": str(exit.get("requires_boss", "")),
+			"tile": t,
+			"label": label,
+		}
+	_events.append(ev)
+	return ev
 
 
 func record_event(event: Dictionary) -> void:
@@ -250,6 +325,18 @@ func _tick() -> void:
 			continue
 		_apply_command(entity, cmd)
 	_update_entities()
+	_check_player_exits()
+
+
+func _check_player_exits() -> void:
+	if zone == null or zone.exits.is_empty():
+		return
+	var ids: Array = entities.keys()
+	ids.sort()
+	for id: Variant in ids:
+		var entity: Entity = entities[id]
+		if entity.kind == "player":
+			check_exit(entity.id)
 
 
 func _apply_command(entity: Entity, cmd: Commands.Command) -> void:
@@ -916,6 +1003,16 @@ func _handle_entity_death(dead_entity: Entity) -> void:
 			entity.command = null
 			entity.path.clear()
 			entity.path_index = 0
+
+	if dead_entity.is_boss and not dead_entity.spawn_id.is_empty() and not bosses_defeated.has(dead_entity.spawn_id):
+		bosses_defeated.append(dead_entity.spawn_id)
+		_events.append({
+			"type": "boss_defeated",
+			"tick": tick_count,
+			"boss": dead_entity.spawn_id,
+			"entity": dead_entity.id,
+			"enemy_type": dead_entity.enemy_type_id,
+		})
 
 	# Roll loot for enemy death
 	if dead_entity.kind == "enemy" and inventory != null and rng != null and item_db != null:
