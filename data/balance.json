@@ -96,6 +96,20 @@
       "trail_ghost_radius_px": 9.0,
       "trail_ribbon_width_px": 6.0,
       "trail_tail_alpha": 0.3
+    },
+    "hit": {
+      "flash_duration_s": 0.16,
+      "flash_tint": [3.0, 3.0, 3.0, 1.0],
+      "shake_duration_s": 0.22,
+      "shake_amplitude_px": 5.0,
+      "shake_frequency_hz": 24.0,
+      "spark_duration_s": 0.2,
+      "spark_count": 6,
+      "spark_inner_px": 4.0,
+      "spark_length_px": 7.0,
+      "spark_reach_px": 9.0,
+      "spark_width_px": 2.0,
+      "spark_color": [1.0, 0.95, 0.7, 1.0]
     }
   },
   "save": {
