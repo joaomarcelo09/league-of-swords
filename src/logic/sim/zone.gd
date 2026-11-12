@@ -6,6 +6,7 @@ var height: int = 0
 var entry: Vector2i = Vector2i(-1, -1)
 var spawns: Array[Dictionary] = []
 var exits: Array[Dictionary] = []
+var npcs: Array[Dictionary] = []
 var errors: Array[String] = []
 
 var _rows: Array[String] = []
@@ -55,6 +56,32 @@ func decor_at(t: Vector2i) -> String:
 	if info is Dictionary:
 		return str(info.get("decor", ""))
 	return ""
+
+
+func is_safe(t: Vector2i) -> bool:
+	if not is_in_bounds(t):
+		return false
+	if t.y >= _rows.size() or t.x >= _rows[t.y].length():
+		return false
+	var ch: String = _rows[t.y][t.x]
+	var info: Variant = _legend.get(ch)
+	if info is Dictionary:
+		var safe_val: Variant = (info as Dictionary).get("safe", false)
+		return typeof(safe_val) == TYPE_BOOL and safe_val == true
+	return false
+
+
+func boss_spawns() -> Array[Dictionary]:
+	var res: Array[Dictionary] = []
+	for s in spawns:
+		var boss_val: Variant = s.get("boss", false)
+		if typeof(boss_val) == TYPE_BOOL and boss_val == true:
+			res.append(s)
+	return res
+
+
+static func _is_non_empty_string(v: Variant) -> bool:
+	return (typeof(v) == TYPE_STRING or typeof(v) == TYPE_STRING_NAME) and not str(v).is_empty()
 
 
 func find_path(a: Vector2i, b: Vector2i) -> Array[Vector2i]:
@@ -188,6 +215,8 @@ static func load_from_strings(map_text: String, json_data: Variant, map_name: St
 			var val: Variant = zone._legend[k]
 			if not (val is Dictionary):
 				zone.errors.append("%s: Legend entry '%s' must be an object" % [json_name, str(k)])
+			elif (val as Dictionary).has("safe") and typeof((val as Dictionary)["safe"]) != TYPE_BOOL:
+				zone.errors.append("%s: legend entry '%s' safe must be a boolean" % [json_name, str(k)])
 
 	# 2. Parse map rows
 	var norm_text := map_text.replace("\r\n", "\n").replace("\r", "\n")
@@ -234,6 +263,7 @@ static func load_from_strings(map_text: String, json_data: Variant, map_name: St
 					zone.errors.append("%s: Entry tile %s is not walkable" % [json_name, str(zone.entry)])
 
 	# 4. Validate spawns
+	var spawn_ids: Dictionary = {}
 	if json_dict.has("spawns"):
 		var spawns_val: Variant = json_dict["spawns"]
 		if not (spawns_val is Array):
@@ -246,6 +276,16 @@ static func load_from_strings(map_text: String, json_data: Variant, map_name: St
 					zone.errors.append("%s: Spawn entry must be an object" % json_name)
 					continue
 				var s_dict: Dictionary = (spawn_item as Dictionary).duplicate(true)
+				if s_dict.has("id"):
+					var sid: Variant = s_dict["id"]
+					if not _is_non_empty_string(sid):
+						zone.errors.append("%s: spawn[%d] id must be a non-empty string" % [json_name, i])
+					elif spawn_ids.has(str(sid)):
+						zone.errors.append("%s: spawn[%d] id '%s' is duplicated" % [json_name, i, str(sid)])
+					else:
+						spawn_ids[str(sid)] = true
+				if s_dict.has("boss") and typeof(s_dict["boss"]) != TYPE_BOOL:
+					zone.errors.append("%s: spawn[%d] boss must be a boolean" % [json_name, i])
 				var parsed_tile: Variant = _parse_tile(s_dict.get("tile"), "spawn[%d] tile" % i, json_name, zone.errors)
 				if parsed_tile == null:
 					continue
@@ -271,6 +311,21 @@ static func load_from_strings(map_text: String, json_data: Variant, map_name: St
 					zone.errors.append("%s: Exit entry must be an object" % json_name)
 					continue
 				var e_dict: Dictionary = (exit_item as Dictionary).duplicate(true)
+				if e_dict.has("label") and typeof(e_dict["label"]) != TYPE_STRING:
+					zone.errors.append("%s: exit[%d] label must be a string" % [json_name, i])
+				if e_dict.has("requires_boss"):
+					var rb: Variant = e_dict["requires_boss"]
+					if typeof(rb) != TYPE_STRING:
+						zone.errors.append("%s: exit[%d] requires_boss must be a string" % [json_name, i])
+					else:
+						var boss_found: bool = false
+						for bs in zone.boss_spawns():
+							var bid: Variant = bs.get("id")
+							if _is_non_empty_string(bid) and str(bid) == rb:
+								boss_found = true
+								break
+						if not boss_found:
+							zone.errors.append("%s: exit[%d] requires_boss '%s' does not match a boss spawn id" % [json_name, i, str(rb)])
 				var parsed_tile: Variant = _parse_tile(e_dict.get("tile"), "exit[%d] tile" % i, json_name, zone.errors)
 				if parsed_tile == null:
 					continue
@@ -283,7 +338,42 @@ static func load_from_strings(map_text: String, json_data: Variant, map_name: St
 						zone.errors.append("%s: Exit tile %s is not walkable" % [json_name, str(et)])
 				zone.exits.append(e_dict)
 
-	# 6. Initialize AStarGrid2D if valid
+	# 6. Validate npcs
+	if json_dict.has("npcs"):
+		var npcs_val: Variant = json_dict["npcs"]
+		if not (npcs_val is Array):
+			zone.errors.append("%s: 'npcs' must be an array" % json_name)
+		else:
+			var npc_ids: Dictionary = {}
+			var npcs_arr: Array = npcs_val
+			for i in range(npcs_arr.size()):
+				var npc_item: Variant = npcs_arr[i]
+				if not (npc_item is Dictionary):
+					zone.errors.append("%s: NPC entry must be an object" % json_name)
+					continue
+				var n_dict: Dictionary = (npc_item as Dictionary).duplicate(true)
+				var nid: Variant = n_dict.get("id")
+				if not _is_non_empty_string(nid):
+					zone.errors.append("%s: npc[%d] id must be a non-empty string" % [json_name, i])
+				elif npc_ids.has(str(nid)):
+					zone.errors.append("%s: npc[%d] id '%s' is duplicated" % [json_name, i, str(nid)])
+				else:
+					npc_ids[str(nid)] = true
+				if not _is_non_empty_string(n_dict.get("kind")):
+					zone.errors.append("%s: npc[%d] kind must be a non-empty string" % [json_name, i])
+				var parsed_tile: Variant = _parse_tile(n_dict.get("tile"), "npc[%d] tile" % i, json_name, zone.errors)
+				if parsed_tile == null:
+					continue
+				var nt: Vector2i = parsed_tile
+				n_dict["tile"] = [nt.x, nt.y]
+				if zone.height > 0 and zone.width > 0:
+					if not zone.is_in_bounds(nt):
+						zone.errors.append("%s: NPC tile %s is out of bounds" % [json_name, str(nt)])
+					elif not zone.is_walkable(nt):
+						zone.errors.append("%s: NPC tile %s is not walkable" % [json_name, str(nt)])
+				zone.npcs.append(n_dict)
+
+	# 7. Initialize AStarGrid2D if valid
 	if zone.is_valid() and zone.width > 0 and zone.height > 0:
 		zone._init_astar()
 
