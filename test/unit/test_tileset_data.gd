@@ -47,10 +47,15 @@ func test_default_json_matches_original_coords() -> void:
 	assert_false(ts.is_default, "floor1.json should load (not the built-in default)")
 	assert_eq(ts.atlas_path, "res://assets/tiles/placeholder_tiles.png")
 	assert_eq(ts.tile_px, 32)
-	assert_eq(ts.coords_for("wall", Vector2i(0, 0)), Vector2i(0, 0))
-	assert_eq(ts.coords_for("floor", Vector2i(4, 2)), Vector2i(1, 0))
-	assert_eq(ts.coords_for("grass", Vector2i(1, 9)), Vector2i(2, 0))
+	# Base coords of the original 4 tiles stay put (JGT-80 only adds variants/decor).
+	assert_eq(ts.tiles["wall"], Vector2i(0, 0))
+	assert_eq(ts.tiles["floor"], Vector2i(1, 0))
+	assert_eq(ts.tiles["grass"], Vector2i(2, 0))
+	assert_eq(ts.fallback, Vector2i(3, 0))
 	assert_eq(ts.coords_for("unknown", Vector2i(1, 1)), Vector2i(3, 0))
+	# Every variant list still contains the original base tile.
+	for type_name: String in ["wall", "floor", "grass"]:
+		assert_true((ts.variants[type_name] as Array).has(ts.tiles[type_name]), "%s variants keep base" % type_name)
 
 
 func test_default_tileset_renders_test_arena_as_before() -> void:
@@ -58,15 +63,17 @@ func test_default_tileset_renders_test_arena_as_before() -> void:
 	assert_true(zone.is_valid())
 	var zv: ZoneView = autofree(ZoneView.new())
 	zv.build(zone)
-	var expected := {"wall": Vector2i(0, 0), "floor": Vector2i(1, 0), "grass": Vector2i(2, 0)}
+	var ts: TilesetData = zv.tileset
 	for y: int in range(zone.height):
 		for x: int in range(zone.width):
 			var t := Vector2i(x, y)
-			var want: Vector2i = expected.get(zone.tile_type(t), Vector2i(3, 0))
-			assert_eq(zv.get_cell_atlas_coords(t), want, "cell %s" % str(t))
+			var type_name := zone.tile_type(t)
+			var allowed: Array = ts.variants.get(type_name, [ts.tiles.get(type_name, ts.fallback)])
+			assert_true(allowed.has(zv.get_cell_atlas_coords(t)), "cell %s" % str(t))
+			assert_eq(zv.get_cell_atlas_coords(t), ts.coords_for(type_name, t))
 			assert_eq(zv.get_cell_source_id(t), ZoneView.ATLAS_SOURCE_ID)
 	var src := zv.tile_set.get_source(ZoneView.ATLAS_SOURCE_ID) as TileSetAtlasSource
-	assert_eq(src.get_tiles_count(), 4, "default tileset references 4 atlas coords")
+	assert_eq(src.get_tiles_count(), ts.all_coords().size(), "one atlas tile per referenced coord")
 
 
 func test_changed_coord_in_user_json_changes_cell() -> void:
@@ -85,7 +92,7 @@ func test_load_tileset_after_build_rebuilds_tiles() -> void:
 	var zone: Zone = Zone.load_files(MAP_PATH, JSON_PATH)
 	var zv: ZoneView = autofree(ZoneView.new())
 	zv.build(zone)
-	assert_eq(zv.get_cell_atlas_coords(Vector2i(0, 0)), Vector2i(0, 0))
+	assert_eq(zv.get_cell_atlas_coords(Vector2i(0, 0)), zv.tileset.coords_for("wall", Vector2i(0, 0)))
 
 	var d := _base_dict()
 	d["tiles"]["wall"] = [2, 0]
@@ -185,6 +192,8 @@ func test_invalid_fields_fall_back_to_default() -> void:
 		{"atlas": "res://x.png", "tile_px": 32, "tiles": {"wall": "oops"}, "fallback": [3, 0]},
 		{"atlas": "res://x.png", "tile_px": 32, "tiles": {}, "fallback": [3]},
 		{"atlas": "res://x.png", "tile_px": 32, "tiles": {}, "fallback": [3, 0], "variants": {"wall": [[1]]}},
+		{"atlas": "res://x.png", "tile_px": 32, "tiles": {}, "fallback": [3, 0], "decor": {"torch": [1]}},
+		{"atlas": "res://x.png", "tile_px": 32, "tiles": {}, "fallback": [3, 0], "decor": [[1, 0]]},
 	]
 	for d: Dictionary in bad_cases:
 		_write_tmp(JSON.stringify(d))
@@ -222,3 +231,33 @@ func test_tileset_tile_px_used_unless_balance_sets_it() -> void:
 	zv2.setup(registry)
 	zv2.load_tileset(TMP_PATH)
 	assert_eq(zv2.tile_px, 32, "balance view.tile_px wins")
+
+
+func test_decor_section_parsed() -> void:
+	var d := _base_dict()
+	d["decor"] = {"torch": [1, 2], "crate": [0, 2]}
+	var ts := TilesetData.from_dict(d)
+	assert_not_null(ts)
+	assert_true(ts.has_decor("torch"))
+	assert_eq(ts.decor_coords("torch"), Vector2i(1, 2))
+	assert_false(ts.has_decor("nope"))
+	assert_eq(ts.decor_coords("nope"), ts.fallback, "unknown decor -> fallback coords")
+	assert_true(ts.all_coords().has(Vector2i(1, 2)), "decor coords get atlas tiles")
+	assert_true(ts.all_coords().has(Vector2i(0, 2)))
+
+
+func test_decor_section_optional() -> void:
+	var ts := TilesetData.from_dict(_base_dict())
+	assert_not_null(ts)
+	assert_true(ts.decor.is_empty())
+	assert_true(TilesetData.make_default().decor.is_empty())
+
+
+func test_variant_index_is_not_a_checkerboard() -> void:
+	# A raw x^y hash puts x+y parity in bit 0: two variants would checkerboard.
+	var same_as_parity := 0
+	for y: int in range(8):
+		for x: int in range(8):
+			if TilesetData.variant_index(Vector2i(x, y), 2) == (x + y) % 2:
+				same_as_parity += 1
+	assert_between(same_as_parity, 1, 63, "two-variant pick should not follow x+y parity")

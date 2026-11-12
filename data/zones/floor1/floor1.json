@@ -24,9 +24,46 @@
       "decor": "house"
     },
     "F": {
-      "type": "wall",
+      "type": "town_floor",
       "walkable": false,
       "decor": "fountain"
+    },
+    "t": {
+      "type": "wall",
+      "walkable": false,
+      "decor": "torch"
+    },
+    "b": {
+      "type": "floor",
+      "walkable": true,
+      "decor": "bones"
+    },
+    "r": {
+      "type": "floor",
+      "walkable": true,
+      "decor": "rubble"
+    },
+    "c": {
+      "type": "floor",
+      "walkable": false,
+      "decor": "crate"
+    },
+    "o": {
+      "type": "floor",
+      "walkable": false,
+      "decor": "barrel"
+    },
+    "B": {
+      "type": "town_floor",
+      "walkable": false,
+      "safe": true,
+      "decor": "barrel"
+    },
+    "K": {
+      "type": "town_floor",
+      "walkable": false,
+      "safe": true,
+      "decor": "crate"
     }
   },
   "entry": [

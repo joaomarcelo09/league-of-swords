@@ -8,9 +8,9 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 usage() {
   local exit_code="${1:-0}"
   if [[ "$exit_code" -eq 0 ]]; then
-    echo "Usage: $0 [--scene=res://path.tscn] [--frames=N] [--out=path.png] [--timeout=SECS] [--preview=NAME] [-- ...]"
+    echo "Usage: $0 [--scene=res://path.tscn] [--frames=N] [--out=path.png] [--timeout=SECS] [--preview=NAME] [--focus-tile=X,Y] [-- ...]"
   else
-    echo "Usage: $0 [--scene=res://path.tscn] [--frames=N] [--out=path.png] [--timeout=SECS] [--preview=NAME] [-- ...]" >&2
+    echo "Usage: $0 [--scene=res://path.tscn] [--frames=N] [--out=path.png] [--timeout=SECS] [--preview=NAME] [--focus-tile=X,Y] [-- ...]" >&2
   fi
   exit "$exit_code"
 }
@@ -83,6 +83,18 @@ while [[ $# -gt 0 ]]; do
         usage 1
       fi
       EXTRA_ARGS+=("--preview=$2")
+      shift 2
+      ;;
+    --focus-tile=*)
+      EXTRA_ARGS+=("--focus_tile=${1#*=}")
+      shift
+      ;;
+    --focus-tile)
+      if [[ $# -lt 2 ]]; then
+        echo "Error: --focus-tile requires an argument." >&2
+        usage 1
+      fi
+      EXTRA_ARGS+=("--focus_tile=$2")
       shift 2
       ;;
     --)
