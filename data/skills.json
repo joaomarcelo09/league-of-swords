@@ -2,6 +2,9 @@
   "crescent_sweep": {
     "name": "Crescent Sweep",
     "slot": "W",
+    "icon": "icon_crescent_sweep",
+    "vfx": "vfx_crescent_sweep",
+    "description": "A wide arcing slash that strikes every foe in a short cone ahead.",
     "cooldown_s": 5.0,
     "cast_time_s": 0.3,
     "shape": "cone",
@@ -17,6 +20,9 @@
   "ember_lance": {
     "name": "Ember Lance",
     "slot": "Q",
+    "icon": "icon_ember_lance",
+    "vfx": "vfx_ember_lance",
+    "description": "A quick burning thrust that pierces every foe along a narrow line.",
     "cooldown_s": 3.0,
     "cast_time_s": 0.2,
     "shape": "line",
@@ -32,6 +38,9 @@
   "mending_gale": {
     "name": "Mending Gale",
     "slot": "R",
+    "icon": "icon_mending_gale",
+    "vfx": "vfx_mending_gale",
+    "description": "A soothing wind that restores health and briefly sharpens your attacks.",
     "cooldown_s": 10.0,
     "cast_time_s": 0.0,
     "shape": "circle",
@@ -49,5 +58,13 @@
         "duration_s": 5.0
       }
     ]
+  },
+  "shadow_step": {
+    "name": "Shadow Step",
+    "slot": "E",
+    "icon": "icon_shadow_step",
+    "vfx": "vfx_shadow_step",
+    "description": "Slip a few paces toward the cursor in a blur of shadow.",
+    "data_ref": "balance.dash"
   }
 }
