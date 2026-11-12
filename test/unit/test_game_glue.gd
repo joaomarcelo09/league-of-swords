@@ -172,6 +172,8 @@ func test_main_view_integration() -> void:
 	assert_not_null(view.item_db, "MainView must have ItemDB")
 	assert_not_null(view.inventory, "MainView must have Inventory")
 	assert_not_null(view.player, "MainView must spawn player")
+	assert_not_null(view.player_input, "MainView must create PlayerInput")
+	assert_true(view.player_input.attack_mode_changed.is_connected(view._on_attack_mode_changed), "MainView must connect to attack_mode_changed")
 
 	# Check that zone enemies were spawned in world
 	var enemy_count := 0
