@@ -49,7 +49,7 @@ func _step_ticks(view: MainView, count: int) -> void:
 
 func test_milestone1_slice_end_to_end_flow() -> void:
 	# -------------------------------------------------------------------------
-	# 1. Spawn player at the zone entry in real slice zone data (test_arena)
+	# 1. Spawn player at the zone entry in real slice zone data (MainView default zone)
 	# -------------------------------------------------------------------------
 	LaunchRequest.mode = "new"
 	var view := MainView.new()
@@ -87,7 +87,7 @@ func test_milestone1_slice_end_to_end_flow() -> void:
 	# 2. Move via a Command
 	# -------------------------------------------------------------------------
 	var start_pos := view.player.pos
-	var target_tile := Vector2i(3, 4)
+	var target_tile := view.zone.entry + Vector2i(0, -2)
 	view.world.submit(Commands.move_to(view.player.id, target_tile))
 
 	# Advance 20 ticks (speed is 4.0 tiles/s, distance is 2.0 tiles -> ~15 ticks)

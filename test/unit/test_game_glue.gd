@@ -180,7 +180,7 @@ func test_main_view_integration() -> void:
 	for entity: Entity in view.world.entities.values():
 		if entity.kind == "enemy":
 			enemy_count += 1
-	assert_eq(enemy_count, 3, "MainView should have spawned 3 zone enemies in test_arena")
+	assert_eq(enemy_count, view.zone.spawns.size(), "MainView should have spawned one enemy per zone spawn")
 
 	# Test stepping
 	var initial_tick: int = view.world.tick_count
