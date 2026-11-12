@@ -64,6 +64,7 @@
   },
   "thornback_warden": {
     "name": "Thornback Warden",
+    "view_scale": 1.5,
     "appearance": "ash_stalker",
     "layout": "lpc",
     "max_hp": 600.0,
