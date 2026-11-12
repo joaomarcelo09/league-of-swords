@@ -156,7 +156,11 @@ func spawn_enemy(type_id: String, tile: Variant, hp: float = -1.0, stats: Stats 
 		push_error("spawn_enemy: enemy '%s' has no valid move speed in config or balance" % type_id)
 		return null
 
-	var entity := spawn("enemy", tile, speed, hp, stats)
+	var final_stats := stats
+	if final_stats == null:
+		final_stats = _enemy_stats_for(enemy_cfg)
+
+	var entity := spawn("enemy", tile, speed, hp, final_stats)
 	if entity == null:
 		return null
 	entity.enemy_type_id = type_id
@@ -165,6 +169,24 @@ func spawn_enemy(type_id: String, tile: Variant, hp: float = -1.0, stats: Stats 
 	if enemy_cfg.has("recovery_damage_mult"):
 		entity.recovery_damage_mult = float(enemy_cfg["recovery_damage_mult"])
 	return entity
+
+
+## Builds enemy Stats from balance `enemy` overlaid per-field with the type's
+## `max_hp`, `atk`, `defense` when present (numeric). Returns null if neither exists.
+func _enemy_stats_for(enemy_cfg: Dictionary) -> Stats:
+	var base: Dictionary = {}
+	if registry != null:
+		var balance_enemy: Variant = registry.get_balance("enemy")
+		if balance_enemy is Dictionary:
+			base = (balance_enemy as Dictionary).duplicate()
+	var has_override := false
+	for key: String in ["max_hp", "atk", "defense"]:
+		if enemy_cfg.has(key) and (enemy_cfg[key] is int or enemy_cfg[key] is float):
+			base[key] = float(enemy_cfg[key])
+			has_override = true
+	if base.is_empty() and not has_override:
+		return null
+	return Stats.from_dict(base)
 
 
 func spawn_zone_enemies() -> Array[Entity]:
