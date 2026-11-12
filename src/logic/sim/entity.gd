@@ -27,6 +27,10 @@ var enemy_type_id: String = ""
 var recovery_damage_mult: float = 1.0
 var target_id: int = 0
 
+# Zone spawn bookkeeping: id of the zone spawn this entity came from (empty if none)
+var spawn_id: String = ""
+var is_boss: bool = false
+
 
 func _init(
 	p_id: int = 0,
