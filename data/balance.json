@@ -20,7 +20,8 @@
   },
   "input": {
     "move_repeat_s": 0.15,
-    "enemy_pick_radius": 0.5
+    "enemy_pick_radius": 0.5,
+    "attack_pick_radius": 1.5
   },
   "player": {
     "move_speed_tiles_per_s": 4.0,

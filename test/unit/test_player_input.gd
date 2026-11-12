@@ -417,6 +417,279 @@ func test_missing_balance_keys_push_warning() -> void:
 	var empty_reg: DataRegistry = autofree(DataRegistry.new())
 	var p_input: PlayerInput = autofree(PlayerInput.new())
 	p_input.setup(_player.id, _sim, null, empty_reg)
-	assert_push_warning_count(2, "Missing input.move_repeat_s and input.enemy_pick_radius should push warnings")
+	assert_push_warning_count(3, "Missing input.move_repeat_s, input.enemy_pick_radius, and input.attack_pick_radius should push warnings")
 	assert_eq(p_input.move_repeat_s, PlayerInput.DEFAULT_MOVE_REPEAT_S)
 	assert_eq(p_input.enemy_pick_radius, PlayerInput.DEFAULT_ENEMY_PICK_RADIUS)
+	assert_eq(p_input.attack_pick_radius, PlayerInput.DEFAULT_ATTACK_PICK_RADIUS)
+
+
+func test_attack_move_nearest_wins() -> void:
+	var enemy_close := _sim.spawn("enemy", Vector2i(3, 1), 2.0)
+	var enemy_far := _sim.spawn("enemy", Vector2i(4, 1), 2.0)
+
+	var cursor := Vector2(2.8, 1.5)
+	var cmd: Commands.Command = PlayerInput.command_for_attack_click(_sim, _player.id, cursor, 2.0)
+	assert_not_null(cmd)
+	assert_true(cmd is Commands.AttackTarget)
+	assert_eq((cmd as Commands.AttackTarget).target_id, enemy_close.id, "Nearest enemy to cursor wins")
+
+	cursor = Vector2(4.8, 1.5)
+	cmd = PlayerInput.command_for_attack_click(_sim, _player.id, cursor, 2.0)
+	assert_not_null(cmd)
+	assert_true(cmd is Commands.AttackTarget)
+	assert_eq((cmd as Commands.AttackTarget).target_id, enemy_far.id, "Nearest enemy to cursor wins when cursor moves")
+
+
+func test_attack_move_dead_enemies_ignored() -> void:
+	var dead_enemy := _sim.spawn("enemy", Vector2i(3, 1), 2.0)
+	dead_enemy.dead = true
+	var alive_enemy := _sim.spawn("enemy", Vector2i(4, 1), 2.0)
+
+	var cursor := Vector2(3.2, 1.5)
+	var cmd: Commands.Command = PlayerInput.command_for_attack_click(_sim, _player.id, cursor, 2.0)
+	assert_not_null(cmd)
+	assert_true(cmd is Commands.AttackTarget)
+	assert_eq((cmd as Commands.AttackTarget).target_id, alive_enemy.id, "Dead enemy must be ignored in favor of living one")
+
+	# If only dead enemy is in radius, command should be null
+	var cmd_dead_only: Commands.Command = PlayerInput.command_for_attack_click(_sim, _player.id, dead_enemy.pos, 0.5)
+	assert_null(cmd_dead_only, "No living enemy in radius must return null")
+
+
+func test_attack_move_radius_limit() -> void:
+	var enemy := _sim.spawn("enemy", Vector2i(4, 1), 2.0)
+	var cursor := Vector2(1.5, 1.5)
+	# Distance from (1.5, 1.5) to (4.5, 1.5) is 3.0 tiles
+	var cmd: Commands.Command = PlayerInput.command_for_attack_click(_sim, _player.id, cursor, 1.5)
+	assert_null(cmd, "Enemy outside radius must return null")
+
+
+func test_attack_move_none_in_radius_returns_null_and_no_movement() -> void:
+	var zv: ZoneView = autofree(ZoneView.new())
+	zv.setup(_registry)
+	zv.build(_zone)
+
+	var p_input: PlayerInput = autofree(PlayerInput.new())
+	p_input.setup(_player.id, _sim, zv, _registry)
+
+	var ev_a := InputEventAction.new()
+	ev_a.action = "attack_mode"
+	ev_a.pressed = true
+	p_input.handle_input(ev_a)
+	assert_true(p_input.attack_target_mode)
+
+	# Right-click empty ground (2.5, 1.5) where no enemy exists
+	var empty_pos := Vector2(2.5, 1.5)
+	var mouse_down := InputEventMouseButton.new()
+	mouse_down.button_index = MOUSE_BUTTON_RIGHT
+	mouse_down.pressed = true
+
+	var cmd := p_input.handle_input(mouse_down, empty_pos)
+	assert_null(cmd, "Attack-click with no enemy in radius must return null (no MoveTo command)")
+	assert_false(p_input.attack_target_mode, "Attack mode must end after right click")
+	assert_false(p_input.is_holding_right, "Hold must not start after attack click")
+
+
+func test_attack_move_esc_or_a_cancels() -> void:
+	var zv: ZoneView = autofree(ZoneView.new())
+	zv.setup(_registry)
+	zv.build(_zone)
+
+	var p_input: PlayerInput = autofree(PlayerInput.new())
+	p_input.setup(_player.id, _sim, zv, _registry)
+
+	var signal_log: Array[bool] = []
+	p_input.attack_mode_changed.connect(func(active: bool) -> void: signal_log.append(active))
+
+	# 1. A toggles ON, A toggles OFF
+	var ev_a := InputEventAction.new()
+	ev_a.action = "attack_mode"
+	ev_a.pressed = true
+	p_input.handle_input(ev_a)
+	assert_true(p_input.attack_target_mode)
+	assert_eq(signal_log, [true])
+
+	p_input.handle_input(ev_a)
+	assert_false(p_input.attack_target_mode)
+	assert_eq(signal_log, [true, false])
+
+	# 2. Key A event directly
+	var ev_key_a := InputEventKey.new()
+	ev_key_a.physical_keycode = KEY_A
+	ev_key_a.pressed = true
+	p_input.handle_input(ev_key_a)
+	assert_true(p_input.attack_target_mode)
+	assert_eq(signal_log, [true, false, true])
+
+	# 3. Esc cancels via ui_cancel action
+	var ev_esc_act := InputEventAction.new()
+	ev_esc_act.action = "ui_cancel"
+	ev_esc_act.pressed = true
+	p_input.handle_input(ev_esc_act)
+	assert_false(p_input.attack_target_mode)
+	assert_eq(signal_log, [true, false, true, false])
+
+	# 4. Turn on and cancel via KEY_ESCAPE
+	p_input.handle_input(ev_key_a)
+	assert_true(p_input.attack_target_mode)
+
+	var ev_esc_key := InputEventKey.new()
+	ev_esc_key.physical_keycode = KEY_ESCAPE
+	ev_esc_key.pressed = true
+	p_input.handle_input(ev_esc_key)
+	assert_false(p_input.attack_target_mode)
+
+	# 5. Esc when mode is false does nothing and emits no signal
+	signal_log.clear()
+	p_input.handle_input(ev_esc_key)
+	assert_false(p_input.attack_target_mode)
+	assert_true(signal_log.is_empty(), "Esc while not in attack mode must not emit signal")
+
+
+func test_attack_move_mode_ends_after_click() -> void:
+	var zv: ZoneView = autofree(ZoneView.new())
+	zv.setup(_registry)
+	zv.build(_zone)
+
+	var p_input: PlayerInput = autofree(PlayerInput.new())
+	p_input.setup(_player.id, _sim, zv, _registry)
+
+	var enemy := _sim.spawn("enemy", Vector2i(3, 1), 2.0)
+
+	var ev_a := InputEventAction.new()
+	ev_a.action = "attack_mode"
+	ev_a.pressed = true
+	p_input.handle_input(ev_a)
+	assert_true(p_input.attack_target_mode)
+
+	# Click on enemy within radius
+	var mouse_down := InputEventMouseButton.new()
+	mouse_down.button_index = MOUSE_BUTTON_RIGHT
+	mouse_down.pressed = true
+
+	var cmd := p_input.handle_input(mouse_down, enemy.pos)
+	assert_not_null(cmd)
+	assert_true(cmd is Commands.AttackTarget)
+	assert_false(p_input.attack_target_mode, "Mode must end after attack click")
+
+
+func test_attack_move_plain_right_click_unchanged() -> void:
+	var zv: ZoneView = autofree(ZoneView.new())
+	zv.setup(_registry)
+	zv.build(_zone)
+
+	var p_input: PlayerInput = autofree(PlayerInput.new())
+	p_input.setup(_player.id, _sim, zv, _registry)
+
+	assert_false(p_input.attack_target_mode)
+
+	# Right-click on ground -> MoveTo, is_holding_right becomes true
+	var mouse_down := InputEventMouseButton.new()
+	mouse_down.button_index = MOUSE_BUTTON_RIGHT
+	mouse_down.pressed = true
+
+	var cmd_move := p_input.handle_input(mouse_down, Vector2(2.5, 1.5))
+	assert_not_null(cmd_move)
+	assert_true(cmd_move is Commands.MoveTo)
+	assert_true(p_input.is_holding_right)
+
+	# Release
+	var mouse_up := InputEventMouseButton.new()
+	mouse_up.button_index = MOUSE_BUTTON_RIGHT
+	mouse_up.pressed = false
+	p_input.handle_input(mouse_up)
+	assert_false(p_input.is_holding_right)
+
+	# Right-click on enemy -> AttackTarget, is_holding_right becomes true
+	var enemy := _sim.spawn("enemy", Vector2i(3, 1), 2.0)
+	var cmd_atk := p_input.handle_input(mouse_down, enemy.pos)
+	assert_not_null(cmd_atk)
+	assert_true(cmd_atk is Commands.AttackTarget)
+	assert_true(p_input.is_holding_right)
+
+
+func test_attack_move_hold_not_started_after_attack_click() -> void:
+	var zv: ZoneView = autofree(ZoneView.new())
+	zv.setup(_registry)
+	zv.build(_zone)
+
+	var p_input: PlayerInput = autofree(PlayerInput.new())
+	p_input.setup(_player.id, _sim, zv, _registry)
+
+	var enemy := _sim.spawn("enemy", Vector2i(3, 1), 2.0)
+
+	# Enter attack mode
+	var ev_a := InputEventAction.new()
+	ev_a.action = "attack_mode"
+	ev_a.pressed = true
+	p_input.handle_input(ev_a)
+
+	var mouse_down := InputEventMouseButton.new()
+	mouse_down.button_index = MOUSE_BUTTON_RIGHT
+	mouse_down.pressed = true
+
+	var cmd := p_input.handle_input(mouse_down, enemy.pos)
+	assert_not_null(cmd)
+	assert_false(p_input.is_holding_right, "is_holding_right must remain false after attack click")
+
+	var repeat_cmd := p_input.handle_process(p_input.move_repeat_s * 2.0, enemy.pos)
+	assert_null(repeat_cmd, "No hold-repeat commands should emit after attack-move click")
+
+
+func test_attack_move_skills_and_dash_leave_mode_untouched() -> void:
+	var zv: ZoneView = autofree(ZoneView.new())
+	zv.setup(_registry)
+	zv.build(_zone)
+
+	var p_input: PlayerInput = autofree(PlayerInput.new())
+	p_input.setup(_player.id, _sim, zv, _registry)
+
+	# Enter attack mode
+	var ev_a := InputEventAction.new()
+	ev_a.action = "attack_mode"
+	ev_a.pressed = true
+	p_input.handle_input(ev_a)
+	assert_true(p_input.attack_target_mode)
+
+	# Cast skill Q
+	var ev_q := InputEventAction.new()
+	ev_q.action = "skill_q"
+	ev_q.pressed = true
+	var cmd_q := p_input.handle_input(ev_q, Vector2(5.0, 1.5))
+	assert_not_null(cmd_q)
+	assert_true(cmd_q is Commands.CastSkill)
+	assert_true(p_input.attack_target_mode, "Skill cast must leave attack mode untouched")
+
+	# Dash
+	var ev_dash := InputEventAction.new()
+	ev_dash.action = "dash"
+	ev_dash.pressed = true
+	var cmd_dash := p_input.handle_input(ev_dash, Vector2(5.0, 1.5))
+	assert_not_null(cmd_dash)
+	assert_true(cmd_dash is Commands.Dash)
+	assert_true(p_input.attack_target_mode, "Dash must leave attack mode untouched")
+
+
+func test_attack_move_dead_player_ignores_a() -> void:
+	var zv: ZoneView = autofree(ZoneView.new())
+	zv.setup(_registry)
+	zv.build(_zone)
+
+	var p_input: PlayerInput = autofree(PlayerInput.new())
+	p_input.setup(_player.id, _sim, zv, _registry)
+
+	_player.dead = true
+
+	var ev_a := InputEventAction.new()
+	ev_a.action = "attack_mode"
+	ev_a.pressed = true
+	var cmd := p_input.handle_input(ev_a)
+	assert_null(cmd)
+	assert_false(p_input.attack_target_mode, "Dead player must ignore A key")
+
+
+func test_attack_mode_view_cursor_shape() -> void:
+	var view: MainView = autofree(MainView.new())
+	view._on_attack_mode_changed(true)
+	view._on_attack_mode_changed(false)
+	pass_test("MainView._on_attack_mode_changed sets cursor shapes cleanly")

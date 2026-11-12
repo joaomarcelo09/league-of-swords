@@ -1,8 +1,11 @@
 class_name PlayerInput
 extends Node
 
+signal attack_mode_changed(active: bool)
+
 const DEFAULT_MOVE_REPEAT_S: float = 0.15
 const DEFAULT_ENEMY_PICK_RADIUS: float = 0.5
+const DEFAULT_ATTACK_PICK_RADIUS: float = 1.5
 
 var player_id: int = 0
 var world: WorldSim = null
@@ -11,9 +14,11 @@ var registry: DataRegistry = null
 
 var move_repeat_s: float = DEFAULT_MOVE_REPEAT_S
 var enemy_pick_radius: float = DEFAULT_ENEMY_PICK_RADIUS
+var attack_pick_radius: float = DEFAULT_ATTACK_PICK_RADIUS
 
 var is_holding_right: bool = false
 var hold_timer: float = 0.0
+var attack_target_mode: bool = false
 
 
 func _init(
@@ -37,6 +42,9 @@ func setup(
 	zone_view = p_zone_view
 	registry = p_registry
 
+	if attack_target_mode:
+		cancel_attack_mode()
+
 	if registry != null:
 		var repeat_val: Variant = registry.get_balance("input.move_repeat_s")
 		if repeat_val != null and float(repeat_val) > 0.0:
@@ -49,6 +57,18 @@ func setup(
 			enemy_pick_radius = float(radius_val)
 		else:
 			push_warning("PlayerInput: missing balance key 'input.enemy_pick_radius'")
+
+		var attack_radius_val: Variant = registry.get_balance("input.attack_pick_radius")
+		if attack_radius_val != null and float(attack_radius_val) >= 0.0:
+			attack_pick_radius = float(attack_radius_val)
+		else:
+			push_warning("PlayerInput: missing balance key 'input.attack_pick_radius'")
+
+
+func cancel_attack_mode() -> void:
+	if attack_target_mode:
+		attack_target_mode = false
+		attack_mode_changed.emit(false)
 
 
 func get_mouse_entity_position() -> Vector2:
@@ -94,15 +114,39 @@ func handle_input(event: InputEvent, override_mouse_pos: Vector2 = Vector2.INF) 
 
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_RIGHT:
 		if event.pressed:
-			is_holding_right = true
-			hold_timer = 0.0
-			var cmd := command_for_right_click(world, player_id, mouse_pos, enemy_pick_radius)
-			if cmd != null and world != null:
-				world.submit(cmd)
-			return cmd
+			if attack_target_mode:
+				cancel_attack_mode()
+				var cmd := command_for_attack_click(world, player_id, mouse_pos, attack_pick_radius)
+				if cmd != null and world != null:
+					world.submit(cmd)
+				return cmd
+			else:
+				is_holding_right = true
+				hold_timer = 0.0
+				var cmd := command_for_right_click(world, player_id, mouse_pos, enemy_pick_radius)
+				if cmd != null and world != null:
+					world.submit(cmd)
+				return cmd
 
 	if event.is_echo():
 		return null
+
+	if event.is_action_pressed("attack_mode") or (event is InputEventKey and event.pressed and (event.physical_keycode == KEY_A or event.keycode == KEY_A)):
+		if attack_target_mode:
+			cancel_attack_mode()
+		else:
+			attack_target_mode = true
+			attack_mode_changed.emit(true)
+		if is_inside_tree() and get_viewport() != null:
+			get_viewport().set_input_as_handled()
+		return null
+
+	if attack_target_mode:
+		if event.is_action_pressed("ui_cancel") or (event is InputEventKey and event.pressed and (event.physical_keycode == KEY_ESCAPE or event.keycode == KEY_ESCAPE)):
+			cancel_attack_mode()
+			if is_inside_tree() and get_viewport() != null:
+				get_viewport().set_input_as_handled()
+			return null
 
 	if event.is_action_pressed("skill_q"):
 		var cmd := command_for_skill(player_id, "Q", mouse_pos, player_pos)
@@ -189,6 +233,29 @@ static func aim_from(player_pos: Vector2, mouse_entity_pos: Vector2, fallback: V
 			return fallback.normalized()
 		return Vector2.ZERO
 	return diff.normalized()
+
+
+static func command_for_attack_click(
+	p_world: WorldSim,
+	p_player_id: int,
+	mouse_pos: Variant,
+	radius: float
+) -> Commands.Command:
+	var pos := Vector2.ZERO
+	if mouse_pos is Vector2:
+		if not (mouse_pos as Vector2).is_finite():
+			return null
+		pos = mouse_pos
+	elif mouse_pos is Vector2i:
+		pos = Vector2(float(mouse_pos.x) + 0.5, float(mouse_pos.y) + 0.5)
+	else:
+		return null
+
+	var enemy := pick_enemy_at(p_world, pos, radius)
+	if enemy != null:
+		return Commands.attack_target(p_player_id, enemy.id)
+
+	return null
 
 
 static func command_for_right_click(

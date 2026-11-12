@@ -211,6 +211,8 @@ func _init_game() -> void:
 		player_input = PlayerInput.new()
 		player_input.name = "PlayerInput"
 		add_child(player_input)
+	if not player_input.attack_mode_changed.is_connected(_on_attack_mode_changed):
+		player_input.attack_mode_changed.connect(_on_attack_mode_changed)
 	player_input.setup(player.id, world, zone_view, registry)
 
 	# 10. Setup HUD
@@ -301,7 +303,9 @@ func _handle_player_death(death_event: Dictionary) -> void:
 		return
 
 	if player_input != null:
+		player_input.cancel_attack_mode()
 		player_input.process_mode = Node.PROCESS_MODE_DISABLED
+	Input.set_default_cursor_shape(Input.CURSOR_ARROW)
 
 	_pending_death_event = death_event.duplicate(true)
 
@@ -456,6 +460,17 @@ func _create_player_marker() -> void:
 
 	entities_root.add_child(marker)
 	player_marker = marker
+
+
+func _exit_tree() -> void:
+	Input.set_default_cursor_shape(Input.CURSOR_ARROW)
+
+
+func _on_attack_mode_changed(active: bool) -> void:
+	if active:
+		Input.set_default_cursor_shape(Input.CURSOR_CROSS)
+	else:
+		Input.set_default_cursor_shape(Input.CURSOR_ARROW)
 
 
 func _process(delta: float) -> void:
