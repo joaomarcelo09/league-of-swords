@@ -4,11 +4,15 @@ extends RefCounted
 static var is_active: bool = false
 
 ## Variants: --preview=hud (default), --preview=hud_boss (boss bar),
-## --preview=hud_floor_cleared (floor-cleared panel), --preview=hud_merchant (merchant panel).
+## --preview=hud_floor_cleared (floor-cleared panel), --preview=hud_merchant (merchant panel),
+## --preview=hud_cooldowns (all four skill slots, with icons, mid-cooldown).
 const VARIANT_DEFAULT: String = "hud"
 const VARIANT_BOSS: String = "hud_boss"
 const VARIANT_FLOOR_CLEARED: String = "hud_floor_cleared"
 const VARIANT_MERCHANT: String = "hud_merchant"
+const VARIANT_COOLDOWNS: String = "hud_cooldowns"
+## Share of each slot's full cooldown still remaining in the hud_cooldowns preview.
+const COOLDOWN_PREVIEW_RATIOS: Dictionary = {"Q": 0.8, "W": 0.6, "R": 0.4, "E": 0.25}
 const MERCHANT_NPC_ID: String = "floor1_smith"
 const MERCHANT_PREVIEW_STOCK: Array[String] = ["iron_sword", "iron_plate", "healing_draught"]
 const BOSS_TYPE_ID: String = "thornback_warden"
@@ -42,6 +46,8 @@ static func setup_if_requested(main: MainView) -> void:
 			_prepare_floor_cleared(main)
 		VARIANT_MERCHANT:
 			_prepare_merchant(main)
+		VARIANT_COOLDOWNS:
+			_prepare_cooldowns(main)
 		_:
 			_prepare(main)
 
@@ -133,3 +139,23 @@ static func _prepare(main: MainView) -> void:
 			"tile": Vector2i(int(player.pos.x) + 1, int(player.pos.y)),
 		}
 		hud.spawn_loot_drop(drop_event)
+
+
+## Puts Q/W/R (data cooldown_s) and E (balance dash.cooldown_s) part-way through their
+## cooldowns so every slot shows its icon under the sweep and the seconds text.
+static func _prepare_cooldowns(main: MainView) -> void:
+	var world := main.world
+	var player := main.player
+	var registry := main.registry
+	if world == null or player == null or registry == null or world.tick_length <= 0.0:
+		return
+	var tick_hz := 1.0 / world.tick_length
+	var now := float(world.tick_count)
+	for slot_key: String in ["Q", "W", "R"]:
+		var skill_id := SkillIcons.skill_id_for_slot(registry, slot_key, player.skills)
+		var cd_s := float(registry.get_entry("skills", skill_id).get("cooldown_s", 0.0))
+		player.skill_ready_ticks[slot_key] = now + cd_s * tick_hz * float(COOLDOWN_PREVIEW_RATIOS[slot_key])
+	var dash_cd_s := float(registry.get_balance("dash.cooldown_s", 0.0))
+	player.dash_ready_tick = now + dash_cd_s * tick_hz * float(COOLDOWN_PREVIEW_RATIOS["E"])
+	if main.hud != null:
+		main.hud.update_view()

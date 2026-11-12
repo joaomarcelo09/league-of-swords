@@ -1,0 +1,18 @@
+{
+  "icon_crescent_sweep": {
+    "path": "res://assets/ui/skills/quick-slash.svg",
+    "color": [0.85, 0.9, 1.0, 1.0]
+  },
+  "icon_ember_lance": {
+    "path": "res://assets/ui/skills/fire-dash.svg",
+    "color": [1.0, 0.55, 0.2, 1.0]
+  },
+  "icon_mending_gale": {
+    "path": "res://assets/ui/skills/healing-shield.svg",
+    "color": [0.45, 0.95, 0.55, 1.0]
+  },
+  "icon_shadow_step": {
+    "path": "res://assets/ui/skills/run.svg",
+    "color": [0.7, 0.55, 1.0, 1.0]
+  }
+}

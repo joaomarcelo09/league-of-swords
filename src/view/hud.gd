@@ -12,6 +12,9 @@ const DEFAULT_SLOT_GAP: float = 8.0
 const DEFAULT_SLOT_BG_COLOR := Color(0.12, 0.14, 0.18, 0.9)
 const DEFAULT_SLOT_BORDER_COLOR := Color(0.28, 0.35, 0.45, 0.95)
 const DEFAULT_SWEEP_COLOR := Color(0.05, 0.05, 0.08, 0.75)
+const DEFAULT_SLOT_ICON_INSET: float = 4.0
+const DEFAULT_SLOT_ICON_COLOR := Color(1.0, 1.0, 1.0, 1.0)
+const DEFAULT_SLOT_FALLBACK_FONT_SIZE: int = 22
 
 const DEFAULT_INVENTORY_WIDTH: float = 260.0
 const DEFAULT_INVENTORY_HEIGHT: float = 320.0
@@ -80,6 +83,11 @@ class SkillSlotComponent extends Control:
 	var bg_color: Color = DEFAULT_SLOT_BG_COLOR
 	var border_color: Color = DEFAULT_SLOT_BORDER_COLOR
 	var sweep_color: Color = DEFAULT_SWEEP_COLOR
+	var icon_inset: float = DEFAULT_SLOT_ICON_INSET
+	var icon_texture: Texture2D = null
+	var icon_color: Color = DEFAULT_SLOT_ICON_COLOR
+	var fallback_letter: String = ""
+	var fallback_font_size: int = DEFAULT_SLOT_FALLBACK_FONT_SIZE
 	var cd_fraction: float = 0.0
 	var remaining_s: float = 0.0
 	var key_label: Label = null
@@ -138,9 +146,31 @@ class SkillSlotComponent extends Control:
 			cd_label.visible = cd_fraction > 0.0 and not text.is_empty()
 		queue_redraw()
 
+	## Sets the skill icon (null = draw `letter` in `color` instead) and its tint colour.
+	func set_icon(texture: Texture2D, color: Color, letter: String) -> void:
+		icon_texture = texture
+		icon_color = color
+		fallback_letter = letter
+		queue_redraw()
+
+	func has_icon_texture() -> bool:
+		return icon_texture != null
+
+	func icon_rect() -> Rect2:
+		var inset := clampf(icon_inset, 0.0, slot_size * 0.5)
+		return Rect2(inset, inset, slot_size - inset * 2.0, slot_size - inset * 2.0)
+
 	func _draw() -> void:
 		var r := Rect2(0.0, 0.0, slot_size, slot_size)
 		draw_rect(r, bg_color)
+		if icon_texture != null:
+			draw_texture_rect(icon_texture, icon_rect(), false, icon_color)
+		elif not fallback_letter.is_empty():
+			var font := ThemeDB.fallback_font
+			if font != null:
+				var text_size := font.get_string_size(fallback_letter, HORIZONTAL_ALIGNMENT_LEFT, -1.0, fallback_font_size)
+				var baseline := Vector2((slot_size - text_size.x) * 0.5, (slot_size - text_size.y) * 0.5 + font.get_ascent(fallback_font_size))
+				draw_string(font, baseline, fallback_letter, HORIZONTAL_ALIGNMENT_LEFT, -1.0, fallback_font_size, icon_color)
 		if cd_fraction > 0.0:
 			var sweep_h := slot_size * cd_fraction
 			var sweep_r := Rect2(0.0, 0.0, slot_size, sweep_h)
@@ -207,6 +237,7 @@ func setup(
 
 	_apply_registry_balance()
 	_ensure_ui_tree()
+	refresh_skill_icons()
 	update_view()
 
 
@@ -443,6 +474,35 @@ func _build_merchant_panel() -> void:
 	merchant_panel.place_center(_viewport_size())
 	merchant_panel.item_taken.connect(func(_uid: int) -> void: refresh_inventory())
 	root_control.add_child(merchant_panel)
+
+
+## Resolves each slot's icon (data/skills.json icon id -> data/icons.json) and hands it to
+## the slot; missing art falls back to a coloured letter.
+func refresh_skill_icons() -> void:
+	if slot_components.is_empty():
+		return
+	var inset := DEFAULT_SLOT_ICON_INSET
+	var default_color := DEFAULT_SLOT_ICON_COLOR
+	var font_size := DEFAULT_SLOT_FALLBACK_FONT_SIZE
+	if registry != null:
+		var inset_val: Variant = registry.get_balance("view.hud_slot_icon_inset")
+		if inset_val != null and float(inset_val) >= 0.0:
+			inset = float(inset_val)
+		var color_val: Variant = registry.get_balance("view.hud_slot_icon_default_color")
+		if color_val != null:
+			default_color = parse_color(color_val, DEFAULT_SLOT_ICON_COLOR)
+		var fs_val: Variant = registry.get_balance("view.hud_slot_fallback_font_size")
+		if fs_val != null and int(fs_val) > 0:
+			font_size = int(fs_val)
+	var player_skills: Dictionary = player.skills if player != null else {}
+	for slot_key: String in slot_components.keys():
+		var comp: SkillSlotComponent = slot_components[slot_key]
+		if comp == null:
+			continue
+		var info := SkillIcons.resolve_slot(registry, slot_key, player_skills, default_color)
+		comp.icon_inset = inset
+		comp.fallback_font_size = font_size
+		comp.set_icon(info["texture"], info["color"], str(info["letter"]))
 
 
 # --- Input Handling ---
