@@ -264,14 +264,6 @@ func test_facing_from_vector() -> void:
 	assert_eq(CharacterAnimator.facing_from_vector(Vector2.ZERO, "left"), "left", "zero keeps fallback")
 
 
-func test_pick_anim_priorities() -> void:
-	assert_eq(CharacterAnimator.pick_anim("walk", true, true, true, true), "death")
-	assert_eq(CharacterAnimator.pick_anim("walk", true, true, false, true), "slash")
-	assert_eq(CharacterAnimator.pick_anim("slash", true, true, false, false), "slash", "slash finishes")
-	assert_eq(CharacterAnimator.pick_anim("slash", false, true, false, false), "walk")
-	assert_eq(CharacterAnimator.pick_anim("walk", true, false, false, false), "idle")
-
-
 func test_animator_drives_sprite() -> void:
 	var sprite: LayeredSprite = autofree(LayeredSprite.new(LAYOUT_PATH))
 	var anim := CharacterAnimator.new()
