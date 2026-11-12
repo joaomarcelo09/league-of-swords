@@ -45,6 +45,8 @@ var now_tick: int = 0
 var tick_length: float = 0.0
 ## Attack direction from this frame's telegraph_start event (consumed by the next sync).
 var _pending_attack_dir: Variant = null
+## White hit flash on the sprite (or this node for the hexagon fallback), JGT-87.
+var flash: HitFlash = null
 
 
 static func parse_color(val: Variant, default_val: Color) -> Color:
@@ -69,6 +71,8 @@ func setup(p_entity: Entity, p_zone_view: ZoneView, p_registry: DataRegistry) ->
 
 	_load_balance_config()
 	_build_sprite()
+	if flash == null:
+		flash = HitFlash.attach(self, sprite if sprite != null else self, registry)
 	sync(1.0)
 
 
@@ -210,6 +214,8 @@ func notify_attack(dir: Vector2) -> void:
 
 ## View-only: the entity took damage at sim tick p_tick.
 func notify_hurt(p_tick: int, p_tick_length: float) -> void:
+	if flash != null:
+		flash.trigger()
 	if sprite != null:
 		animator.trigger_hurt(sprite, p_tick, p_tick_length)
 

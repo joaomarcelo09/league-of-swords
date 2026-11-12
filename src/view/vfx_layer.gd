@@ -1,7 +1,8 @@
 class_name VfxLayer
 extends Node2D
 ## Draws short fading skill effects for sim events (skill_cast, heal, dash) using
-## data/vfx.json (kind, color, duration_s) and the skill geometry in data/skills.json.
+## data/vfx.json (kind, color, duration_s) and the skill geometry in data/skills.json,
+## plus a hit spark on every damage event (view.hit.spark_* in balance.json).
 ## View only: it reads events and entity state, never changes the sim.
 
 const SKILLS_TABLE: String = "skills"
@@ -11,6 +12,8 @@ const KIND_CONE: String = "cone"
 const KIND_CIRCLE: String = "circle"
 const KIND_TRAIL: String = "trail"
 const SUPPORTED_KINDS: Array[String] = [KIND_LINE, KIND_CONE, KIND_CIRCLE, KIND_TRAIL]
+## Hit spark: not a vfx.json kind, built from view.hit.spark_* on any damage (JGT-87).
+const KIND_SPARK: String = "spark"
 const DASH_SLOT: String = "E"
 const BALANCE_PREFIX: String = "view.vfx."
 ## Fallbacks used only when data/balance.json lacks view.vfx.* (keep in sync with it).
@@ -75,6 +78,8 @@ class VfxEffect extends Node2D:
 				_draw_circle_fx(c)
 			VfxLayer.KIND_TRAIL:
 				_draw_trail_fx(c)
+			VfxLayer.KIND_SPARK:
+				_draw_spark_fx(c)
 
 	func _style(key: String) -> float:
 		return float(params.get(key, VfxLayer.DEFAULTS.get(key, 0.0)))
@@ -119,6 +124,21 @@ class VfxEffect extends Node2D:
 		var r := radius * lerpf(start_scale, 1.0, progress())
 		draw_circle(Vector2.ZERO, r, Color(c.r, c.g, c.b, c.a * _style("fill_alpha_ratio")))
 		draw_arc(Vector2.ZERO, r, 0.0, TAU, 48, c, _style("ring_width_px"), true)
+
+	## Short lines radiating from the hit point, flying outward as they fade.
+	func _draw_spark_fx(c: Color) -> void:
+		var count := int(params.get("count", 0))
+		var length := float(params.get("length_px", 0.0))
+		var width := float(params.get("width_px", 0.0))
+		if count <= 0 or length <= 0.0 or width <= 0.0:
+			return
+		var p := progress()
+		var start_r := float(params.get("inner_px", 0.0)) + float(params.get("reach_px", 0.0)) * p
+		var seg := length * (1.0 - p * 0.5)
+		var base_angle := float(params.get("angle", 0.0))
+		for i in range(count):
+			var d := Vector2.from_angle(base_angle + TAU * float(i) / float(count))
+			draw_line(d * start_r, d * (start_r + seg), c, width, true)
 
 	func _draw_trail_fx(c: Color) -> void:
 		var to: Vector2 = params.get("to", Vector2.ZERO)
@@ -268,6 +288,26 @@ static func parse_color(val: Variant, fallback: Color) -> Color:
 	return fallback
 
 
+## Hit spark config from view.hit.spark_*: {duration_s, color, count, inner_px,
+## length_px, reach_px, width_px}, or {} when the spark is disabled/missing.
+static func spark_params(p_registry: DataRegistry) -> Dictionary:
+	var duration := HitFlash.balance_number(p_registry, "spark_duration_s")
+	var count := int(HitFlash.balance_number(p_registry, "spark_count"))
+	var length := HitFlash.balance_number(p_registry, "spark_length_px")
+	var width := HitFlash.balance_number(p_registry, "spark_width_px")
+	if duration <= 0.0 or count <= 0 or length <= 0.0 or width <= 0.0:
+		return {}
+	return {
+		"duration_s": duration,
+		"color": HitFlash.balance_color(p_registry, "spark_color", Color.WHITE),
+		"count": count,
+		"inner_px": maxf(HitFlash.balance_number(p_registry, "spark_inner_px"), 0.0),
+		"length_px": length,
+		"reach_px": maxf(HitFlash.balance_number(p_registry, "spark_reach_px"), 0.0),
+		"width_px": width,
+	}
+
+
 # --- spawning -----------------------------------------------------------------------
 
 ## Builds (and adds) an effect of `vfx_id` at `origin_px` with pixel `params`; null and
@@ -286,6 +326,23 @@ func spawn_effect(vfx_id: String, origin_px: Vector2, p_params: Dictionary) -> V
 		style[key] = style_value(registry, key)
 	style.merge(p_params, true)
 	fx.params = style
+	add_child(fx)
+	return fx
+
+
+## Adds a hit spark at `origin_px` (one spoke along `dir` when given); null when the
+## spark is disabled in balance.json.
+func spawn_spark(origin_px: Vector2, dir: Vector2 = Vector2.ZERO) -> VfxEffect:
+	var cfg := spark_params(registry)
+	if cfg.is_empty():
+		return null
+	var fx := VfxEffect.new()
+	fx.kind = KIND_SPARK
+	fx.color = cfg["color"]
+	fx.duration_s = cfg["duration_s"]
+	fx.position = origin_px
+	cfg["angle"] = dir.angle() if dir.is_finite() and not dir.is_zero_approx() else 0.0
+	fx.params = cfg
 	add_child(fx)
 	return fx
 
@@ -352,8 +409,10 @@ func _on_skill_cast(ev: Dictionary) -> void:
 	}
 
 
-## Damage from a caster in the same tick as its cast points the line/cone at the hit.
+## Every hit sparks at its target; damage from a caster in the same tick as its cast
+## also points the line/cone at the hit.
 func _on_damage(ev: Dictionary) -> void:
+	_spark_at_target(ev)
 	var cast: Dictionary = _last_cast.get(int(ev.get("source", -1)), {})
 	if cast.is_empty() or bool(cast["aimed"]) or int(cast["tick"]) != int(ev.get("tick", 0)):
 		return
@@ -364,6 +423,16 @@ func _on_damage(ev: Dictionary) -> void:
 		return
 	fx.set_direction(target.pos - caster.pos)
 	cast["aimed"] = true
+
+
+## Hit spark at the damaged entity; nothing when the target is unknown.
+func _spark_at_target(ev: Dictionary) -> void:
+	var target := _entity(int(ev.get("target", -1)))
+	if target == null:
+		return
+	var source := _entity(int(ev.get("source", -1)))
+	var dir := (target.pos - source.pos) if source != null else Vector2.ZERO
+	spawn_spark(_to_px(target.pos), dir)
 
 
 ## A heal on someone other than the caster gets its own ring at the healed target.

@@ -39,6 +39,8 @@ var player_animator: CharacterAnimator = CharacterAnimator.new()
 var entity_layer: EntityLayer = null
 var hud: HUD = null
 var vfx_layer: VfxLayer = null
+## White hit flash on the player sprite (or the diamond marker), JGT-87.
+var player_flash: HitFlash = null
 var max_frame_dt_s: float = 0.0
 
 var world_state: WorldState = null
@@ -258,6 +260,7 @@ func _init_game() -> void:
 	HudPreview.setup_if_requested(self)
 	DeathScreenPreview.setup_if_requested(self)
 	VfxPreview.setup_if_requested(self)
+	HitSequencePreview.setup_if_requested(self)
 
 	# Initial view update
 	_update_views()
@@ -594,7 +597,7 @@ func _on_attack_mode_changed(active: bool) -> void:
 
 
 func _process(delta: float) -> void:
-	if TelegraphWindupPreview.is_active or LayeredSpritePreview.is_active or HudPreview.is_active or DeathScreenPreview.is_active or VfxPreview.is_active:
+	if TelegraphWindupPreview.is_active or LayeredSpritePreview.is_active or HudPreview.is_active or DeathScreenPreview.is_active or VfxPreview.is_active or HitSequencePreview.is_active:
 		_update_views()
 		return
 
@@ -644,10 +647,13 @@ func _update_views() -> void:
 	if entity_layer != null:
 		entity_layer.sync()
 
+	var events: Array[Dictionary] = entity_layer.last_events if entity_layer != null else []
+	var player_hit := _player_was_damaged(events)
+	if player_hit:
+		_play_player_hit_feedback()
 	if player_sprite != null:
-		var events: Array[Dictionary] = entity_layer.last_events if entity_layer != null else []
 		var now_tick: int = world.tick_count if world != null else 0
-		if _player_was_damaged(events):
+		if player_hit:
 			player_animator.trigger_hurt(player_sprite, now_tick, world.tick_length if world != null else 0.0)
 		player_animator.update(player_sprite, player.pos, player.dead, _player_attack_dir(events), now_tick)
 
@@ -656,6 +662,16 @@ func _update_views() -> void:
 
 	if hud != null:
 		hud.update_view()
+
+
+## View-only: the player was hit this frame -> flash the player and shake the camera.
+func _play_player_hit_feedback() -> void:
+	if player_flash == null and player_marker != null:
+		player_flash = HitFlash.attach(player_marker, player_sprite if player_sprite != null else player_marker, registry)
+	if player_flash != null:
+		player_flash.trigger()
+	if camera != null:
+		camera.shake()
 
 
 func save_now() -> Dictionary:
