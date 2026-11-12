@@ -1,0 +1,213 @@
+{
+  "legend": {
+    "#": {
+      "type": "wall",
+      "walkable": false
+    },
+    ".": {
+      "type": "floor",
+      "walkable": true
+    },
+    ",": {
+      "type": "grass",
+      "walkable": true,
+      "decor": "grass_tuft"
+    },
+    "T": {
+      "type": "town_floor",
+      "walkable": true,
+      "safe": true
+    },
+    "H": {
+      "type": "wall",
+      "walkable": false,
+      "decor": "house"
+    },
+    "F": {
+      "type": "wall",
+      "walkable": false,
+      "decor": "fountain"
+    }
+  },
+  "entry": [
+    4,
+    8
+  ],
+  "npcs": [
+    {
+      "id": "floor1_smith",
+      "kind": "merchant",
+      "tile": [
+        13,
+        6
+      ]
+    }
+  ],
+  "spawns": [
+    {
+      "enemy": "ash_stalker",
+      "tile": [
+        25,
+        4
+      ],
+      "respawn_s": 30
+    },
+    {
+      "enemy": "ash_stalker",
+      "tile": [
+        30,
+        10
+      ],
+      "respawn_s": 30
+    },
+    {
+      "enemy": "ash_stalker",
+      "tile": [
+        29,
+        7
+      ],
+      "respawn_s": 30
+    },
+    {
+      "enemy": "cinder_bat",
+      "tile": [
+        41,
+        4
+      ],
+      "respawn_s": 30
+    },
+    {
+      "enemy": "cinder_bat",
+      "tile": [
+        48,
+        4
+      ],
+      "respawn_s": 30
+    },
+    {
+      "enemy": "cinder_bat",
+      "tile": [
+        43,
+        10
+      ],
+      "respawn_s": 30
+    },
+    {
+      "enemy": "bog_slime",
+      "tile": [
+        24,
+        19
+      ],
+      "respawn_s": 30
+    },
+    {
+      "enemy": "bog_slime",
+      "tile": [
+        30,
+        24
+      ],
+      "respawn_s": 30
+    },
+    {
+      "enemy": "bog_slime",
+      "tile": [
+        28,
+        21
+      ],
+      "respawn_s": 30
+    },
+    {
+      "enemy": "ash_stalker",
+      "tile": [
+        41,
+        18
+      ],
+      "respawn_s": 30
+    },
+    {
+      "enemy": "ash_stalker",
+      "tile": [
+        48,
+        23
+      ],
+      "respawn_s": 30
+    },
+    {
+      "enemy": "ash_stalker",
+      "tile": [
+        47,
+        18
+      ],
+      "respawn_s": 30
+    },
+    {
+      "enemy": "cinder_bat",
+      "tile": [
+        6,
+        22
+      ],
+      "respawn_s": 30
+    },
+    {
+      "enemy": "cinder_bat",
+      "tile": [
+        13,
+        28
+      ],
+      "respawn_s": 30
+    },
+    {
+      "enemy": "cinder_bat",
+      "tile": [
+        10,
+        25
+      ],
+      "respawn_s": 30
+    },
+    {
+      "enemy": "bog_slime",
+      "tile": [
+        24,
+        32
+      ],
+      "respawn_s": 30
+    },
+    {
+      "enemy": "bog_slime",
+      "tile": [
+        30,
+        36
+      ],
+      "respawn_s": 30
+    },
+    {
+      "enemy": "bog_slime",
+      "tile": [
+        29,
+        32
+      ],
+      "respawn_s": 30
+    },
+    {
+      "id": "floor1_warden",
+      "enemy": "thornback_warden",
+      "tile": [
+        52,
+        33
+      ],
+      "respawn_s": 30,
+      "boss": true
+    }
+  ],
+  "exits": [
+    {
+      "tile": [
+        55,
+        33
+      ],
+      "to_zone": "floor2",
+      "label": "Stairs to Floor 2",
+      "requires_boss": "floor1_warden"
+    }
+  ]
+}

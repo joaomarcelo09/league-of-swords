@@ -1,8 +1,8 @@
 class_name MainView
 extends Node2D
 
-const ZONE_MAP_PATH: String = "res://data/zones/floor1/test_arena.map"
-const ZONE_JSON_PATH: String = "res://data/zones/floor1/test_arena.json"
+const ZONE_MAP_PATH: String = "res://data/zones/floor1/floor1.map"
+const ZONE_JSON_PATH: String = "res://data/zones/floor1/floor1.json"
 const DATA_DIR: String = "res://data"
 const DEFAULT_SAVE_ROOT: String = "user://saves"
 const DEFAULT_SAVE_SLOT: String = "slot_1"
@@ -190,11 +190,14 @@ func _init_game() -> void:
 	world = session.world
 	var player_speed: float = float(registry.get_balance("player.move_speed_tiles_per_s", 4.0))
 	var spawn_pos: Variant = zone.entry
-	if character_state != null and character_state.position.size() >= 2:
-		spawn_pos = Vector2(character_state.position[0], character_state.position[1])
+	var saved_pos: Variant = null
+	if character_state != null:
+		saved_pos = saved_spawn_pos(zone, character_state.position)
+	if saved_pos != null:
+		spawn_pos = saved_pos
 	player = session.spawn_player(spawn_pos, player_speed)
-	if character_state != null and character_state.position.size() >= 2:
-		player.pos = Vector2(character_state.position[0], character_state.position[1])
+	if saved_pos != null:
+		player.pos = saved_pos
 	if character_state != null and character_state.stats != null:
 		player.stats = character_state.stats.duplicate()
 	session.spawn_enemies()
@@ -567,6 +570,19 @@ func _process(delta: float) -> void:
 		var clamped_dt := clamp_frame_dt(delta, max_frame_dt_s)
 		world.step(clamped_dt)
 	_update_views()
+
+
+## Saved character position as a Vector2, or null when it is missing or its tile is not
+## walkable in this zone (e.g. a save made on an older map), so the caller uses zone.entry.
+static func saved_spawn_pos(p_zone: Zone, position: Array) -> Variant:
+	if p_zone == null or position.size() < 2:
+		return null
+	var pos := Vector2(float(position[0]), float(position[1]))
+	if not pos.is_finite():
+		return null
+	if not p_zone.is_walkable(Vector2i(floori(pos.x), floori(pos.y))):
+		return null
+	return pos
 
 
 static func clamp_frame_dt(delta: float, max_dt: float) -> float:

@@ -3,7 +3,7 @@ extends RefCounted
 
 const DEFAULT_MERCHANT_ID: String = "floor1_smith"
 const DEFAULT_ZONE: String = "floor1"
-const DEFAULT_ENTRY: Array = [3.0, 2.0]
+const DEFAULT_ENTRY: Array = [4.0, 8.0]
 
 static var _cached_config: Dictionary = {}
 
