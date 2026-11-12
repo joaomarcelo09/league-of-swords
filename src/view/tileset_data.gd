@@ -9,6 +9,8 @@ extends RefCounted
 ##   "fallback": [atlas_x, atlas_y] used for unknown tile types
 ##   "variants": optional, type -> [[x, y], ...]; when present (non-empty) for a type,
 ##               one entry is picked deterministically from the cell coords.
+##   "decor":    optional, decor id -> [atlas_x, atlas_y] (JGT-80); ids come from the
+##               zone legend "decor" field and are drawn on ZoneView's decor layer.
 ##
 ## A missing or invalid file yields the built-in default (identical to the original
 ## hardcoded ZoneView behaviour) with a push_warning, so the game never crashes.
@@ -30,6 +32,7 @@ var tile_px: int = DEFAULT_TILE_PX
 var tiles: Dictionary = {}          # String -> Vector2i
 var fallback: Vector2i = DEFAULT_FALLBACK
 var variants: Dictionary = {}       # String -> Array[Vector2i]
+var decor: Dictionary = {}          # String -> Vector2i
 var is_default: bool = false
 
 
@@ -101,6 +104,16 @@ static func from_dict(d: Dictionary) -> TilesetData:
 				ts.variants[str(type_name)] = coords
 	elif variants_val != null:
 		return null
+
+	var decor_val: Variant = d.get("decor", {})
+	if decor_val is Dictionary:
+		for decor_id: Variant in (decor_val as Dictionary).keys():
+			var c: Variant = _parse_coord((decor_val as Dictionary)[decor_id])
+			if c == null:
+				return null
+			ts.decor[str(decor_id)] = c as Vector2i
+	elif decor_val != null:
+		return null
 	return ts
 
 
@@ -113,7 +126,18 @@ func coords_for(type_name: String, cell: Vector2i) -> Vector2i:
 	return tiles.get(type_name, fallback)
 
 
-## Every atlas coord referenced by this tileset (tiles, fallback, variants), no duplicates.
+## True when the tileset has atlas coords for this decor id.
+func has_decor(decor_id: String) -> bool:
+	return decor.has(decor_id)
+
+
+## Atlas coords for a decor id. Callers check has_decor() first; unknown ids return
+## the fallback coords.
+func decor_coords(decor_id: String) -> Vector2i:
+	return decor.get(decor_id, fallback)
+
+
+## Every atlas coord referenced by this tileset (tiles, fallback, variants, decor), no duplicates.
 func all_coords() -> Array[Vector2i]:
 	var out: Array[Vector2i] = []
 	for c: Vector2i in tiles.values():
@@ -125,6 +149,9 @@ func all_coords() -> Array[Vector2i]:
 		for c: Vector2i in list:
 			if not out.has(c):
 				out.append(c)
+	for c: Vector2i in decor.values():
+		if not out.has(c):
+			out.append(c)
 	return out
 
 
@@ -133,6 +160,10 @@ static func variant_index(cell: Vector2i, count: int) -> int:
 	if count <= 1:
 		return 0
 	var h: int = (cell.x * 73856093) ^ (cell.y * 19349663)
+	# Mix the bits: the raw xor keeps x+y parity in bit 0, which would checkerboard
+	# variants on even counts.
+	h = ((h ^ (h >> 13)) * 1274126177) & 0x7FFFFFFF
+	h ^= h >> 16
 	return posmod(h, count)
 
 

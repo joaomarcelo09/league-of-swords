@@ -80,3 +80,23 @@ func test_is_valid_screenshot_value() -> void:
 	assert_true(ScreenshotRunnerScript.is_valid_screenshot_value("res://scenes/main.tscn"))
 	assert_true(ScreenshotRunnerScript.is_valid_screenshot_value("/tmp/shot.png"))
 	assert_true(ScreenshotRunnerScript.is_valid_screenshot_value(".screenshots/shot.png"))
+
+
+func test_parse_tile_arg() -> void:
+	assert_eq(ScreenshotRunnerScript.parse_tile_arg("27,8"), Vector2i(27, 8))
+	assert_eq(ScreenshotRunnerScript.parse_tile_arg(" 3 , -4 "), Vector2i(3, -4))
+	assert_null(ScreenshotRunnerScript.parse_tile_arg("27"))
+	assert_null(ScreenshotRunnerScript.parse_tile_arg("a,b"))
+	assert_null(ScreenshotRunnerScript.parse_tile_arg("1,2,3"))
+	assert_null(ScreenshotRunnerScript.parse_tile_arg(true))
+
+
+func test_camera_pin_ignores_follow() -> void:
+	var cam: GameCamera = autofree(GameCamera.new())
+	cam.pin_to(Vector2(100.0, 50.0))
+	cam.follow(Vector2(5.0, 5.0))
+	assert_true(cam.pinned)
+	assert_eq(cam.position, Vector2(100.0, 50.0), "pinned camera ignores follow()")
+	cam.pinned = false
+	cam.follow(Vector2(5.0, 5.0))
+	assert_eq(cam.position, Vector2(5.0, 5.0))

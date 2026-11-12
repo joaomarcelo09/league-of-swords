@@ -28,6 +28,16 @@ static func is_valid_screenshot_value(val: Variant) -> bool:
 	return not (val as String).strip_edges().is_empty()
 
 
+## Parses "x,y" into a Vector2i tile, or null when malformed.
+static func parse_tile_arg(val: Variant) -> Variant:
+	if typeof(val) != TYPE_STRING:
+		return null
+	var parts := (val as String).strip_edges().split(",")
+	if parts.size() != 2 or not parts[0].strip_edges().is_valid_int() or not parts[1].strip_edges().is_valid_int():
+		return null
+	return Vector2i(int(parts[0].strip_edges()), int(parts[1].strip_edges()))
+
+
 func _ready() -> void:
 	var args := parse_args(OS.get_cmdline_user_args())
 	if not args.has("screenshot"):
@@ -56,12 +66,22 @@ func _ready() -> void:
 		if parsed_frames > 0:
 			frames_to_wait = parsed_frames
 
-	_capture_screenshot(screenshot_path, frames_to_wait)
+	var focus_tile: Variant = null
+	if args.has("focus_tile"):
+		focus_tile = parse_tile_arg(args["focus_tile"])
+		if focus_tile == null:
+			push_error("ScreenshotRunner: --focus_tile must be 'x,y', got %s" % str(args["focus_tile"]))
+			get_tree().quit(1)
+			return
+
+	_capture_screenshot(screenshot_path, frames_to_wait, focus_tile)
 
 
-func _capture_screenshot(screenshot_path: String, frames_to_wait: int) -> void:
-	for _i in range(frames_to_wait):
+func _capture_screenshot(screenshot_path: String, frames_to_wait: int, focus_tile: Variant = null) -> void:
+	for i in range(frames_to_wait):
 		await get_tree().process_frame
+		if i == 0 and focus_tile != null:
+			_focus_camera(focus_tile as Vector2i)
 
 	await RenderingServer.frame_post_draw
 
@@ -94,3 +114,16 @@ func _capture_screenshot(screenshot_path: String, frames_to_wait: int) -> void:
 		return
 
 	get_tree().quit(0)
+
+
+## Pins the main scene camera on a tile (centre) so a screenshot can frame any room.
+func _focus_camera(tile: Vector2i) -> void:
+	var scene := get_tree().current_scene
+	if not (scene is MainView):
+		push_warning("ScreenshotRunner: --focus_tile needs the main scene, ignored")
+		return
+	var main := scene as MainView
+	if main.camera == null or main.zone_view == null:
+		push_warning("ScreenshotRunner: main scene has no camera/zone view, --focus_tile ignored")
+		return
+	main.camera.pin_to(main.zone_view.tile_to_world(tile))

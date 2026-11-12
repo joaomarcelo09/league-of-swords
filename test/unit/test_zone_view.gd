@@ -3,6 +3,8 @@ extends GutTest
 const MAP_PATH: String = "res://data/zones/floor1/test_small.map"
 const JSON_PATH: String = "res://data/zones/floor1/test_small.json"
 const DATA_DIR: String = "res://data"
+const FLOOR1_MAP_PATH: String = "res://data/zones/floor1/floor1.map"
+const FLOOR1_JSON_PATH: String = "res://data/zones/floor1/floor1.json"
 
 
 func test_tile_to_world_and_world_to_tile_round_trip() -> void:
@@ -65,6 +67,7 @@ func test_build_from_zone_sets_expected_cells() -> void:
 	var expected_total: int = zone.width * zone.height
 	assert_eq(used_cells.size(), expected_total, "Used cell count should match total zone tiles (%d)" % expected_total)
 
+	var ts: TilesetData = zv.tileset
 	var wall_count := 0
 	var floor_count := 0
 	var grass_count := 0
@@ -74,16 +77,17 @@ func test_build_from_zone_sets_expected_cells() -> void:
 			var t := Vector2i(x, y)
 			var expected_type: String = zone.tile_type(t)
 			var atlas_coords: Vector2i = zv.get_cell_atlas_coords(t)
+			# Cells use the type's base coord or one of its listed variants (JGT-80).
+			var allowed: Array = ts.variants.get(expected_type, [ts.tiles.get(expected_type, ts.fallback)])
+			assert_true(allowed.has(atlas_coords), "Tile %s (%s) got unlisted coords %s" % [str(t), expected_type, str(atlas_coords)])
+			assert_eq(atlas_coords, ts.coords_for(expected_type, t))
 
 			match expected_type:
 				"wall":
-					assert_eq(atlas_coords, Vector2i(0, 0), "Tile %s expected wall atlas coords" % str(t))
 					wall_count += 1
 				"floor":
-					assert_eq(atlas_coords, Vector2i(1, 0), "Tile %s expected floor atlas coords" % str(t))
 					floor_count += 1
 				"grass":
-					assert_eq(atlas_coords, Vector2i(2, 0), "Tile %s expected grass atlas coords" % str(t))
 					grass_count += 1
 				_:
 					fail_test("Unexpected tile type %s at %s" % [expected_type, str(t)])
@@ -111,6 +115,111 @@ func test_unknown_tile_type_gets_fallback_colour() -> void:
 
 	var fallback_coords: Vector2i = zv.get_cell_atlas_coords(Vector2i(1, 1))
 	assert_eq(fallback_coords, Vector2i(3, 0), "Unknown tile type must receive fallback atlas coords (3, 0)")
+
+
+func _floor1_zone() -> Zone:
+	var zone: Zone = Zone.load_files(FLOOR1_MAP_PATH, FLOOR1_JSON_PATH)
+	assert_true(zone.is_valid(), "floor1 must be valid: %s" % str(zone.errors))
+	return zone
+
+
+func test_variants_are_deterministic_for_same_coord() -> void:
+	var zone := _floor1_zone()
+	var a: ZoneView = autofree(ZoneView.new())
+	var b: ZoneView = autofree(ZoneView.new())
+	a.build(zone)
+	b.build(zone)
+	a.build(zone)  # rebuilding the same view must not change the picture either
+	var seen: Dictionary = {}
+	for y: int in range(zone.height):
+		for x: int in range(zone.width):
+			var t := Vector2i(x, y)
+			assert_eq(a.get_cell_atlas_coords(t), b.get_cell_atlas_coords(t), "cell %s differs between builds" % str(t))
+			seen[a.get_cell_atlas_coords(t)] = true
+	# floor1 really shows variety: more ground coords than the 4 base types.
+	assert_gt(seen.size(), 4, "floor1 should use tile variants")
+
+
+func test_decor_layer_gets_cells_for_decor_legend_tiles() -> void:
+	var zone := _floor1_zone()
+	var zv: ZoneView = autofree(ZoneView.new())
+	zv.build(zone)
+	assert_not_null(zv.decor_layer)
+	assert_eq(zv.decor_layer.get_parent(), zv, "decor layer is a child of ZoneView (drawn above ground)")
+	assert_eq(zv.decor_layer.tile_set, zv.tile_set, "decor layer shares the ground TileSet")
+
+	var decor_tiles := 0
+	var ids: Dictionary = {}
+	for y: int in range(zone.height):
+		for x: int in range(zone.width):
+			var t := Vector2i(x, y)
+			var decor_id := zone.decor_at(t)
+			if decor_id.is_empty():
+				assert_eq(zv.decor_layer.get_cell_source_id(t), -1, "no decor expected at %s" % str(t))
+				continue
+			decor_tiles += 1
+			ids[decor_id] = true
+			assert_eq(zv.decor_layer.get_cell_source_id(t), ZoneView.ATLAS_SOURCE_ID)
+			assert_eq(zv.decor_layer.get_cell_atlas_coords(t), zv.tileset.decor_coords(decor_id), "decor %s at %s" % [decor_id, str(t)])
+	assert_eq(zv.decor_layer.get_used_cells().size(), decor_tiles)
+	for want: String in ["grass_tuft", "house", "fountain", "torch", "bones", "crate", "barrel", "rubble"]:
+		assert_true(ids.has(want), "floor1 should place decor '%s'" % want)
+
+
+func test_every_floor1_decor_id_is_in_tileset() -> void:
+	var zone := _floor1_zone()
+	var ts := TilesetData.load_file(TilesetData.DEFAULT_PATH)
+	for y: int in range(zone.height):
+		for x: int in range(zone.width):
+			var decor_id := zone.decor_at(Vector2i(x, y))
+			if not decor_id.is_empty():
+				assert_true(ts.has_decor(decor_id), "decor '%s' missing from floor1 tileset" % decor_id)
+
+
+func test_missing_decor_id_is_skipped_safely() -> void:
+	var custom_map: String = "####\n#.x#\n####"
+	var custom_json: Dictionary = {
+		"legend": {
+			"#": {"type": "wall", "walkable": false},
+			".": {"type": "floor", "walkable": true, "decor": "bones"},
+			"x": {"type": "floor", "walkable": true, "decor": "no_such_prop"},
+		},
+		"entry": [1, 1],
+	}
+	var zone: Zone = Zone.load_from_strings(custom_map, custom_json)
+	assert_true(zone.is_valid())
+	var zv: ZoneView = autofree(ZoneView.new())
+	zv.build(zone)
+	assert_eq(zv.decor_layer.get_cell_atlas_coords(Vector2i(1, 1)), zv.tileset.decor_coords("bones"))
+	assert_eq(zv.decor_layer.get_cell_source_id(Vector2i(2, 1)), -1, "unknown decor id draws nothing")
+	assert_eq(zv.get_cell_source_id(Vector2i(2, 1)), ZoneView.ATLAS_SOURCE_ID, "ground still drawn under unknown decor")
+	# Decor never changes logic: both tiles stay walkable as the legend says.
+	assert_true(zone.is_walkable(Vector2i(1, 1)))
+	assert_true(zone.is_walkable(Vector2i(2, 1)))
+
+
+func test_default_tileset_without_decor_draws_no_decor() -> void:
+	var zone := _floor1_zone()
+	var zv: ZoneView = autofree(ZoneView.new())
+	zv.load_tileset("user://does_not_exist_tileset.json")
+	zv.build(zone)
+	assert_eq(zv.decor_layer.get_used_cells().size(), 0)
+	assert_eq(zv.get_used_cells().size(), zone.width * zone.height, "ground fully drawn")
+
+
+func test_rebuild_clears_old_decor() -> void:
+	var zv: ZoneView = autofree(ZoneView.new())
+	zv.build(_floor1_zone())
+	assert_gt(zv.decor_layer.get_used_cells().size(), 0)
+	var small: Zone = Zone.load_files(MAP_PATH, JSON_PATH)
+	zv.build(small)
+	var expected := 0
+	for y: int in range(small.height):
+		for x: int in range(small.width):
+			if not small.decor_at(Vector2i(x, y)).is_empty():
+				expected += 1
+	assert_eq(zv.decor_layer.get_used_cells().size(), expected)
+	assert_eq(zv.get_child_count(), 1, "decor layer is reused, not duplicated")
 
 
 func test_camera_follow_centres_on_target() -> void:

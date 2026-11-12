@@ -1,6 +1,10 @@
 class_name GameCamera
 extends Camera2D
 
+## When true, follow() is ignored and the camera stays where pin_to() put it
+## (debug screenshots framing a spot away from the player, JGT-80).
+var pinned: bool = false
+
 var follow_offset: Vector2:
 	get:
 		return offset
@@ -28,8 +32,16 @@ func setup(registry: DataRegistry) -> void:
 
 
 func follow(world_pos: Vector2) -> void:
+	if pinned:
+		return
 	global_position = world_pos
 	position = world_pos
+
+
+func pin_to(world_pos: Vector2) -> void:
+	pinned = false
+	follow(world_pos)
+	pinned = true
 
 
 static func _parse_vector2(val: Variant, default_val: Vector2 = Vector2.ZERO) -> Vector2:
