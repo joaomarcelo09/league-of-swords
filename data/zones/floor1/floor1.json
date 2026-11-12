@@ -74,6 +74,7 @@
     {
       "id": "floor1_smith",
       "kind": "merchant",
+      "name": "Smith Orrin",
       "tile": [
         13,
         6

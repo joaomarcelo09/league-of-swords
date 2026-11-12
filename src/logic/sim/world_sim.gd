@@ -283,6 +283,70 @@ func check_exit(entity_id: int) -> Dictionary:
 	return ev
 
 
+## Returns the zone NPC with id `npc_id` or an empty Dictionary.
+func get_npc(npc_id: String) -> Dictionary:
+	if zone == null or npc_id.is_empty():
+		return {}
+	for n: Dictionary in zone.npcs:
+		if str(n.get("id", "")) == npc_id:
+			return n
+	return {}
+
+
+## Centre of an NPC's tile in entity (tile) units, or Vector2.INF if the tile is invalid.
+static func npc_center(npc: Dictionary) -> Vector2:
+	var t: Variant = parse_tile_coord(npc.get("tile"))
+	if t == null:
+		return Vector2.INF
+	return tile_center(t)
+
+
+## Interaction range in tiles from balance key `npc_interact_range` (-1 when missing).
+func npc_interact_range() -> float:
+	if registry == null:
+		return -1.0
+	var val: Variant = registry.get_balance("npc_interact_range")
+	if val == null or not (val is float or val is int):
+		return -1.0
+	return float(val)
+
+
+## True when the live player entity is within `npc_interact_range` tiles of the NPC
+## tile centre. False for an unknown NPC, a missing/dead player or a missing range key.
+func npc_in_range(player_id: int, npc_id: String) -> bool:
+	var entity: Entity = get_entity(player_id)
+	if entity == null or entity.dead:
+		return false
+	var npc := get_npc(npc_id)
+	if npc.is_empty():
+		return false
+	var center := npc_center(npc)
+	if not center.is_finite():
+		return false
+	var max_range := npc_interact_range()
+	if max_range < 0.0:
+		return false
+	return entity.pos.distance_to(center) <= max_range + 1e-6
+
+
+## The zone NPC whose tile centre is nearest `pos` (entity units) within `radius`, or {}.
+## Ties go to the NPC listed first in the zone data.
+func npc_at(pos: Vector2, radius: float) -> Dictionary:
+	if zone == null or radius < 0.0 or not pos.is_finite():
+		return {}
+	var best: Dictionary = {}
+	var best_dist: float = INF
+	for n: Dictionary in zone.npcs:
+		var center := npc_center(n)
+		if not center.is_finite():
+			continue
+		var dist := center.distance_to(pos)
+		if dist <= radius + 1e-6 and dist < best_dist - 1e-6:
+			best = n
+			best_dist = dist
+	return best
+
+
 func record_event(event: Dictionary) -> void:
 	_events.append(event)
 

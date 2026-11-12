@@ -176,6 +176,7 @@ var inventory_empty_label: Label = null
 
 var boss_bar: BossBar = null
 var floor_cleared_panel: FloorClearedPanel = null
+var merchant_panel: MerchantPanel = null
 
 
 # --- Lifecycle & Setup ---
@@ -232,6 +233,7 @@ func _ensure_ui_tree() -> void:
 	_build_inventory_panel()
 	_build_boss_bar()
 	_build_floor_cleared_panel()
+	_build_merchant_panel()
 
 
 func _build_bottom_hud() -> void:
@@ -436,6 +438,13 @@ func _build_floor_cleared_panel() -> void:
 	root_control.add_child(floor_cleared_panel)
 
 
+func _build_merchant_panel() -> void:
+	merchant_panel = MerchantPanel.new()
+	merchant_panel.place_center(_viewport_size())
+	merchant_panel.item_taken.connect(func(_uid: int) -> void: refresh_inventory())
+	root_control.add_child(merchant_panel)
+
+
 # --- Input Handling ---
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -487,6 +496,15 @@ func update_view() -> void:
 	_update_skill_slots()
 	_update_boss_bar()
 	_check_loot_proximity()
+	_check_merchant_range()
+
+
+## Closes the merchant panel once the player walks out of range or dies.
+func _check_merchant_range() -> void:
+	if merchant_panel == null or not merchant_panel.is_shown():
+		return
+	if world == null or player == null or not world.npc_in_range(player.id, merchant_panel.merchant_id):
+		merchant_panel.close()
 
 
 func _update_boss_bar() -> void:
@@ -589,6 +607,18 @@ func handle_event(event: Dictionary) -> void:
 		spawn_loot_drop(event)
 	elif event_type == "floor_cleared":
 		show_floor_cleared(event)
+
+
+## Opens the merchant panel for zone NPC `npc_id` (from PlayerInput.npc_interact).
+## Taken items go to the live player ("character:<entity id>"), like loot pickup.
+func open_merchant(npc_id: String) -> bool:
+	if merchant_panel == null or world == null or player == null or inventory == null:
+		return false
+	var npc := world.get_npc(npc_id)
+	if npc.is_empty() or str(npc.get("kind", "")) != "merchant":
+		return false
+	merchant_panel.open_for(npc, inventory, item_db, "character:%d" % player.id)
+	return true
 
 
 func show_floor_cleared(event: Dictionary) -> void:
@@ -787,6 +817,10 @@ func get_boss_bar() -> BossBar:
 
 func get_floor_cleared_panel() -> FloorClearedPanel:
 	return floor_cleared_panel
+
+
+func get_merchant_panel() -> MerchantPanel:
+	return merchant_panel
 
 
 # --- Pure Static Helper Functions ---

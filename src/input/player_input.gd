@@ -2,10 +2,13 @@ class_name PlayerInput
 extends Node
 
 signal attack_mode_changed(active: bool)
+## Right-click on a zone NPC while within `npc_interact_range`; the view opens its UI.
+signal npc_interact(npc_id: String)
 
 const DEFAULT_MOVE_REPEAT_S: float = 0.15
 const DEFAULT_ENEMY_PICK_RADIUS: float = 0.5
 const DEFAULT_ATTACK_PICK_RADIUS: float = 1.5
+const DEFAULT_NPC_PICK_RADIUS: float = 0.6
 
 var player_id: int = 0
 var world: WorldSim = null
@@ -15,6 +18,7 @@ var registry: DataRegistry = null
 var move_repeat_s: float = DEFAULT_MOVE_REPEAT_S
 var enemy_pick_radius: float = DEFAULT_ENEMY_PICK_RADIUS
 var attack_pick_radius: float = DEFAULT_ATTACK_PICK_RADIUS
+var npc_pick_radius: float = DEFAULT_NPC_PICK_RADIUS
 
 var is_holding_right: bool = false
 var hold_timer: float = 0.0
@@ -63,6 +67,11 @@ func setup(
 			attack_pick_radius = float(attack_radius_val)
 		else:
 			push_warning("PlayerInput: missing balance key 'input.attack_pick_radius'")
+
+		# Optional key (added in JGT-83): falls back to DEFAULT_NPC_PICK_RADIUS silently.
+		var npc_radius_val: Variant = registry.get_balance("input.npc_pick_radius")
+		if npc_radius_val != null and float(npc_radius_val) >= 0.0:
+			npc_pick_radius = float(npc_radius_val)
 
 
 func cancel_attack_mode() -> void:
@@ -121,6 +130,14 @@ func handle_input(event: InputEvent, override_mouse_pos: Vector2 = Vector2.INF) 
 					world.submit(cmd)
 				return cmd
 			else:
+				var npc_id := npc_to_interact(world, player_id, mouse_pos, npc_pick_radius)
+				if not npc_id.is_empty():
+					is_holding_right = false
+					hold_timer = 0.0
+					npc_interact.emit(npc_id)
+					if is_inside_tree() and get_viewport() != null:
+						get_viewport().set_input_as_handled()
+					return null
 				is_holding_right = true
 				hold_timer = 0.0
 				var cmd := command_for_right_click(world, player_id, mouse_pos, enemy_pick_radius)
@@ -224,6 +241,20 @@ static func pick_enemy_at(p_world: WorldSim, entity_pos: Vector2, radius: float)
 					best_enemy = e
 
 	return best_enemy
+
+
+## Id of the NPC under `mouse_pos` (within `radius`) when the player is in interact range;
+## "" when there is no NPC there or it is too far (the caller then walks closer).
+static func npc_to_interact(p_world: WorldSim, p_player_id: int, mouse_pos: Vector2, radius: float) -> String:
+	if p_world == null or not mouse_pos.is_finite():
+		return ""
+	var npc := p_world.npc_at(mouse_pos, radius)
+	if npc.is_empty():
+		return ""
+	var npc_id := str(npc.get("id", ""))
+	if not p_world.npc_in_range(p_player_id, npc_id):
+		return ""
+	return npc_id
 
 
 static func aim_from(player_pos: Vector2, mouse_entity_pos: Vector2, fallback: Vector2 = Vector2.ZERO) -> Vector2:

@@ -4,10 +4,13 @@ extends RefCounted
 static var is_active: bool = false
 
 ## Variants: --preview=hud (default), --preview=hud_boss (boss bar),
-## --preview=hud_floor_cleared (floor-cleared panel).
+## --preview=hud_floor_cleared (floor-cleared panel), --preview=hud_merchant (merchant panel).
 const VARIANT_DEFAULT: String = "hud"
 const VARIANT_BOSS: String = "hud_boss"
 const VARIANT_FLOOR_CLEARED: String = "hud_floor_cleared"
+const VARIANT_MERCHANT: String = "hud_merchant"
+const MERCHANT_NPC_ID: String = "floor1_smith"
+const MERCHANT_PREVIEW_STOCK: Array[String] = ["iron_sword", "iron_plate", "healing_draught"]
 const BOSS_TYPE_ID: String = "thornback_warden"
 const BOSS_PREVIEW_HP_RATIO: float = 0.62
 
@@ -37,6 +40,8 @@ static func setup_if_requested(main: MainView) -> void:
 			_prepare_boss(main)
 		VARIANT_FLOOR_CLEARED:
 			_prepare_floor_cleared(main)
+		VARIANT_MERCHANT:
+			_prepare_merchant(main)
 		_:
 			_prepare(main)
 
@@ -76,6 +81,22 @@ static func _prepare_floor_cleared(main: MainView) -> void:
 		"label": "Stairs to Floor 2",
 		"tile": Vector2i.ZERO,
 	})
+
+
+## Stocks the floor 1 merchant, stands the player beside it and opens its panel.
+static func _prepare_merchant(main: MainView) -> void:
+	var world := main.world
+	var player := main.player
+	var inventory := main.inventory
+	if world == null or player == null or inventory == null or main.hud == null:
+		return
+	var npc := world.get_npc(MERCHANT_NPC_ID)
+	if npc.is_empty():
+		return
+	for def_id: String in MERCHANT_PREVIEW_STOCK:
+		inventory.create(def_id, MerchantPanel.merchant_owner(MERCHANT_NPC_ID))
+	player.pos = WorldSim.npc_center(npc) + Vector2(-1.0, 0.0)
+	main.hud.open_merchant(MERCHANT_NPC_ID)
 
 
 static func _prepare(main: MainView) -> void:
