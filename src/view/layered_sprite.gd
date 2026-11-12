@@ -110,14 +110,7 @@ func set_appearance(p_appearance: Dictionary) -> void:
 		if sheet_path.is_empty():
 			continue
 
-		var sprite: Sprite2D = layer_sprites.get(layer_name, null)
-		if sprite == null:
-			sprite = Sprite2D.new()
-			sprite.name = layer_name
-			sprite.region_enabled = true
-			add_child(sprite)
-			layer_sprites[layer_name] = sprite
-
+		var sprite := _ensure_layer_sprite(layer_name)
 		var tex: Texture2D = ResourceLoader.load(sheet_path) as Texture2D
 		if tex != null:
 			sprite.texture = tex
@@ -126,6 +119,69 @@ func set_appearance(p_appearance: Dictionary) -> void:
 			push_warning("LayeredSprite: could not load texture at " + sheet_path)
 			sprite.visible = false
 
+	_finish_layers(draw_order)
+
+
+## Configures layers from already-built textures (layer name -> Texture2D), e.g. the
+## stacked sheets composed by CharacterAppearance. Layers missing from p_textures are
+## hidden. Same draw-order rules as set_appearance.
+func set_layer_textures(p_textures: Dictionary) -> void:
+	appearance = {}
+	var draw_order: Array = get_draw_order()
+	if draw_order.is_empty():
+		draw_order = p_textures.keys()
+
+	for layer_name_var: Variant in layer_sprites.keys():
+		var s_name := str(layer_name_var)
+		if not (p_textures.get(s_name, null) is Texture2D):
+			layer_sprites[s_name].visible = false
+
+	for layer_name_var: Variant in draw_order:
+		var layer_name := str(layer_name_var)
+		var tex: Variant = p_textures.get(layer_name, null)
+		if not (tex is Texture2D):
+			continue
+		var sprite := _ensure_layer_sprite(layer_name)
+		sprite.texture = tex as Texture2D
+		sprite.visible = true
+
+	_finish_layers(draw_order)
+
+
+## Returns true if the layout defines the animation.
+func has_animation(anim: String) -> bool:
+	var anims: Dictionary = layout.get("animations", {})
+	return anims.has(anim)
+
+
+## Pure helper: per-layer Sprite2D offset from layout "sprite_offset" [x, y] (default 0,0).
+static func offset_from_layout(p_layout: Dictionary) -> Vector2:
+	var val: Variant = p_layout.get("sprite_offset", null)
+	if val is Array and (val as Array).size() >= 2:
+		return Vector2(float(val[0]), float(val[1]))
+	return Vector2.ZERO
+
+
+## Pure helper: uniform layer scale from layout "sprite_scale" (default 1.0, must be > 0).
+static func scale_from_layout(p_layout: Dictionary) -> float:
+	var val: Variant = p_layout.get("sprite_scale", null)
+	if val != null and float(val) > 0.0:
+		return float(val)
+	return 1.0
+
+
+func _ensure_layer_sprite(layer_name: String) -> Sprite2D:
+	var sprite: Sprite2D = layer_sprites.get(layer_name, null)
+	if sprite == null:
+		sprite = Sprite2D.new()
+		sprite.name = layer_name
+		sprite.region_enabled = true
+		add_child(sprite)
+		layer_sprites[layer_name] = sprite
+	return sprite
+
+
+func _finish_layers(draw_order: Array) -> void:
 	# Ensure child nodes in the tree strictly follow draw order
 	var child_idx := 0
 	for layer_name_var: Variant in draw_order:
@@ -179,6 +235,7 @@ func advance(dt: float) -> void:
 		elif loop:
 			current_frame = 0
 		else:
+			# Non-loop animations (slash, hurt, death) stop and hold their last frame.
 			current_frame = frame_count - 1
 			is_playing = false
 			break
@@ -188,6 +245,11 @@ func advance(dt: float) -> void:
 
 func _update_regions() -> void:
 	var rect := region_for(layout, current_anim, current_dir, current_frame)
+	var off := offset_from_layout(layout)
+	var scl := scale_from_layout(layout)
 	for sprite: Sprite2D in layer_sprites.values():
 		if sprite != null:
 			sprite.region_rect = rect
+			# Offset is in unscaled frame pixels; scale applies around the entity origin.
+			sprite.offset = off
+			sprite.scale = Vector2(scl, scl)

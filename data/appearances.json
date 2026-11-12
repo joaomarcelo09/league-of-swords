@@ -1,0 +1,23 @@
+{
+  "player_default": {
+    "layers": {
+      "body": {
+        "idle": "res://assets/characters/lpc/body/male/idle.png",
+        "walk": "res://assets/characters/lpc/body/male/walk.png",
+        "slash": "res://assets/characters/lpc/body/male/slash.png",
+        "hurt": "res://assets/characters/lpc/body/male/hurt.png"
+      },
+      "head": {
+        "idle": "res://assets/characters/lpc/head/human_male/idle.png",
+        "walk": "res://assets/characters/lpc/head/human_male/walk.png",
+        "slash": "res://assets/characters/lpc/head/human_male/slash.png",
+        "hurt": "res://assets/characters/lpc/head/human_male/hurt.png"
+      }
+    },
+    "fallback": {
+      "body": "res://assets/characters/placeholder/body.png",
+      "clothes": "res://assets/characters/placeholder/clothes.png",
+      "hair": "res://assets/characters/placeholder/hair.png"
+    }
+  }
+}

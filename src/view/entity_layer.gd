@@ -142,6 +142,10 @@ func _setup_player_hp_bar() -> void:
 		if border_val != null:
 			player_hp_bar.border_color = EntityView.parse_color(border_val, player_hp_bar.border_color)
 
+	# A tall player sprite (64px LPC frame) sets its own bar height via marker meta.
+	if player_marker.has_meta("hp_bar_y_offset"):
+		player_hp_bar.y_offset = float(player_marker.get_meta("hp_bar_y_offset"))
+
 	player_marker.add_child(player_hp_bar)
 
 
