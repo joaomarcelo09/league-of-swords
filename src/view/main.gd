@@ -531,6 +531,16 @@ func _player_attack_dir(events: Array[Dictionary]) -> Variant:
 	return null
 
 
+## True if this frame's sim events contain damage dealt to the player. View-only read.
+func _player_was_damaged(events: Array[Dictionary]) -> bool:
+	if player == null:
+		return false
+	for ev: Dictionary in events:
+		if str(ev.get("type", "")) == "damage" and int(ev.get("target", -1)) == player.id:
+			return true
+	return false
+
+
 func _exit_tree() -> void:
 	Input.set_default_cursor_shape(Input.CURSOR_ARROW)
 
@@ -582,7 +592,10 @@ func _update_views() -> void:
 
 	if player_sprite != null:
 		var events: Array[Dictionary] = entity_layer.last_events if entity_layer != null else []
-		player_animator.update(player_sprite, player.pos, player.dead, _player_attack_dir(events))
+		var now_tick: int = world.tick_count if world != null else 0
+		if _player_was_damaged(events):
+			player_animator.trigger_hurt(player_sprite, now_tick, world.tick_length if world != null else 0.0)
+		player_animator.update(player_sprite, player.pos, player.dead, _player_attack_dir(events), now_tick)
 
 	if camera != null:
 		camera.follow(world_pos)
