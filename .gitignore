@@ -6,3 +6,9 @@
 .team/worktrees/
 .team/runs/
 .team/agents.json
+# Third-party art fetched by tools/fetch_art.sh (not committed; see assets/CREDITS.md)
+.art-cache/
+assets/characters/lpc/
+assets/tiles/lpc_base/
+assets/monsters/
+assets/ui/skills/

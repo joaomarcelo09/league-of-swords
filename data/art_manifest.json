@@ -1,0 +1,282 @@
+{
+  "characters_lpc_body_male_idle": {
+    "url": "https://raw.githubusercontent.com/LiberatedPixelCup/Universal-LPC-Spritesheet-Character-Generator/04140673ec02906f8233523639733c83690df750/spritesheets/body/bodies/male/idle.png",
+    "sha256": "9c3d17def9bd0574e25ce3162a243f18654479e38c04164bc12607429b013fa2",
+    "dest": "assets/characters/lpc/body/male/idle.png",
+    "author": "bluecarrot16, JaidynReiman, Benjamin K. Smith (BenCreating), Evert, Eliza Wyatt (ElizaWy), TheraHedwig, MuffinElZangano, Durrani, Johannes Sjölund (wulax), Stephen Challener (Redshrike)",
+    "license": "CC-BY-SA 3.0",
+    "source_page": "https://opengameart.org/content/lpc-character-bases",
+    "notes": "Universal LPC Spritesheet Character Generator, spritesheets/body/bodies/male/idle.png (pinned commit; license chosen from OGA-BY 3.0 / CC-BY-SA 3.0 / GPL 3.0)"
+  },
+  "characters_lpc_body_male_walk": {
+    "url": "https://raw.githubusercontent.com/LiberatedPixelCup/Universal-LPC-Spritesheet-Character-Generator/04140673ec02906f8233523639733c83690df750/spritesheets/body/bodies/male/walk.png",
+    "sha256": "1e0e8f0c11ba5f4f7b3d4439fc416802b4227da2fe146c13de3de254d9f87f77",
+    "dest": "assets/characters/lpc/body/male/walk.png",
+    "author": "bluecarrot16, JaidynReiman, Benjamin K. Smith (BenCreating), Evert, Eliza Wyatt (ElizaWy), TheraHedwig, MuffinElZangano, Durrani, Johannes Sjölund (wulax), Stephen Challener (Redshrike)",
+    "license": "CC-BY-SA 3.0",
+    "source_page": "https://opengameart.org/content/lpc-character-bases",
+    "notes": "Universal LPC Spritesheet Character Generator, spritesheets/body/bodies/male/walk.png (pinned commit; license chosen from OGA-BY 3.0 / CC-BY-SA 3.0 / GPL 3.0)"
+  },
+  "characters_lpc_body_male_slash": {
+    "url": "https://raw.githubusercontent.com/LiberatedPixelCup/Universal-LPC-Spritesheet-Character-Generator/04140673ec02906f8233523639733c83690df750/spritesheets/body/bodies/male/slash.png",
+    "sha256": "662e208502b0f060041cd3e8c65b6445117f174e9435b68e619b874e36b0069d",
+    "dest": "assets/characters/lpc/body/male/slash.png",
+    "author": "bluecarrot16, JaidynReiman, Benjamin K. Smith (BenCreating), Evert, Eliza Wyatt (ElizaWy), TheraHedwig, MuffinElZangano, Durrani, Johannes Sjölund (wulax), Stephen Challener (Redshrike)",
+    "license": "CC-BY-SA 3.0",
+    "source_page": "https://opengameart.org/content/lpc-character-bases",
+    "notes": "Universal LPC Spritesheet Character Generator, spritesheets/body/bodies/male/slash.png (pinned commit; license chosen from OGA-BY 3.0 / CC-BY-SA 3.0 / GPL 3.0)"
+  },
+  "characters_lpc_body_male_hurt": {
+    "url": "https://raw.githubusercontent.com/LiberatedPixelCup/Universal-LPC-Spritesheet-Character-Generator/04140673ec02906f8233523639733c83690df750/spritesheets/body/bodies/male/hurt.png",
+    "sha256": "417684c67b26467347953542069791af43a607008ddcb9f444a53aca3e10b820",
+    "dest": "assets/characters/lpc/body/male/hurt.png",
+    "author": "bluecarrot16, JaidynReiman, Benjamin K. Smith (BenCreating), Evert, Eliza Wyatt (ElizaWy), TheraHedwig, MuffinElZangano, Durrani, Johannes Sjölund (wulax), Stephen Challener (Redshrike)",
+    "license": "CC-BY-SA 3.0",
+    "source_page": "https://opengameart.org/content/lpc-character-bases",
+    "notes": "Universal LPC Spritesheet Character Generator, spritesheets/body/bodies/male/hurt.png (pinned commit; license chosen from OGA-BY 3.0 / CC-BY-SA 3.0 / GPL 3.0)"
+  },
+  "characters_lpc_head_human_male_idle": {
+    "url": "https://raw.githubusercontent.com/LiberatedPixelCup/Universal-LPC-Spritesheet-Character-Generator/04140673ec02906f8233523639733c83690df750/spritesheets/head/heads/human/male/idle.png",
+    "sha256": "10d58c1dd05592dfb436da42e4d6e582058306e1b6c98c85697ad97d1a5b82f4",
+    "dest": "assets/characters/lpc/head/human_male/idle.png",
+    "author": "bluecarrot16, Benjamin K. Smith (BenCreating), Stephen Challener (Redshrike)",
+    "license": "CC-BY-SA 3.0",
+    "source_page": "https://opengameart.org/content/lpc-character-bases",
+    "notes": "Universal LPC Spritesheet Character Generator, spritesheets/head/heads/human/male/idle.png (pinned commit; license chosen from OGA-BY 3.0 / CC-BY-SA 3.0 / GPL 3.0)"
+  },
+  "characters_lpc_head_human_male_walk": {
+    "url": "https://raw.githubusercontent.com/LiberatedPixelCup/Universal-LPC-Spritesheet-Character-Generator/04140673ec02906f8233523639733c83690df750/spritesheets/head/heads/human/male/walk.png",
+    "sha256": "7e863954dc8c3c748d0727415c39888106bdd3779beb2e3b18011a3a9ef3e53c",
+    "dest": "assets/characters/lpc/head/human_male/walk.png",
+    "author": "bluecarrot16, Benjamin K. Smith (BenCreating), Stephen Challener (Redshrike)",
+    "license": "CC-BY-SA 3.0",
+    "source_page": "https://opengameart.org/content/lpc-character-bases",
+    "notes": "Universal LPC Spritesheet Character Generator, spritesheets/head/heads/human/male/walk.png (pinned commit; license chosen from OGA-BY 3.0 / CC-BY-SA 3.0 / GPL 3.0)"
+  },
+  "characters_lpc_head_human_male_slash": {
+    "url": "https://raw.githubusercontent.com/LiberatedPixelCup/Universal-LPC-Spritesheet-Character-Generator/04140673ec02906f8233523639733c83690df750/spritesheets/head/heads/human/male/slash.png",
+    "sha256": "cf804e711fe210351eccd474297c25dbc99ddbf64cf5384b129d044fb93f6fc4",
+    "dest": "assets/characters/lpc/head/human_male/slash.png",
+    "author": "bluecarrot16, Benjamin K. Smith (BenCreating), Stephen Challener (Redshrike)",
+    "license": "CC-BY-SA 3.0",
+    "source_page": "https://opengameart.org/content/lpc-character-bases",
+    "notes": "Universal LPC Spritesheet Character Generator, spritesheets/head/heads/human/male/slash.png (pinned commit; license chosen from OGA-BY 3.0 / CC-BY-SA 3.0 / GPL 3.0)"
+  },
+  "characters_lpc_head_human_male_hurt": {
+    "url": "https://raw.githubusercontent.com/LiberatedPixelCup/Universal-LPC-Spritesheet-Character-Generator/04140673ec02906f8233523639733c83690df750/spritesheets/head/heads/human/male/hurt.png",
+    "sha256": "f1efa6975eed037351ff274abc195f69fb0b62fc2b9faa9cb89d0a025f463d0d",
+    "dest": "assets/characters/lpc/head/human_male/hurt.png",
+    "author": "bluecarrot16, Benjamin K. Smith (BenCreating), Stephen Challener (Redshrike)",
+    "license": "CC-BY-SA 3.0",
+    "source_page": "https://opengameart.org/content/lpc-character-bases",
+    "notes": "Universal LPC Spritesheet Character Generator, spritesheets/head/heads/human/male/hurt.png (pinned commit; license chosen from OGA-BY 3.0 / CC-BY-SA 3.0 / GPL 3.0)"
+  },
+  "characters_lpc_body_skeleton_idle": {
+    "url": "https://raw.githubusercontent.com/LiberatedPixelCup/Universal-LPC-Spritesheet-Character-Generator/04140673ec02906f8233523639733c83690df750/spritesheets/body/bodies/skeleton/idle.png",
+    "sha256": "b0c7003813aabce6d675560faaa5b6b6d74d7119f135ff99415b53be01168a11",
+    "dest": "assets/characters/lpc/body/skeleton/idle.png",
+    "author": "bluecarrot16, Napsio, JaidynReiman, Johannes Sjölund (wulax), Stephen Challener (Redshrike)",
+    "license": "CC-BY-SA 3.0",
+    "source_page": "https://opengameart.org/content/lpc-skeleton",
+    "notes": "Universal LPC Spritesheet Character Generator, spritesheets/body/bodies/skeleton/idle.png (pinned commit; license chosen from OGA-BY 3.0 / CC-BY-SA 3.0 / GPL 3.0)"
+  },
+  "characters_lpc_body_skeleton_walk": {
+    "url": "https://raw.githubusercontent.com/LiberatedPixelCup/Universal-LPC-Spritesheet-Character-Generator/04140673ec02906f8233523639733c83690df750/spritesheets/body/bodies/skeleton/walk.png",
+    "sha256": "bcd603edb4b58741ba971b11b1f12a7fddf84ac0886005b36200cb19a6d37985",
+    "dest": "assets/characters/lpc/body/skeleton/walk.png",
+    "author": "bluecarrot16, Napsio, JaidynReiman, Johannes Sjölund (wulax), Stephen Challener (Redshrike)",
+    "license": "CC-BY-SA 3.0",
+    "source_page": "https://opengameart.org/content/lpc-skeleton",
+    "notes": "Universal LPC Spritesheet Character Generator, spritesheets/body/bodies/skeleton/walk.png (pinned commit; license chosen from OGA-BY 3.0 / CC-BY-SA 3.0 / GPL 3.0)"
+  },
+  "characters_lpc_body_skeleton_slash": {
+    "url": "https://raw.githubusercontent.com/LiberatedPixelCup/Universal-LPC-Spritesheet-Character-Generator/04140673ec02906f8233523639733c83690df750/spritesheets/body/bodies/skeleton/slash.png",
+    "sha256": "a78eb8e9077c5a7c50f9865fd4e2fcc005ac66b351c2af0b73a32d653f3e711f",
+    "dest": "assets/characters/lpc/body/skeleton/slash.png",
+    "author": "bluecarrot16, Napsio, JaidynReiman, Johannes Sjölund (wulax), Stephen Challener (Redshrike)",
+    "license": "CC-BY-SA 3.0",
+    "source_page": "https://opengameart.org/content/lpc-skeleton",
+    "notes": "Universal LPC Spritesheet Character Generator, spritesheets/body/bodies/skeleton/slash.png (pinned commit; license chosen from OGA-BY 3.0 / CC-BY-SA 3.0 / GPL 3.0)"
+  },
+  "characters_lpc_body_skeleton_hurt": {
+    "url": "https://raw.githubusercontent.com/LiberatedPixelCup/Universal-LPC-Spritesheet-Character-Generator/04140673ec02906f8233523639733c83690df750/spritesheets/body/bodies/skeleton/hurt.png",
+    "sha256": "ba7952ad1463bc10d769acc810ef821d65fa9bad2c407b824b4385395972b64c",
+    "dest": "assets/characters/lpc/body/skeleton/hurt.png",
+    "author": "bluecarrot16, Napsio, JaidynReiman, Johannes Sjölund (wulax), Stephen Challener (Redshrike)",
+    "license": "CC-BY-SA 3.0",
+    "source_page": "https://opengameart.org/content/lpc-skeleton",
+    "notes": "Universal LPC Spritesheet Character Generator, spritesheets/body/bodies/skeleton/hurt.png (pinned commit; license chosen from OGA-BY 3.0 / CC-BY-SA 3.0 / GPL 3.0)"
+  },
+  "characters_lpc_head_skeleton_idle": {
+    "url": "https://raw.githubusercontent.com/LiberatedPixelCup/Universal-LPC-Spritesheet-Character-Generator/04140673ec02906f8233523639733c83690df750/spritesheets/head/heads/skeleton/adult/idle.png",
+    "sha256": "0740c55c46b2f5d10782e21d0ce8ce109f7e3683290a108d5b03ccb9fc417cc7",
+    "dest": "assets/characters/lpc/head/skeleton/idle.png",
+    "author": "bluecarrot16, Napsio, JaidynReiman, Johannes Sjölund (wulax), Stephen Challener (Redshrike)",
+    "license": "CC-BY-SA 3.0",
+    "source_page": "https://opengameart.org/content/lpc-skeleton",
+    "notes": "Universal LPC Spritesheet Character Generator, spritesheets/head/heads/skeleton/adult/idle.png (pinned commit; license chosen from OGA-BY 3.0 / CC-BY-SA 3.0 / GPL 3.0)"
+  },
+  "characters_lpc_head_skeleton_walk": {
+    "url": "https://raw.githubusercontent.com/LiberatedPixelCup/Universal-LPC-Spritesheet-Character-Generator/04140673ec02906f8233523639733c83690df750/spritesheets/head/heads/skeleton/adult/walk.png",
+    "sha256": "dc126515750aa4d17c36ac511f7d860968155ff35c55111fa94e1894e23b2f6c",
+    "dest": "assets/characters/lpc/head/skeleton/walk.png",
+    "author": "bluecarrot16, Napsio, JaidynReiman, Johannes Sjölund (wulax), Stephen Challener (Redshrike)",
+    "license": "CC-BY-SA 3.0",
+    "source_page": "https://opengameart.org/content/lpc-skeleton",
+    "notes": "Universal LPC Spritesheet Character Generator, spritesheets/head/heads/skeleton/adult/walk.png (pinned commit; license chosen from OGA-BY 3.0 / CC-BY-SA 3.0 / GPL 3.0)"
+  },
+  "characters_lpc_head_skeleton_slash": {
+    "url": "https://raw.githubusercontent.com/LiberatedPixelCup/Universal-LPC-Spritesheet-Character-Generator/04140673ec02906f8233523639733c83690df750/spritesheets/head/heads/skeleton/adult/slash.png",
+    "sha256": "517ae23655079164748f3d6a4360dbce28458671276b1bd111906f653d9299fc",
+    "dest": "assets/characters/lpc/head/skeleton/slash.png",
+    "author": "bluecarrot16, Napsio, JaidynReiman, Johannes Sjölund (wulax), Stephen Challener (Redshrike)",
+    "license": "CC-BY-SA 3.0",
+    "source_page": "https://opengameart.org/content/lpc-skeleton",
+    "notes": "Universal LPC Spritesheet Character Generator, spritesheets/head/heads/skeleton/adult/slash.png (pinned commit; license chosen from OGA-BY 3.0 / CC-BY-SA 3.0 / GPL 3.0)"
+  },
+  "characters_lpc_head_skeleton_hurt": {
+    "url": "https://raw.githubusercontent.com/LiberatedPixelCup/Universal-LPC-Spritesheet-Character-Generator/04140673ec02906f8233523639733c83690df750/spritesheets/head/heads/skeleton/adult/hurt.png",
+    "sha256": "67e986b30cfc3fe8470ec74398fbe4c58520ed27ec7f1e738e97ba78d40b8167",
+    "dest": "assets/characters/lpc/head/skeleton/hurt.png",
+    "author": "bluecarrot16, Napsio, JaidynReiman, Johannes Sjölund (wulax), Stephen Challener (Redshrike)",
+    "license": "CC-BY-SA 3.0",
+    "source_page": "https://opengameart.org/content/lpc-skeleton",
+    "notes": "Universal LPC Spritesheet Character Generator, spritesheets/head/heads/skeleton/adult/hurt.png (pinned commit; license chosen from OGA-BY 3.0 / CC-BY-SA 3.0 / GPL 3.0)"
+  },
+  "characters_lpc_head_orc_male_idle": {
+    "url": "https://raw.githubusercontent.com/LiberatedPixelCup/Universal-LPC-Spritesheet-Character-Generator/04140673ec02906f8233523639733c83690df750/spritesheets/head/heads/orc/male/idle.png",
+    "sha256": "806de604082adbc2c56e64482932cf1c6b5ecba27a15c2e55470c5d90704ea89",
+    "dest": "assets/characters/lpc/head/orc_male/idle.png",
+    "author": "bluecarrot16, Matthew Krohn (makrohn), Stephen Challener (Redshrike), Zi Ye",
+    "license": "CC-BY-SA 3.0",
+    "source_page": "https://opengameart.org/content/sinbad-the-ogre",
+    "notes": "Universal LPC Spritesheet Character Generator, spritesheets/head/heads/orc/male/idle.png (pinned commit; license chosen from OGA-BY 3.0 / CC-BY-SA 3.0 / GPL 3.0)"
+  },
+  "characters_lpc_head_orc_male_walk": {
+    "url": "https://raw.githubusercontent.com/LiberatedPixelCup/Universal-LPC-Spritesheet-Character-Generator/04140673ec02906f8233523639733c83690df750/spritesheets/head/heads/orc/male/walk.png",
+    "sha256": "f674158c9ab2c6ef73fc7131120aa5e641d541003ba4d42b9133371d0a3ef0e6",
+    "dest": "assets/characters/lpc/head/orc_male/walk.png",
+    "author": "bluecarrot16, Matthew Krohn (makrohn), Stephen Challener (Redshrike), Zi Ye",
+    "license": "CC-BY-SA 3.0",
+    "source_page": "https://opengameart.org/content/sinbad-the-ogre",
+    "notes": "Universal LPC Spritesheet Character Generator, spritesheets/head/heads/orc/male/walk.png (pinned commit; license chosen from OGA-BY 3.0 / CC-BY-SA 3.0 / GPL 3.0)"
+  },
+  "characters_lpc_head_orc_male_slash": {
+    "url": "https://raw.githubusercontent.com/LiberatedPixelCup/Universal-LPC-Spritesheet-Character-Generator/04140673ec02906f8233523639733c83690df750/spritesheets/head/heads/orc/male/slash.png",
+    "sha256": "df673a91461b26e73bf0310d96e293e65e9b3a7de2552d60cc72a0ad457a13bf",
+    "dest": "assets/characters/lpc/head/orc_male/slash.png",
+    "author": "bluecarrot16, Matthew Krohn (makrohn), Stephen Challener (Redshrike), Zi Ye",
+    "license": "CC-BY-SA 3.0",
+    "source_page": "https://opengameart.org/content/sinbad-the-ogre",
+    "notes": "Universal LPC Spritesheet Character Generator, spritesheets/head/heads/orc/male/slash.png (pinned commit; license chosen from OGA-BY 3.0 / CC-BY-SA 3.0 / GPL 3.0)"
+  },
+  "characters_lpc_head_orc_male_hurt": {
+    "url": "https://raw.githubusercontent.com/LiberatedPixelCup/Universal-LPC-Spritesheet-Character-Generator/04140673ec02906f8233523639733c83690df750/spritesheets/head/heads/orc/male/hurt.png",
+    "sha256": "941723567b639dc53b449ba46d024ef5796e0906b8d46bebb6f0f9b28519faa9",
+    "dest": "assets/characters/lpc/head/orc_male/hurt.png",
+    "author": "bluecarrot16, Matthew Krohn (makrohn), Stephen Challener (Redshrike), Zi Ye",
+    "license": "CC-BY-SA 3.0",
+    "source_page": "https://opengameart.org/content/sinbad-the-ogre",
+    "notes": "Universal LPC Spritesheet Character Generator, spritesheets/head/heads/orc/male/hurt.png (pinned commit; license chosen from OGA-BY 3.0 / CC-BY-SA 3.0 / GPL 3.0)"
+  },
+  "tiles_lpc_base_grass": {
+    "url": "https://opengameart.org/sites/default/files/lpc_base_assets.zip",
+    "sha256": "69efec8a26ef20b26cfd7a8de370e87d0e667136eba2d00392dde13d2ac52465",
+    "member": "LPC Base Assets/tiles/grass.png",
+    "member_sha256": "9fad54558dcb0aa91859869c603e76fe362ae320e0c4b1e873266566cb0d73a0",
+    "dest": "assets/tiles/lpc_base/grass.png",
+    "author": "Lanea \"Sharm\" Zimmerman, Daniel Armstrong (HughSpectrum), Stephen \"Redshrike\" Challener, Charles Sanchez (CharlesGabriel), Manuel Riecke (MrBeast); see CREDITS.TXT in the zip",
+    "license": "CC-BY-SA 3.0",
+    "source_page": "https://opengameart.org/content/liberated-pixel-cup-lpc-base-assets-sprites-map-tiles",
+    "notes": "LPC Base Assets tile sheet, 32x32 tiles (license chosen from CC-BY-SA 3.0 / GPL 3.0)"
+  },
+  "tiles_lpc_base_dungeon": {
+    "url": "https://opengameart.org/sites/default/files/lpc_base_assets.zip",
+    "sha256": "69efec8a26ef20b26cfd7a8de370e87d0e667136eba2d00392dde13d2ac52465",
+    "member": "LPC Base Assets/tiles/dungeon.png",
+    "member_sha256": "58e59996e37244f5dff6a98fd9da4e00fa55b4e4858291c06b918af9853eb3fe",
+    "dest": "assets/tiles/lpc_base/dungeon.png",
+    "author": "Lanea \"Sharm\" Zimmerman, Daniel Armstrong (HughSpectrum), Stephen \"Redshrike\" Challener, Charles Sanchez (CharlesGabriel), Manuel Riecke (MrBeast); see CREDITS.TXT in the zip",
+    "license": "CC-BY-SA 3.0",
+    "source_page": "https://opengameart.org/content/liberated-pixel-cup-lpc-base-assets-sprites-map-tiles",
+    "notes": "LPC Base Assets tile sheet, 32x32 tiles (license chosen from CC-BY-SA 3.0 / GPL 3.0)"
+  },
+  "tiles_lpc_base_castlefloors": {
+    "url": "https://opengameart.org/sites/default/files/lpc_base_assets.zip",
+    "sha256": "69efec8a26ef20b26cfd7a8de370e87d0e667136eba2d00392dde13d2ac52465",
+    "member": "LPC Base Assets/tiles/castlefloors.png",
+    "member_sha256": "5244b8ee8ff88d5ce553a0cf332b8bdcbfe8394e16cfff16b93fa44357644415",
+    "dest": "assets/tiles/lpc_base/castlefloors.png",
+    "author": "Lanea \"Sharm\" Zimmerman, Daniel Armstrong (HughSpectrum), Stephen \"Redshrike\" Challener, Charles Sanchez (CharlesGabriel), Manuel Riecke (MrBeast); see CREDITS.TXT in the zip",
+    "license": "CC-BY-SA 3.0",
+    "source_page": "https://opengameart.org/content/liberated-pixel-cup-lpc-base-assets-sprites-map-tiles",
+    "notes": "LPC Base Assets tile sheet, 32x32 tiles (license chosen from CC-BY-SA 3.0 / GPL 3.0)"
+  },
+  "tiles_lpc_base_castlewalls": {
+    "url": "https://opengameart.org/sites/default/files/lpc_base_assets.zip",
+    "sha256": "69efec8a26ef20b26cfd7a8de370e87d0e667136eba2d00392dde13d2ac52465",
+    "member": "LPC Base Assets/tiles/castlewalls.png",
+    "member_sha256": "b832d6815ff9a860055196243195f6c12eaac54ec3545c7d6cb0c2593f8afb3d",
+    "dest": "assets/tiles/lpc_base/castlewalls.png",
+    "author": "Lanea \"Sharm\" Zimmerman, Daniel Armstrong (HughSpectrum), Stephen \"Redshrike\" Challener, Charles Sanchez (CharlesGabriel), Manuel Riecke (MrBeast); see CREDITS.TXT in the zip",
+    "license": "CC-BY-SA 3.0",
+    "source_page": "https://opengameart.org/content/liberated-pixel-cup-lpc-base-assets-sprites-map-tiles",
+    "notes": "LPC Base Assets tile sheet, 32x32 tiles (license chosen from CC-BY-SA 3.0 / GPL 3.0)"
+  },
+  "monsters_slime": {
+    "url": "https://opengameart.org/sites/default/files/lpc-monsters.zip",
+    "sha256": "2c591d0e0c89dd579f84fb10ac9b24b97836941d6881abb5db85dc257892878f",
+    "member": "lpc-monsters/slime.png",
+    "member_sha256": "cb7ed15208ad569cf4c8d9b80dd639b835f2131c8b82cea4cb510c0a3fa45ab7",
+    "dest": "assets/monsters/slime.png",
+    "author": "Charles Sanchez (CharlesGabriel), bluecarrot16",
+    "license": "CC-BY-SA 3.0",
+    "source_page": "https://opengameart.org/content/lpc-monsters",
+    "notes": "[LPC] Monsters slime, 64x64 frames, 8 columns x 4 directions; no hurt/death rows (license chosen from CC-BY-SA 3.0+ / GPL 3.0+)"
+  },
+  "monsters_wolf": {
+    "url": "https://opengameart.org/sites/default/files/wolfsheet1.png",
+    "sha256": "35037f84c065844cb974d7d692875115b4c6ebf34e242921991351f370e1fa4f",
+    "dest": "assets/monsters/wolf.png",
+    "author": "Stephen \"Redshrike\" Challener (artist), William.Thompsonj (contributor)",
+    "license": "CC-BY 3.0",
+    "source_page": "https://opengameart.org/content/lpc-wolf-animation",
+    "notes": "[LPC] Wolf Animation wolfsheet1.png; mixed 32x64 / 64x32 frames"
+  },
+  "ui_skills_fire_dash": {
+    "url": "https://raw.githubusercontent.com/game-icons/icons/82d948812bfe3f269ef8f731dcdb07b08160edc4/lorc/fire-dash.svg",
+    "sha256": "49e19abf0c84ac9459ddad7da919e94edecf12145b4fdf40db9f64e1b8b0675e",
+    "dest": "assets/ui/skills/fire-dash.svg",
+    "author": "Lorc",
+    "license": "CC-BY 3.0",
+    "source_page": "https://game-icons.net",
+    "notes": "game-icons.net SVG (repo game-icons/icons, pinned commit) for skill Q Ember Lance"
+  },
+  "ui_skills_quick_slash": {
+    "url": "https://raw.githubusercontent.com/game-icons/icons/82d948812bfe3f269ef8f731dcdb07b08160edc4/lorc/quick-slash.svg",
+    "sha256": "d34c6112c7c315cad55f2d2318adcc20c7b324154a3bbcb604d1ba2cb66b31ce",
+    "dest": "assets/ui/skills/quick-slash.svg",
+    "author": "Lorc",
+    "license": "CC-BY 3.0",
+    "source_page": "https://game-icons.net",
+    "notes": "game-icons.net SVG (repo game-icons/icons, pinned commit) for skill W Crescent Sweep"
+  },
+  "ui_skills_run": {
+    "url": "https://raw.githubusercontent.com/game-icons/icons/82d948812bfe3f269ef8f731dcdb07b08160edc4/lorc/run.svg",
+    "sha256": "0369d4afd39c8e363ced47bca93e9974adf77108891d38e30c68c71afcaeaac4",
+    "dest": "assets/ui/skills/run.svg",
+    "author": "Lorc",
+    "license": "CC-BY 3.0",
+    "source_page": "https://game-icons.net",
+    "notes": "game-icons.net SVG (repo game-icons/icons, pinned commit) for skill E Dash"
+  },
+  "ui_skills_healing_shield": {
+    "url": "https://raw.githubusercontent.com/game-icons/icons/82d948812bfe3f269ef8f731dcdb07b08160edc4/delapouite/healing-shield.svg",
+    "sha256": "e6e93185ef859eb8cd71cdef2de7991995e977a0eab465a30f2a45ac9ed22a25",
+    "dest": "assets/ui/skills/healing-shield.svg",
+    "author": "Delapouite",
+    "license": "CC-BY 3.0",
+    "source_page": "https://game-icons.net",
+    "notes": "game-icons.net SVG (repo game-icons/icons, pinned commit) for skill R Mending Gale"
+  }
+}
