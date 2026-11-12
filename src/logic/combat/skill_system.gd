@@ -58,6 +58,14 @@ static func validate_skill(dict: Dictionary) -> Array[String]:
 		errors.append("missing or invalid 'name' (must be non-empty String)")
 
 	var slot: String = str(dict.get("slot", ""))
+	# The E slot (dash) is a presentation-only entry: its numbers live in the
+	# balance table it references via "data_ref" (e.g. "balance.dash").
+	if slot == "E" and dict.has("data_ref"):
+		var ref: Variant = dict["data_ref"]
+		if not (ref is String) or not str(ref).begins_with("balance.") or str(ref).length() <= "balance.".length():
+			errors.append("slot 'E' requires 'data_ref' of the form 'balance.<key>'")
+		return errors
+
 	if not slot in ["Q", "W", "R"]:
 		errors.append("missing or invalid 'slot' (must be 'Q', 'W', or 'R')")
 
