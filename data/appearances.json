@@ -19,5 +19,21 @@
       "clothes": "res://assets/characters/placeholder/clothes.png",
       "hair": "res://assets/characters/placeholder/hair.png"
     }
+  },
+  "ash_stalker": {
+    "layers": {
+      "body": {
+        "idle": "res://assets/characters/lpc/body/skeleton/idle.png",
+        "walk": "res://assets/characters/lpc/body/skeleton/walk.png",
+        "slash": "res://assets/characters/lpc/body/skeleton/slash.png",
+        "hurt": "res://assets/characters/lpc/body/skeleton/hurt.png"
+      },
+      "head": {
+        "idle": "res://assets/characters/lpc/head/skeleton/idle.png",
+        "walk": "res://assets/characters/lpc/head/skeleton/walk.png",
+        "slash": "res://assets/characters/lpc/head/skeleton/slash.png",
+        "hurt": "res://assets/characters/lpc/head/skeleton/hurt.png"
+      }
+    }
   }
 }
