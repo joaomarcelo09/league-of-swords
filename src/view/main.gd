@@ -45,6 +45,7 @@ var character_state: CharacterState = null
 var save_store: SaveStore = null
 var death_screen: DeathScreen = null
 var merchant_id: String = ""
+var npc_views: Array[NpcView] = []
 var _pending_death_event: Dictionary = {}
 var _death_persisted: bool = false
 
@@ -211,6 +212,9 @@ func _init_game() -> void:
 	# 7b. Create EntityLayer
 	_create_entity_layer()
 
+	# 7c. Draw zone NPCs
+	_create_npc_views()
+
 	# 8. Setup Camera
 	if camera == null:
 		camera = GameCamera.new()
@@ -230,6 +234,12 @@ func _init_game() -> void:
 
 	# 10. Setup HUD
 	_create_hud()
+
+	if not player_input.npc_interact.is_connected(_on_npc_interact):
+		player_input.npc_interact.connect(_on_npc_interact)
+	var m_panel := hud.get_merchant_panel() if hud != null else null
+	if m_panel != null and not m_panel.item_taken.is_connected(_on_merchant_item_taken):
+		m_panel.item_taken.connect(_on_merchant_item_taken)
 
 	# 11. Setup DeathScreen
 	_create_death_screen()
@@ -263,6 +273,22 @@ func _create_hud() -> void:
 		if hud != null:
 			hud.handle_event(ev)
 	)
+
+
+func _create_npc_views() -> void:
+	if entities_root == null or not npc_views.is_empty():
+		return
+	npc_views = NpcView.build_all(zone, entities_root, zone_view)
+
+
+func _on_npc_interact(npc_id: String) -> void:
+	if hud != null:
+		hud.open_merchant(npc_id)
+
+
+## Taking from a merchant changes the world, so it is written to the save at once.
+func _on_merchant_item_taken(_uid: int) -> void:
+	save_now()
 
 
 func _create_death_screen() -> void:
