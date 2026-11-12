@@ -150,6 +150,8 @@ static func _process_chase(
 	if target_valid:
 		if target.pos.distance_to(entity.spawn_pos) > leash_radius + 1e-9:
 			target_valid = false
+		elif _is_safe_tile(sim, target.tile()):
+			target_valid = false
 
 	if not target_valid:
 		target = _find_nearest_player(sim, entity, aggro_radius, leash_radius)
@@ -158,11 +160,7 @@ static func _process_chase(
 			target_valid = true
 
 	if not target_valid:
-		entity.target_id = 0
-		entity.state = "reset"
-		entity.path.clear()
-		entity.path_index = 0
-		_step_toward_spawn(sim, entity)
+		_drop_to_reset(sim, entity)
 		return
 
 	var attack_range: float = float(attack["range"])
@@ -176,6 +174,9 @@ static func _process_chase(
 	var target_tile := target.tile()
 	if entity.path.is_empty() or entity.path[entity.path.size() - 1] != target_tile:
 		sim.path_entity_to_tile(entity, target_tile)
+	if _truncate_path_before_safe(sim, entity):
+		_drop_to_reset(sim, entity)
+		return
 	sim.step_entity_along_path(entity, entity.speed * sim.tick_length)
 
 	dist = entity.pos.distance_to(target.pos)
@@ -241,6 +242,11 @@ static func _step_toward_spawn(sim: WorldSim, entity: Entity) -> void:
 	if entity.path.is_empty() or entity.path[entity.path.size() - 1] != spawn_tile:
 		sim.path_entity_to_tile(entity, spawn_tile)
 
+	if _truncate_path_before_safe(sim, entity):
+		# Way home crosses a safe tile: stop here and wait idle (can re-aggro).
+		entity.state = "idle"
+		return
+
 	sim.step_entity_along_path(entity, entity.speed * sim.tick_length)
 
 	if entity.tile() == spawn_tile or entity.pos.is_equal_approx(entity.spawn_pos):
@@ -248,6 +254,38 @@ static func _step_toward_spawn(sim: WorldSim, entity: Entity) -> void:
 		entity.path.clear()
 		entity.path_index = 0
 		entity.state = "idle"
+
+
+static func _drop_to_reset(sim: WorldSim, entity: Entity) -> void:
+	entity.target_id = 0
+	entity.state = "reset"
+	entity.path.clear()
+	entity.path_index = 0
+	_step_toward_spawn(sim, entity)
+
+
+static func _is_safe_tile(sim: WorldSim, t: Vector2i) -> bool:
+	return sim.zone != null and sim.zone.is_safe(t)
+
+
+# Cuts the entity's remaining path just before the first safe tile it would
+# enter (its current tile is exempt, so an enemy spawned on a safe tile may
+# leave). Returns true when the cut leaves no step to take: the path is
+# cleared and the caller must not move the entity.
+static func _truncate_path_before_safe(sim: WorldSim, entity: Entity) -> bool:
+	if sim.zone == null or entity.path.is_empty():
+		return false
+	var current := entity.tile()
+	for i in range(entity.path_index, entity.path.size()):
+		var t: Vector2i = entity.path[i]
+		if t != current and sim.zone.is_safe(t):
+			entity.path.resize(i)
+			break
+	if entity.path_index >= entity.path.size():
+		entity.path.clear()
+		entity.path_index = 0
+		return true
+	return false
 
 
 static func _find_nearest_player(
@@ -263,6 +301,8 @@ static func _find_nearest_player(
 	for id: Variant in sorted_ids:
 		var other: Entity = sim.entities[id]
 		if other.id == entity.id or other.dead or other.kind != "player":
+			continue
+		if _is_safe_tile(sim, other.tile()):
 			continue
 		if max_leash_from_spawn > 0.0:
 			if other.pos.distance_to(entity.spawn_pos) > max_leash_from_spawn + 1e-9:
