@@ -1,9 +1,26 @@
 {
+  "_comment": "Stacked LPC layout. Placeholders are one stacked sheet; per-animation LPC files are composed into this layout by src/view/character_appearance.gd. idle rows 21-24 lie past the placeholder sheet and are filled from walk frame 0 (fallback) when no idle art exists. sprite_offset/sprite_scale place 64px frames so the feet sit on the entity (tile centre) position.",
   "frame_width": 64,
   "frame_height": 64,
-  "frame_size": [64, 64],
+  "frame_size": [
+    64,
+    64
+  ],
+  "sprite_offset": [
+    0,
+    -30
+  ],
+  "sprite_scale": 1.0,
+  "hp_bar_y_offset": -52.0,
+  "lpc_direction_order": [
+    "up",
+    "left",
+    "down",
+    "right"
+  ],
   "layer_draw_order": [
     "body",
+    "head",
     "clothes",
     "armor",
     "hair",
@@ -11,6 +28,7 @@
   ],
   "layers": [
     "body",
+    "head",
     "clothes",
     "armor",
     "hair",
@@ -43,6 +61,34 @@
       "frame_count": 6,
       "fps": 10.0,
       "loop": false,
+      "rows": {
+        "up": 20,
+        "left": 20,
+        "down": 20,
+        "right": 20
+      }
+    },
+    "idle": {
+      "frame_count": 2,
+      "fps": 2.0,
+      "loop": true,
+      "rows": {
+        "up": 21,
+        "left": 22,
+        "down": 23,
+        "right": 24
+      },
+      "fallback": {
+        "anim": "walk",
+        "frame": 0
+      }
+    },
+    "death": {
+      "frame_count": 6,
+      "fps": 8.0,
+      "loop": false,
+      "hold_last": true,
+      "source_anim": "hurt",
       "rows": {
         "up": 20,
         "left": 20,

@@ -7,6 +7,8 @@ const DATA_DIR: String = "res://data"
 const DEFAULT_SAVE_ROOT: String = "user://saves"
 const DEFAULT_SAVE_SLOT: String = "slot_1"
 const DEFAULT_PLAYER_NAME: String = "Hero"
+const APPEARANCES_PATH: String = "res://data/appearances.json"
+const PLAYER_APPEARANCE_ID: String = "player_default"
 
 @export var zone_map_path: String = ZONE_MAP_PATH
 @export var zone_json_path: String = ZONE_JSON_PATH
@@ -28,6 +30,12 @@ var session: GameSession = null
 var world: WorldSim = null
 var player: Entity = null
 var player_marker: Node2D = null
+## LayeredSprite drawing the player inside player_marker (null when only the diamond
+## fallback marker could be built).
+var player_sprite: LayeredSprite = null
+## "lpc", "placeholder" or "none" (diamond marker) - which art the player uses.
+var player_sprite_source: String = CharacterAppearance.SOURCE_NONE
+var player_animator: CharacterAnimator = CharacterAnimator.new()
 var entity_layer: EntityLayer = null
 var hud: HUD = null
 var max_frame_dt_s: float = 0.0
@@ -380,6 +388,7 @@ func _respawn_new_character() -> void:
 	player = session.spawn_player(zone.entry, player_speed)
 	session.spawn_enemies()
 	_sync_items_to_entity()
+	player_animator.reset(player.pos)
 
 	if player_input != null:
 		player_input.process_mode = Node.PROCESS_MODE_INHERIT
@@ -417,14 +426,60 @@ func _create_entity_layer() -> void:
 	entity_layer.event_emitted.connect(func(ev: Dictionary) -> void: event_emitted.emit(ev))
 
 
+## Builds the "PlayerMarker" node (EntityLayer hangs the HP bar on it). The player is
+## drawn by a LayeredSprite from data/appearances.json (LPC art, or the placeholder sheets
+## if any LPC file is missing); the diamond marker is only used if no sheet loads at all.
 func _create_player_marker() -> void:
 	if entities_root.has_node("PlayerMarker"):
 		player_marker = entities_root.get_node("PlayerMarker") as Node2D
+		player_sprite = player_marker.get_node_or_null("PlayerSprite") as LayeredSprite
 		return
 
 	var marker := Node2D.new()
 	marker.name = "PlayerMarker"
 
+	var sprite := _build_player_sprite()
+	if sprite != null:
+		marker.add_child(sprite)
+		player_sprite = sprite
+		var layout_hp_offset: Variant = sprite.layout.get("hp_bar_y_offset", null)
+		if layout_hp_offset != null:
+			marker.set_meta("hp_bar_y_offset", float(layout_hp_offset))
+	else:
+		_add_diamond_marker(marker)
+
+	entities_root.add_child(marker)
+	player_marker = marker
+	if player != null:
+		player_animator.reset(player.pos)
+
+
+## Returns a LayeredSprite for the player appearance, or null if no art could be loaded.
+func _build_player_sprite() -> LayeredSprite:
+	var appearances := CharacterAppearance.load_json(APPEARANCES_PATH)
+	var entry := CharacterAppearance.get_appearance(appearances, PLAYER_APPEARANCE_ID)
+	if entry.is_empty():
+		push_warning("MainView: appearance '%s' missing; using marker" % PLAYER_APPEARANCE_ID)
+		return null
+	var sprite := LayeredSprite.new()
+	if sprite.layout.is_empty():
+		sprite.free()
+		return null
+	var built := CharacterAppearance.build_textures(entry, sprite.layout)
+	player_sprite_source = str(built.get("source", CharacterAppearance.SOURCE_NONE))
+	var textures: Dictionary = built.get("layers", {})
+	if textures.is_empty():
+		player_sprite_source = CharacterAppearance.SOURCE_NONE
+		sprite.free()
+		return null
+	sprite.name = "PlayerSprite"
+	sprite.set_layer_textures(textures)
+	sprite.play(CharacterAnimator.ANIM_IDLE, "down")
+	return sprite
+
+
+## Fallback player marker (no sprite art available at all).
+func _add_diamond_marker(marker: Node2D) -> void:
 	# Outer diamond outline
 	var outline := Polygon2D.new()
 	outline.polygon = PackedVector2Array([
@@ -458,8 +513,22 @@ func _create_player_marker() -> void:
 	center_dot.color = Color(1.0, 1.0, 1.0, 1.0)
 	marker.add_child(center_dot)
 
-	entities_root.add_child(marker)
-	player_marker = marker
+
+## Reads this frame's sim events and returns a Vector2 toward the player's attack target
+## if the player attacked (damage dealt or skill cast), else null. View-only read.
+func _player_attack_dir(events: Array[Dictionary]) -> Variant:
+	if player == null:
+		return null
+	for ev: Dictionary in events:
+		var ev_type := str(ev.get("type", ""))
+		if int(ev.get("source", -1)) != player.id:
+			continue
+		if ev_type == "damage":
+			var target: Entity = world.entities.get(int(ev.get("target", -1)), null) if world != null else null
+			return (target.pos - player.pos) if target != null else Vector2.ZERO
+		if ev_type == "skill_cast":
+			return Vector2.ZERO
+	return null
 
 
 func _exit_tree() -> void:
@@ -510,6 +579,10 @@ func _update_views() -> void:
 
 	if entity_layer != null:
 		entity_layer.sync()
+
+	if player_sprite != null:
+		var events: Array[Dictionary] = entity_layer.last_events if entity_layer != null else []
+		player_animator.update(player_sprite, player.pos, player.dead, _player_attack_dir(events))
 
 	if camera != null:
 		camera.follow(world_pos)
