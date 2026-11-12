@@ -38,6 +38,7 @@ var player_sprite_source: String = CharacterAppearance.SOURCE_NONE
 var player_animator: CharacterAnimator = CharacterAnimator.new()
 var entity_layer: EntityLayer = null
 var hud: HUD = null
+var vfx_layer: VfxLayer = null
 var max_frame_dt_s: float = 0.0
 
 var world_state: WorldState = null
@@ -212,6 +213,11 @@ func _init_game() -> void:
 	# 7b. Create EntityLayer
 	_create_entity_layer()
 
+	# 7b2. Skill VFX layer (world space, fed every sim event)
+	if entities_root != null and vfx_layer == null:
+		vfx_layer = VfxLayer.create(entities_root, world, zone_view, registry)
+		event_emitted.connect(vfx_layer.handle_event)
+
 	# 7c. Draw zone NPCs
 	_create_npc_views()
 
@@ -251,6 +257,7 @@ func _init_game() -> void:
 	LayeredSpritePreview.setup_if_requested(self)
 	HudPreview.setup_if_requested(self)
 	DeathScreenPreview.setup_if_requested(self)
+	VfxPreview.setup_if_requested(self)
 
 	# Initial view update
 	_update_views()
@@ -429,6 +436,9 @@ func _respawn_new_character() -> void:
 		entity_layer.reset()
 		entity_layer.setup(session, zone_view, registry, player_marker)
 
+	if vfx_layer != null:
+		vfx_layer.setup(world, zone_view, registry)
+
 	if hud != null:
 		hud.clear_loot_markers()
 		hud.setup(session, world, player, inventory, item_db, registry, entities_root, zone_view)
@@ -584,7 +594,7 @@ func _on_attack_mode_changed(active: bool) -> void:
 
 
 func _process(delta: float) -> void:
-	if TelegraphWindupPreview.is_active or LayeredSpritePreview.is_active or HudPreview.is_active or DeathScreenPreview.is_active:
+	if TelegraphWindupPreview.is_active or LayeredSpritePreview.is_active or HudPreview.is_active or DeathScreenPreview.is_active or VfxPreview.is_active:
 		_update_views()
 		return
 

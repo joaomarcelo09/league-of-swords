@@ -83,7 +83,20 @@
     "loot_marker_size": 8.0,
     "loot_marker_color": [1.0, 0.84, 0.0, 1.0],
     "loot_marker_border_color": [0.1, 0.1, 0.1, 0.9],
-    "loot_label_color": [1.0, 1.0, 1.0, 1.0]
+    "loot_label_color": [1.0, 1.0, 1.0, 1.0],
+    "vfx": {
+      "z_index": 5,
+      "line_width_ratio": 0.5,
+      "line_extend_share": 0.35,
+      "cone_segments": 16,
+      "ring_start_scale": 0.35,
+      "ring_width_px": 3.0,
+      "fill_alpha_ratio": 0.35,
+      "trail_ghost_count": 5,
+      "trail_ghost_radius_px": 9.0,
+      "trail_ribbon_width_px": 6.0,
+      "trail_tail_alpha": 0.3
+    }
   },
   "save": {
     "version": 1,
