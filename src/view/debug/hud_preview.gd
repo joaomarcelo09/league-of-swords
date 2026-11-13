@@ -5,12 +5,20 @@ static var is_active: bool = false
 
 ## Variants: --preview=hud (default), --preview=hud_boss (boss bar),
 ## --preview=hud_floor_cleared (floor-cleared panel), --preview=hud_merchant (merchant panel),
-## --preview=hud_cooldowns (all four skill slots, with icons, mid-cooldown).
+## --preview=hud_cooldowns (all four skill slots, with icons, mid-cooldown),
+## --preview=hud_cast_failed (at frame CAST_FAIL_FRAME a cast_failed on Q and a dash_failed
+## on E; from then on the fail feedback advances CAST_FAIL_FRAME_DT per frame, so
+## tools/screenshot.sh --frames=N is repeatable: before, mid-flash, after the fade).
 const VARIANT_DEFAULT: String = "hud"
 const VARIANT_BOSS: String = "hud_boss"
 const VARIANT_FLOOR_CLEARED: String = "hud_floor_cleared"
 const VARIANT_MERCHANT: String = "hud_merchant"
 const VARIANT_COOLDOWNS: String = "hud_cooldowns"
+const VARIANT_CAST_FAILED: String = "hud_cast_failed"
+const CAST_FAIL_FRAME: int = 20
+const CAST_FAIL_FRAME_DT: float = 1.0 / 60.0
+const CAST_FAIL_Q_REASON: String = "cooldown"
+const CAST_FAIL_E_REASON: String = "invalid_aim"
 ## Share of each slot's full cooldown still remaining in the hud_cooldowns preview.
 const COOLDOWN_PREVIEW_RATIOS: Dictionary = {"Q": 0.8, "W": 0.6, "R": 0.4, "E": 0.25}
 const MERCHANT_NPC_ID: String = "floor1_smith"
@@ -48,6 +56,8 @@ static func setup_if_requested(main: MainView) -> void:
 			_prepare_merchant(main)
 		VARIANT_COOLDOWNS:
 			_prepare_cooldowns(main)
+		VARIANT_CAST_FAILED:
+			_prepare_cast_failed(main)
 		_:
 			_prepare(main)
 
@@ -159,3 +169,44 @@ static func _prepare_cooldowns(main: MainView) -> void:
 	player.dash_ready_tick = now + dash_cd_s * tick_hz * float(COOLDOWN_PREVIEW_RATIOS["E"])
 	if main.hud != null:
 		main.hud.update_view()
+
+
+## Fires the preview's fail events at CAST_FAIL_FRAME, then steps the slots' feedback.
+class CastFailDriver extends Node:
+	var main: MainView = null
+	var frame: int = 0
+
+	func _process(_delta: float) -> void:
+		frame += 1
+		if main == null or main.hud == null:
+			return
+		if frame == HudPreview.CAST_FAIL_FRAME:
+			HudPreview.fire_cast_failed(main)
+		elif frame > HudPreview.CAST_FAIL_FRAME:
+			for comp: HUD.SkillSlotComponent in main.hud.get_skill_slots().values():
+				comp.advance_fail(HudPreview.CAST_FAIL_FRAME_DT)
+		# The preview owns the clock: keep the slots' real-time fade off.
+		for comp: HUD.SkillSlotComponent in main.hud.get_skill_slots().values():
+			comp.set_process(false)
+
+
+static func _prepare_cast_failed(main: MainView) -> void:
+	var driver := CastFailDriver.new()
+	driver.name = "HudCastFailedPreview"
+	driver.main = main
+	main.add_child(driver)
+
+
+## A player cast_failed on Q (Q put on cooldown to match) and a dash_failed on E.
+static func fire_cast_failed(main: MainView) -> void:
+	var world := main.world
+	var player := main.player
+	if world == null or player == null or main.hud == null:
+		return
+	if world.tick_length > 0.0 and main.registry != null:
+		var skill_id := SkillIcons.skill_id_for_slot(main.registry, "Q", player.skills)
+		var cd_s := float(main.registry.get_entry("skills", skill_id).get("cooldown_s", 0.0))
+		player.skill_ready_ticks["Q"] = float(world.tick_count) + cd_s / world.tick_length * float(COOLDOWN_PREVIEW_RATIOS["Q"])
+	main.hud.handle_event({"type": "cast_failed", "tick": world.tick_count, "source": player.id, "slot": "Q", "reason": CAST_FAIL_Q_REASON})
+	main.hud.handle_event({"type": "dash_failed", "tick": world.tick_count, "source": player.id, "reason": CAST_FAIL_E_REASON})
+	main.hud.update_view()
