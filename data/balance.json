@@ -79,6 +79,23 @@
     "hud_slot_fallback_font_size": 22,
     "hud_inventory_width": 260.0,
     "hud_inventory_height": 320.0,
+    "hud_cast_fail": {
+      "flash_duration_s": 0.35,
+      "label_duration_s": 0.9,
+      "flash_color": [1.0, 0.15, 0.15, 0.6],
+      "label_color": [1.0, 0.45, 0.4, 1.0],
+      "label_font_size": 11,
+      "label_offset_y": 16.0,
+      "labels": {
+        "cooldown": "cooldown",
+        "zero_direction": "no target",
+        "invalid_aim": "no target",
+        "unknown_slot": "no skill",
+        "unknown_skill": "no skill",
+        "invalid_skill": "skill error",
+        "invalid_params": "dash error"
+      }
+    },
     "loot_pickup_radius": 1.2,
     "loot_marker_size": 8.0,
     "loot_marker_color": [1.0, 0.84, 0.0, 1.0],

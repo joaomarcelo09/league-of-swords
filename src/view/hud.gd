@@ -15,6 +15,12 @@ const DEFAULT_SWEEP_COLOR := Color(0.05, 0.05, 0.08, 0.75)
 const DEFAULT_SLOT_ICON_INSET: float = 4.0
 const DEFAULT_SLOT_ICON_COLOR := Color(1.0, 1.0, 1.0, 1.0)
 const DEFAULT_SLOT_FALLBACK_FONT_SIZE: int = 22
+const DEFAULT_CAST_FAIL_FLASH_COLOR := Color(1.0, 0.15, 0.15, 0.6)
+const DEFAULT_CAST_FAIL_LABEL_COLOR := Color(1.0, 0.45, 0.4, 1.0)
+const DEFAULT_CAST_FAIL_LABEL_FONT_SIZE: int = 11
+const DEFAULT_CAST_FAIL_LABEL_OFFSET_Y: float = 16.0
+## Slot that dash_failed events (no slot field) light up.
+const DASH_SLOT_KEY: String = "E"
 
 const DEFAULT_INVENTORY_WIDTH: float = 260.0
 const DEFAULT_INVENTORY_HEIGHT: float = 320.0
@@ -92,6 +98,15 @@ class SkillSlotComponent extends Control:
 	var remaining_s: float = 0.0
 	var key_label: Label = null
 	var cd_label: Label = null
+	# Cast-failed feedback: red flash over the slot plus a short reason label above it.
+	var fail_flash_duration: float = 0.0
+	var fail_label_duration: float = 0.0
+	var fail_flash_color: Color = DEFAULT_CAST_FAIL_FLASH_COLOR
+	var fail_label_color: Color = DEFAULT_CAST_FAIL_LABEL_COLOR
+	var fail_elapsed: float = 0.0
+	var fail_active: bool = false
+	var fail_flash: float = 0.0
+	var fail_label: Label = null
 
 	func _init(p_slot_key: String, p_size: float = DEFAULT_SLOT_SIZE) -> void:
 		slot_key = p_slot_key
@@ -126,6 +141,19 @@ class SkillSlotComponent extends Control:
 		cd_label.visible = false
 		add_child(cd_label)
 
+		fail_label = Label.new()
+		fail_label.name = "FailLabel"
+		fail_label.text = ""
+		fail_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		fail_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		fail_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		fail_label.add_theme_color_override("font_outline_color", Color(0.0, 0.0, 0.0, 0.95))
+		fail_label.add_theme_constant_override("outline_size", 4)
+		fail_label.visible = false
+		add_child(fail_label)
+		configure_fail({})
+		set_process(false)
+
 	func update_size(p_size: float) -> void:
 		slot_size = p_size
 		custom_minimum_size = Vector2(slot_size, slot_size)
@@ -145,6 +173,58 @@ class SkillSlotComponent extends Control:
 			cd_label.text = text
 			cd_label.visible = cd_fraction > 0.0 and not text.is_empty()
 		queue_redraw()
+
+	## Applies a HUD.cast_fail_config() dictionary; {} switches the feedback off.
+	func configure_fail(config: Dictionary) -> void:
+		fail_flash_duration = float(config.get("flash_duration_s", 0.0))
+		fail_label_duration = float(config.get("label_duration_s", 0.0))
+		fail_flash_color = config.get("flash_color", DEFAULT_CAST_FAIL_FLASH_COLOR)
+		fail_label_color = config.get("label_color", DEFAULT_CAST_FAIL_LABEL_COLOR)
+		var font_size: int = int(config.get("label_font_size", DEFAULT_CAST_FAIL_LABEL_FONT_SIZE))
+		var offset_y: float = float(config.get("label_offset_y", DEFAULT_CAST_FAIL_LABEL_OFFSET_Y))
+		if fail_label != null:
+			fail_label.add_theme_font_size_override("font_size", font_size)
+			fail_label.position = Vector2(-slot_size * 0.5, -offset_y)
+			fail_label.size = Vector2(slot_size * 2.0, offset_y)
+
+	## Starts (or restarts) the fail flash and shows `reason_text` ("" = flash only).
+	func show_fail(reason_text: String) -> void:
+		if fail_flash_duration <= 0.0 and fail_label_duration <= 0.0:
+			return
+		fail_elapsed = 0.0
+		fail_active = true
+		if fail_label != null:
+			fail_label.text = reason_text if fail_label_duration > 0.0 else ""
+		_refresh_fail()
+		set_process(true)
+
+	## Advances the fail feedback by `dt` seconds; returns whether it is still running.
+	func advance_fail(dt: float) -> bool:
+		if not fail_active:
+			return false
+		fail_elapsed += maxf(0.0, dt)
+		if fail_elapsed >= maxf(fail_flash_duration, fail_label_duration):
+			fail_active = false
+		_refresh_fail()
+		return fail_active
+
+	func is_fail_label_visible() -> bool:
+		return fail_label != null and fail_label.visible
+
+	func _refresh_fail() -> void:
+		fail_flash = HUD.fail_flash_strength(fail_elapsed, fail_flash_duration) if fail_active else 0.0
+		if fail_label != null:
+			var label_alpha := HUD.fail_flash_strength(fail_elapsed, fail_label_duration) if fail_active else 0.0
+			fail_label.visible = label_alpha > 0.0 and not fail_label.text.is_empty()
+			if not fail_label.visible:
+				fail_label.text = ""
+			var c := fail_label_color
+			fail_label.add_theme_color_override("font_color", Color(c.r, c.g, c.b, c.a * label_alpha))
+		queue_redraw()
+
+	func _process(delta: float) -> void:
+		if not advance_fail(delta):
+			set_process(false)
 
 	## Sets the skill icon (null = draw `letter` in `color` instead) and its tint colour.
 	func set_icon(texture: Texture2D, color: Color, letter: String) -> void:
@@ -175,6 +255,9 @@ class SkillSlotComponent extends Control:
 			var sweep_h := slot_size * cd_fraction
 			var sweep_r := Rect2(0.0, 0.0, slot_size, sweep_h)
 			draw_rect(sweep_r, sweep_color)
+		if fail_flash > 0.0:
+			var fc := fail_flash_color
+			draw_rect(r, Color(fc.r, fc.g, fc.b, fc.a * fail_flash))
 		draw_rect(r, border_color, false, 2.0)
 
 
@@ -199,6 +282,7 @@ var bottom_hud: VBoxContainer = null
 var hp_bar_comp: HPBarComponent = null
 var slots_container: HBoxContainer = null
 var slot_components: Dictionary = {} # "Q", "W", "R", "E" -> SkillSlotComponent
+var cast_fail_labels: Dictionary = {} # reason -> short text (view.hud_cast_fail.labels)
 
 var inventory_panel: PanelContainer = null
 var inventory_items_vbox: VBoxContainer = null
@@ -238,6 +322,7 @@ func setup(
 	_apply_registry_balance()
 	_ensure_ui_tree()
 	refresh_skill_icons()
+	apply_cast_fail_config()
 	update_view()
 
 
@@ -505,6 +590,15 @@ func refresh_skill_icons() -> void:
 		comp.set_icon(info["texture"], info["color"], str(info["letter"]))
 
 
+## Reads view.hud_cast_fail into every slot; missing config switches the feedback off.
+func apply_cast_fail_config() -> void:
+	var config := cast_fail_config(registry.get_balance("view.hud_cast_fail") if registry != null else null)
+	cast_fail_labels = config.get("labels", {})
+	for comp: SkillSlotComponent in slot_components.values():
+		if comp != null:
+			comp.configure_fail(config)
+
+
 # --- Input Handling ---
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -667,6 +761,20 @@ func handle_event(event: Dictionary) -> void:
 		spawn_loot_drop(event)
 	elif event_type == "floor_cleared":
 		show_floor_cleared(event)
+	elif event_type == "cast_failed":
+		show_cast_fail(str(event.get("slot", "")), event)
+	elif event_type == "dash_failed":
+		show_cast_fail(DASH_SLOT_KEY, event)
+
+
+## Flashes `slot_key`'s slot with the event's reason, only for the player's own failures.
+func show_cast_fail(slot_key: String, event: Dictionary) -> void:
+	if player == null or int(event.get("source", -1)) != player.id:
+		return
+	var comp: SkillSlotComponent = slot_components.get(slot_key, null)
+	if comp == null:
+		return
+	comp.show_fail(fail_label(str(event.get("reason", "")), cast_fail_labels))
 
 
 ## Opens the merchant panel for zone NPC `npc_id` (from PlayerInput.npc_interact).
@@ -951,6 +1059,35 @@ static func is_in_pickup_range(player_pos: Vector2, loot_tile: Vector2i, radius:
 
 static func can_pickup_loot(player_pos: Vector2, loot_tile: Vector2i, radius: float) -> bool:
 	return is_in_pickup_range(player_pos, loot_tile, radius)
+
+
+## Fail flash strength: 1 at the start, fading linearly to 0 at (and after) `duration`.
+static func fail_flash_strength(elapsed: float, duration: float) -> float:
+	if duration <= 0.0:
+		return 0.0
+	return clampf(1.0 - elapsed / duration, 0.0, 1.0)
+
+
+## Short text for a cast/dash fail `reason` ("" when unknown).
+static func fail_label(reason: String, labels: Dictionary) -> String:
+	return str(labels.get(reason, ""))
+
+
+## Normalises view.hud_cast_fail; {} (feedback off) when missing or not a Dictionary.
+static func cast_fail_config(raw: Variant) -> Dictionary:
+	if not (raw is Dictionary):
+		return {}
+	var d: Dictionary = raw
+	var labels: Variant = d.get("labels", {})
+	return {
+		"flash_duration_s": maxf(0.0, float(d.get("flash_duration_s", 0.0))),
+		"label_duration_s": maxf(0.0, float(d.get("label_duration_s", 0.0))),
+		"flash_color": parse_color(d.get("flash_color"), DEFAULT_CAST_FAIL_FLASH_COLOR),
+		"label_color": parse_color(d.get("label_color"), DEFAULT_CAST_FAIL_LABEL_COLOR),
+		"label_font_size": maxi(1, int(d.get("label_font_size", DEFAULT_CAST_FAIL_LABEL_FONT_SIZE))),
+		"label_offset_y": maxf(0.0, float(d.get("label_offset_y", DEFAULT_CAST_FAIL_LABEL_OFFSET_Y))),
+		"labels": labels if labels is Dictionary else {},
+	}
 
 
 static func parse_color(val: Variant, fallback: Color) -> Color:
