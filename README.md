@@ -9,3 +9,5 @@ An original 2D action role-playing game built for immersive adventures.
 
 ## Setup
 Setup instructions are coming soon.
+
+Developer notes (re-import after pulling, fetching art): [docs/dev-notes.md](docs/dev-notes.md)
