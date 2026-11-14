@@ -256,7 +256,7 @@ func _build_sprite() -> void:
 	new_sprite.name = "EnemySprite"
 	# Drawn behind this node's own _draw so the HP bar stays on top of the sprite.
 	new_sprite.show_behind_parent = true
-	new_sprite.set_layer_textures(textures)
+	new_sprite.set_layer_textures(textures, built.get("tints", {}))
 	new_sprite.play(CharacterAnimator.ANIM_IDLE, AnimState.DIR_DOWN)
 	new_sprite.scale = Vector2(view_scale, view_scale)
 	add_child(new_sprite)

@@ -179,6 +179,195 @@
     "source_page": "https://opengameart.org/content/sinbad-the-ogre",
     "notes": "Universal LPC Spritesheet Character Generator, spritesheets/head/heads/orc/male/hurt.png (pinned commit; license chosen from OGA-BY 3.0 / CC-BY-SA 3.0 / GPL 3.0)"
   },
+  "characters_lpc_weapon_saber_walk": {
+    "url": "https://raw.githubusercontent.com/LiberatedPixelCup/Universal-LPC-Spritesheet-Character-Generator/04140673ec02906f8233523639733c83690df750/spritesheets/weapon/sword/saber/walk/saber.png",
+    "sha256": "2f5d246ecd70322cefe0d490c5872cd0c486fde2657a044d23d09e60160acdd6",
+    "dest": "assets/characters/lpc/weapon/saber/walk.png",
+    "author": "Daniel Eddeland (daneeklu), Johannes Sjölund (wulax), gr3yh47, bluecarrot16",
+    "license": "CC-BY-SA 3.0",
+    "source_page": "https://opengameart.org/content/lpc-medieval-fantasy-character-sprites",
+    "notes": "Universal LPC Spritesheet Character Generator, spritesheets/weapon/sword/saber/walk/saber.png (pinned commit)"
+  },
+  "characters_lpc_weapon_saber_slash": {
+    "url": "https://raw.githubusercontent.com/LiberatedPixelCup/Universal-LPC-Spritesheet-Character-Generator/04140673ec02906f8233523639733c83690df750/spritesheets/weapon/sword/saber/attack_slash/saber.png",
+    "sha256": "efab2cb608e71df73cd4446a364c94a24856157eabf454a6f0a4862a8d4a1d3c",
+    "dest": "assets/characters/lpc/weapon/saber/slash.png",
+    "author": "Daniel Eddeland (daneeklu), Johannes Sjölund (wulax), gr3yh47, bluecarrot16",
+    "license": "CC-BY-SA 3.0",
+    "source_page": "https://opengameart.org/content/lpc-medieval-fantasy-character-sprites",
+    "notes": "Universal LPC Spritesheet Character Generator, spritesheets/weapon/sword/saber/attack_slash/saber.png (pinned commit); oversize 192px slash frames, the centred 64px region is used (frame_sizes in data/appearances.json)"
+  },
+  "characters_lpc_weapon_saber_hurt": {
+    "url": "https://raw.githubusercontent.com/LiberatedPixelCup/Universal-LPC-Spritesheet-Character-Generator/04140673ec02906f8233523639733c83690df750/spritesheets/weapon/sword/saber/hurt/saber.png",
+    "sha256": "e1e14017545d7cf1f566c814b9832a7d294daad15051e4dd38e3365555588ca2",
+    "dest": "assets/characters/lpc/weapon/saber/hurt.png",
+    "author": "Daniel Eddeland (daneeklu), Johannes Sjölund (wulax), gr3yh47, bluecarrot16",
+    "license": "CC-BY-SA 3.0",
+    "source_page": "https://opengameart.org/content/lpc-medieval-fantasy-character-sprites",
+    "notes": "Universal LPC Spritesheet Character Generator, spritesheets/weapon/sword/saber/hurt/saber.png (pinned commit)"
+  },
+  "characters_lpc_weapon_saber_behind_walk": {
+    "url": "https://raw.githubusercontent.com/LiberatedPixelCup/Universal-LPC-Spritesheet-Character-Generator/04140673ec02906f8233523639733c83690df750/spritesheets/weapon/sword/saber/universal_behind/walk/saber.png",
+    "sha256": "c56429adddbb49bfae3f5b6cef1e350181a8864d8b3643e60d65c0492adc36c7",
+    "dest": "assets/characters/lpc/weapon/saber_behind/walk.png",
+    "author": "Daniel Eddeland (daneeklu), Johannes Sjölund (wulax), gr3yh47, bluecarrot16",
+    "license": "CC-BY-SA 3.0",
+    "source_page": "https://opengameart.org/content/lpc-medieval-fantasy-character-sprites",
+    "notes": "Universal LPC Spritesheet Character Generator, spritesheets/weapon/sword/saber/universal_behind/walk/saber.png (pinned commit)"
+  },
+  "characters_lpc_weapon_saber_behind_slash": {
+    "url": "https://raw.githubusercontent.com/LiberatedPixelCup/Universal-LPC-Spritesheet-Character-Generator/04140673ec02906f8233523639733c83690df750/spritesheets/weapon/sword/saber/attack_slash/behind/saber.png",
+    "sha256": "6301247029fcefa708db3016d33dea6ab9a1720d25e902415cf4e904ade14cae",
+    "dest": "assets/characters/lpc/weapon/saber_behind/slash.png",
+    "author": "Daniel Eddeland (daneeklu), Johannes Sjölund (wulax), gr3yh47, bluecarrot16",
+    "license": "CC-BY-SA 3.0",
+    "source_page": "https://opengameart.org/content/lpc-medieval-fantasy-character-sprites",
+    "notes": "Universal LPC Spritesheet Character Generator, spritesheets/weapon/sword/saber/attack_slash/behind/saber.png (pinned commit); oversize 192px slash frames, the centred 64px region is used (frame_sizes in data/appearances.json)"
+  },
+  "characters_lpc_weapon_saber_behind_hurt": {
+    "url": "https://raw.githubusercontent.com/LiberatedPixelCup/Universal-LPC-Spritesheet-Character-Generator/04140673ec02906f8233523639733c83690df750/spritesheets/weapon/sword/saber/universal_behind/hurt/saber.png",
+    "sha256": "0fe14ed10eea8525cf33999ba5005cc2edd1f4feede750aec68448aad1c46efd",
+    "dest": "assets/characters/lpc/weapon/saber_behind/hurt.png",
+    "author": "Daniel Eddeland (daneeklu), Johannes Sjölund (wulax), gr3yh47, bluecarrot16",
+    "license": "CC-BY-SA 3.0",
+    "source_page": "https://opengameart.org/content/lpc-medieval-fantasy-character-sprites",
+    "notes": "Universal LPC Spritesheet Character Generator, spritesheets/weapon/sword/saber/universal_behind/hurt/saber.png (pinned commit)"
+  },
+  "characters_lpc_legs_pants_male_idle": {
+    "url": "https://raw.githubusercontent.com/LiberatedPixelCup/Universal-LPC-Spritesheet-Character-Generator/04140673ec02906f8233523639733c83690df750/spritesheets/legs/pants/male/idle.png",
+    "sha256": "717a5133533ccf18ccb3cced5653702be1d21a9ac6002dc9a84f3e1fb80087b3",
+    "dest": "assets/characters/lpc/legs/pants_male/idle.png",
+    "author": "bluecarrot16, JaidynReiman, ElizaWy, Matthew Krohn (makrohn), Johannes Sjölund (wulax), Stephen Challener (Redshrike)",
+    "license": "CC-BY-SA 3.0",
+    "source_page": "https://opengameart.org/content/lpc-expanded-pants",
+    "notes": "Universal LPC Spritesheet Character Generator, spritesheets/legs/pants/male/idle.png (pinned commit; license chosen from OGA-BY 3.0 / CC-BY-SA 3.0 / GPL 3.0)"
+  },
+  "characters_lpc_legs_pants_male_walk": {
+    "url": "https://raw.githubusercontent.com/LiberatedPixelCup/Universal-LPC-Spritesheet-Character-Generator/04140673ec02906f8233523639733c83690df750/spritesheets/legs/pants/male/walk.png",
+    "sha256": "2de5a3247743ffa37febdf3464cc0a83e79f64d1028aed410832ee29bea850b6",
+    "dest": "assets/characters/lpc/legs/pants_male/walk.png",
+    "author": "bluecarrot16, JaidynReiman, ElizaWy, Matthew Krohn (makrohn), Johannes Sjölund (wulax), Stephen Challener (Redshrike)",
+    "license": "CC-BY-SA 3.0",
+    "source_page": "https://opengameart.org/content/lpc-expanded-pants",
+    "notes": "Universal LPC Spritesheet Character Generator, spritesheets/legs/pants/male/walk.png (pinned commit; license chosen from OGA-BY 3.0 / CC-BY-SA 3.0 / GPL 3.0)"
+  },
+  "characters_lpc_legs_pants_male_slash": {
+    "url": "https://raw.githubusercontent.com/LiberatedPixelCup/Universal-LPC-Spritesheet-Character-Generator/04140673ec02906f8233523639733c83690df750/spritesheets/legs/pants/male/slash.png",
+    "sha256": "0c324cb85970493872400e1e161ef8a246fda5013967253b6933cea909674c9a",
+    "dest": "assets/characters/lpc/legs/pants_male/slash.png",
+    "author": "bluecarrot16, JaidynReiman, ElizaWy, Matthew Krohn (makrohn), Johannes Sjölund (wulax), Stephen Challener (Redshrike)",
+    "license": "CC-BY-SA 3.0",
+    "source_page": "https://opengameart.org/content/lpc-expanded-pants",
+    "notes": "Universal LPC Spritesheet Character Generator, spritesheets/legs/pants/male/slash.png (pinned commit; license chosen from OGA-BY 3.0 / CC-BY-SA 3.0 / GPL 3.0)"
+  },
+  "characters_lpc_legs_pants_male_hurt": {
+    "url": "https://raw.githubusercontent.com/LiberatedPixelCup/Universal-LPC-Spritesheet-Character-Generator/04140673ec02906f8233523639733c83690df750/spritesheets/legs/pants/male/hurt.png",
+    "sha256": "c9eac3fcea709049bd85e10b0bfb9ad73c557c423ebf4211995af1c6b917e9c5",
+    "dest": "assets/characters/lpc/legs/pants_male/hurt.png",
+    "author": "bluecarrot16, JaidynReiman, ElizaWy, Matthew Krohn (makrohn), Johannes Sjölund (wulax), Stephen Challener (Redshrike)",
+    "license": "CC-BY-SA 3.0",
+    "source_page": "https://opengameart.org/content/lpc-expanded-pants",
+    "notes": "Universal LPC Spritesheet Character Generator, spritesheets/legs/pants/male/hurt.png (pinned commit; license chosen from OGA-BY 3.0 / CC-BY-SA 3.0 / GPL 3.0)"
+  },
+  "characters_lpc_torso_longsleeve_male_idle": {
+    "url": "https://raw.githubusercontent.com/LiberatedPixelCup/Universal-LPC-Spritesheet-Character-Generator/04140673ec02906f8233523639733c83690df750/spritesheets/torso/clothes/longsleeve/longsleeve/male/idle.png",
+    "sha256": "c543a71e589b7a7142b860813fed42a3752e71b8fa074058796afb1f7772d807",
+    "dest": "assets/characters/lpc/torso/longsleeve_male/idle.png",
+    "author": "JaidynReiman, Johannes Sjölund (wulax)",
+    "license": "CC-BY-SA 3.0",
+    "source_page": "https://opengameart.org/content/lpc-expanded-simple-shirts",
+    "notes": "Universal LPC Spritesheet Character Generator, spritesheets/torso/clothes/longsleeve/longsleeve/male/idle.png (pinned commit; license chosen from OGA-BY 3.0 / CC-BY-SA 3.0 / GPL 3.0)"
+  },
+  "characters_lpc_torso_longsleeve_male_walk": {
+    "url": "https://raw.githubusercontent.com/LiberatedPixelCup/Universal-LPC-Spritesheet-Character-Generator/04140673ec02906f8233523639733c83690df750/spritesheets/torso/clothes/longsleeve/longsleeve/male/walk.png",
+    "sha256": "8b1c79d535d7a233371c9398ca51b196aa8fdf06117bd0eafd7fbcbf438d711b",
+    "dest": "assets/characters/lpc/torso/longsleeve_male/walk.png",
+    "author": "JaidynReiman, Johannes Sjölund (wulax)",
+    "license": "CC-BY-SA 3.0",
+    "source_page": "https://opengameart.org/content/lpc-expanded-simple-shirts",
+    "notes": "Universal LPC Spritesheet Character Generator, spritesheets/torso/clothes/longsleeve/longsleeve/male/walk.png (pinned commit; license chosen from OGA-BY 3.0 / CC-BY-SA 3.0 / GPL 3.0)"
+  },
+  "characters_lpc_torso_longsleeve_male_slash": {
+    "url": "https://raw.githubusercontent.com/LiberatedPixelCup/Universal-LPC-Spritesheet-Character-Generator/04140673ec02906f8233523639733c83690df750/spritesheets/torso/clothes/longsleeve/longsleeve/male/slash.png",
+    "sha256": "2a2a872196d4636f00bdda8ef642a2acac0c463f1b29c228f97696d3ffff08e3",
+    "dest": "assets/characters/lpc/torso/longsleeve_male/slash.png",
+    "author": "JaidynReiman, Johannes Sjölund (wulax)",
+    "license": "CC-BY-SA 3.0",
+    "source_page": "https://opengameart.org/content/lpc-expanded-simple-shirts",
+    "notes": "Universal LPC Spritesheet Character Generator, spritesheets/torso/clothes/longsleeve/longsleeve/male/slash.png (pinned commit; license chosen from OGA-BY 3.0 / CC-BY-SA 3.0 / GPL 3.0)"
+  },
+  "characters_lpc_torso_longsleeve_male_hurt": {
+    "url": "https://raw.githubusercontent.com/LiberatedPixelCup/Universal-LPC-Spritesheet-Character-Generator/04140673ec02906f8233523639733c83690df750/spritesheets/torso/clothes/longsleeve/longsleeve/male/hurt.png",
+    "sha256": "137e28434f07cb35ac06c0f79e8c9e4fe2a65b4c3250d7a0ed6a3b754b13cd74",
+    "dest": "assets/characters/lpc/torso/longsleeve_male/hurt.png",
+    "author": "JaidynReiman, Johannes Sjölund (wulax)",
+    "license": "CC-BY-SA 3.0",
+    "source_page": "https://opengameart.org/content/lpc-expanded-simple-shirts",
+    "notes": "Universal LPC Spritesheet Character Generator, spritesheets/torso/clothes/longsleeve/longsleeve/male/hurt.png (pinned commit; license chosen from OGA-BY 3.0 / CC-BY-SA 3.0 / GPL 3.0)"
+  },
+  "characters_lpc_torso_frock_black_walk": {
+    "url": "https://raw.githubusercontent.com/LiberatedPixelCup/Universal-LPC-Spritesheet-Character-Generator/04140673ec02906f8233523639733c83690df750/spritesheets/torso/jacket/frock/male/walk/black.png",
+    "sha256": "cadc644caed70207b324d77b099f931821efa452d69924a862c3ac13ff3250dc",
+    "dest": "assets/characters/lpc/torso/frock_black/walk.png",
+    "author": "bluecarrot16",
+    "license": "CC-BY-SA 3.0",
+    "source_page": "https://opengameart.org/content/lpc-pirates",
+    "notes": "Universal LPC Spritesheet Character Generator, spritesheets/torso/jacket/frock/male/walk/black.png (pinned commit)"
+  },
+  "characters_lpc_torso_frock_black_slash": {
+    "url": "https://raw.githubusercontent.com/LiberatedPixelCup/Universal-LPC-Spritesheet-Character-Generator/04140673ec02906f8233523639733c83690df750/spritesheets/torso/jacket/frock/male/slash/black.png",
+    "sha256": "3024b14670dcda4f0c60aabaff5487e1fa58db984dfd8bedfcb1d5246ee2b702",
+    "dest": "assets/characters/lpc/torso/frock_black/slash.png",
+    "author": "bluecarrot16",
+    "license": "CC-BY-SA 3.0",
+    "source_page": "https://opengameart.org/content/lpc-pirates",
+    "notes": "Universal LPC Spritesheet Character Generator, spritesheets/torso/jacket/frock/male/slash/black.png (pinned commit)"
+  },
+  "characters_lpc_torso_frock_black_hurt": {
+    "url": "https://raw.githubusercontent.com/LiberatedPixelCup/Universal-LPC-Spritesheet-Character-Generator/04140673ec02906f8233523639733c83690df750/spritesheets/torso/jacket/frock/male/hurt/black.png",
+    "sha256": "dd235fec787f9f42080f59d39ddb44f5f7a769405e680d0867e8d6ac2efcc188",
+    "dest": "assets/characters/lpc/torso/frock_black/hurt.png",
+    "author": "bluecarrot16",
+    "license": "CC-BY-SA 3.0",
+    "source_page": "https://opengameart.org/content/lpc-pirates",
+    "notes": "Universal LPC Spritesheet Character Generator, spritesheets/torso/jacket/frock/male/hurt/black.png (pinned commit)"
+  },
+  "characters_lpc_hair_messy1_idle": {
+    "url": "https://raw.githubusercontent.com/LiberatedPixelCup/Universal-LPC-Spritesheet-Character-Generator/04140673ec02906f8233523639733c83690df750/spritesheets/hair/messy1/adult/idle.png",
+    "sha256": "7d426ce6f7a260d5d757f16935d4a955bec8dd46c2df67bf8bd556d6395ae11d",
+    "dest": "assets/characters/lpc/hair/messy1/idle.png",
+    "author": "JaidynReiman, Manuel Riecke (MrBeast)",
+    "license": "CC-BY-SA 3.0",
+    "source_page": "https://opengameart.org/content/lpc-expanded-hair",
+    "notes": "Universal LPC Spritesheet Character Generator, spritesheets/hair/messy1/adult/idle.png (pinned commit; license chosen from CC-BY-SA 3.0 / GPL 3.0)"
+  },
+  "characters_lpc_hair_messy1_walk": {
+    "url": "https://raw.githubusercontent.com/LiberatedPixelCup/Universal-LPC-Spritesheet-Character-Generator/04140673ec02906f8233523639733c83690df750/spritesheets/hair/messy1/adult/walk.png",
+    "sha256": "a3f389578b71cabf457a8f1e617e232ce8104c2f1371f44fafe947d5070d7fca",
+    "dest": "assets/characters/lpc/hair/messy1/walk.png",
+    "author": "JaidynReiman, Manuel Riecke (MrBeast)",
+    "license": "CC-BY-SA 3.0",
+    "source_page": "https://opengameart.org/content/lpc-expanded-hair",
+    "notes": "Universal LPC Spritesheet Character Generator, spritesheets/hair/messy1/adult/walk.png (pinned commit; license chosen from CC-BY-SA 3.0 / GPL 3.0)"
+  },
+  "characters_lpc_hair_messy1_slash": {
+    "url": "https://raw.githubusercontent.com/LiberatedPixelCup/Universal-LPC-Spritesheet-Character-Generator/04140673ec02906f8233523639733c83690df750/spritesheets/hair/messy1/adult/slash.png",
+    "sha256": "90c19a9790426495bd5182330e437a2b93c21f48ce128e6615becad9e67e064c",
+    "dest": "assets/characters/lpc/hair/messy1/slash.png",
+    "author": "JaidynReiman, Manuel Riecke (MrBeast)",
+    "license": "CC-BY-SA 3.0",
+    "source_page": "https://opengameart.org/content/lpc-expanded-hair",
+    "notes": "Universal LPC Spritesheet Character Generator, spritesheets/hair/messy1/adult/slash.png (pinned commit; license chosen from CC-BY-SA 3.0 / GPL 3.0)"
+  },
+  "characters_lpc_hair_messy1_hurt": {
+    "url": "https://raw.githubusercontent.com/LiberatedPixelCup/Universal-LPC-Spritesheet-Character-Generator/04140673ec02906f8233523639733c83690df750/spritesheets/hair/messy1/adult/hurt.png",
+    "sha256": "89dbbaa62e2d1d758e4b0d409dabf1ec647943a5cb0465172bd936611a01e21e",
+    "dest": "assets/characters/lpc/hair/messy1/hurt.png",
+    "author": "JaidynReiman, Manuel Riecke (MrBeast)",
+    "license": "CC-BY-SA 3.0",
+    "source_page": "https://opengameart.org/content/lpc-expanded-hair",
+    "notes": "Universal LPC Spritesheet Character Generator, spritesheets/hair/messy1/adult/hurt.png (pinned commit; license chosen from CC-BY-SA 3.0 / GPL 3.0)"
+  },
   "tiles_lpc_base_grass": {
     "url": "https://opengameart.org/sites/default/files/lpc_base_assets.zip",
     "sha256": "69efec8a26ef20b26cfd7a8de370e87d0e667136eba2d00392dde13d2ac52465",

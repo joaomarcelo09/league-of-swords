@@ -1,6 +1,17 @@
 {
   "player_default": {
     "layers": {
+      "weapon_behind": {
+        "walk": "res://assets/characters/lpc/weapon/saber_behind/walk.png",
+        "slash": "res://assets/characters/lpc/weapon/saber_behind/slash.png",
+        "hurt": "res://assets/characters/lpc/weapon/saber_behind/hurt.png",
+        "frame_sizes": {
+          "slash": [
+            192,
+            192
+          ]
+        }
+      },
       "body": {
         "idle": "res://assets/characters/lpc/body/male/idle.png",
         "walk": "res://assets/characters/lpc/body/male/walk.png",
@@ -12,12 +23,50 @@
         "walk": "res://assets/characters/lpc/head/human_male/walk.png",
         "slash": "res://assets/characters/lpc/head/human_male/slash.png",
         "hurt": "res://assets/characters/lpc/head/human_male/hurt.png"
+      },
+      "legs": {
+        "idle": "res://assets/characters/lpc/legs/pants_male/idle.png",
+        "walk": "res://assets/characters/lpc/legs/pants_male/walk.png",
+        "slash": "res://assets/characters/lpc/legs/pants_male/slash.png",
+        "hurt": "res://assets/characters/lpc/legs/pants_male/hurt.png",
+        "tint": "#2a2a32"
+      },
+      "clothes": {
+        "idle": "res://assets/characters/lpc/torso/longsleeve_male/idle.png",
+        "walk": "res://assets/characters/lpc/torso/longsleeve_male/walk.png",
+        "slash": "res://assets/characters/lpc/torso/longsleeve_male/slash.png",
+        "hurt": "res://assets/characters/lpc/torso/longsleeve_male/hurt.png",
+        "tint": "#3a3a46"
+      },
+      "armor": {
+        "walk": "res://assets/characters/lpc/torso/frock_black/walk.png",
+        "slash": "res://assets/characters/lpc/torso/frock_black/slash.png",
+        "hurt": "res://assets/characters/lpc/torso/frock_black/hurt.png"
+      },
+      "hair": {
+        "idle": "res://assets/characters/lpc/hair/messy1/idle.png",
+        "walk": "res://assets/characters/lpc/hair/messy1/walk.png",
+        "slash": "res://assets/characters/lpc/hair/messy1/slash.png",
+        "hurt": "res://assets/characters/lpc/hair/messy1/hurt.png",
+        "tint": "#4a4048"
+      },
+      "weapon": {
+        "walk": "res://assets/characters/lpc/weapon/saber/walk.png",
+        "slash": "res://assets/characters/lpc/weapon/saber/slash.png",
+        "hurt": "res://assets/characters/lpc/weapon/saber/hurt.png",
+        "frame_sizes": {
+          "slash": [
+            192,
+            192
+          ]
+        }
       }
     },
     "fallback": {
       "body": "res://assets/characters/placeholder/body.png",
       "clothes": "res://assets/characters/placeholder/clothes.png",
-      "hair": "res://assets/characters/placeholder/hair.png"
+      "hair": "res://assets/characters/placeholder/hair.png",
+      "weapon": "res://assets/characters/placeholder/weapon.png"
     }
   },
   "ash_stalker": {

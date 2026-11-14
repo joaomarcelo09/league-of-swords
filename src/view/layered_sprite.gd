@@ -126,8 +126,10 @@ func set_appearance(p_appearance: Dictionary) -> void:
 
 ## Configures layers from already-built textures (layer name -> Texture2D), e.g. the
 ## stacked sheets composed by CharacterAppearance. Layers missing from p_textures are
-## hidden. Same draw-order rules as set_appearance.
-func set_layer_textures(p_textures: Dictionary) -> void:
+## hidden. Same draw-order rules as set_appearance. p_tints {layer: Color} sets each
+## layer's self_modulate (layers without a tint are reset to white); self_modulate keeps
+## the node's own modulate free for effects such as HitFlash.
+func set_layer_textures(p_textures: Dictionary, p_tints: Dictionary = {}) -> void:
 	appearance = {}
 	var draw_order: Array = get_draw_order()
 	if draw_order.is_empty():
@@ -146,6 +148,8 @@ func set_layer_textures(p_textures: Dictionary) -> void:
 		var sprite := _ensure_layer_sprite(layer_name)
 		sprite.texture = tex as Texture2D
 		sprite.visible = true
+		var tint: Variant = p_tints.get(layer_name, null)
+		sprite.self_modulate = tint as Color if tint is Color else Color.WHITE
 
 	_finish_layers(draw_order)
 
