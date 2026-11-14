@@ -88,10 +88,17 @@ func test_find_path_around_wall() -> void:
 	for t in path:
 		assert_true(zone.is_walkable(t), "Tile %s in path must be walkable" % str(t))
 
-	# Consecutive tiles are adjacent (4-directional, Manhattan distance == 1)
+	# Consecutive tiles are adjacent (8-directional, Chebyshev distance == 1);
+	# a diagonal step never cuts a wall corner (both side tiles are walkable).
 	for i in range(path.size() - 1):
-		var step_dist: int = abs(path[i + 1].x - path[i].x) + abs(path[i + 1].y - path[i].y)
+		var d: Vector2i = path[i + 1] - path[i]
+		var step_dist: int = maxi(absi(d.x), absi(d.y))
 		assert_eq(step_dist, 1, "Consecutive tiles %s and %s must be adjacent" % [str(path[i]), str(path[i + 1])])
+		if d.x != 0 and d.y != 0:
+			assert_true(
+				zone.is_walkable(path[i] + Vector2i(d.x, 0)) and zone.is_walkable(path[i] + Vector2i(0, d.y)),
+				"Diagonal step %s -> %s must not cut a corner" % [str(path[i]), str(path[i + 1])]
+			)
 
 
 func test_find_path_same_tile_and_unwalkable() -> void:

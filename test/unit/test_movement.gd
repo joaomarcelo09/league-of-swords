@@ -84,6 +84,7 @@ func test_path_avoids_walls_and_goes_through_gap() -> void:
 	sim.submit(Commands.move_to(entity.id, target_tile))
 
 	var visited_gap := false
+	var prev_pos := entity.pos
 	var ticks := 0
 	while ticks < 250:
 		sim.step(sim.tick_length)
@@ -93,13 +94,12 @@ func test_path_avoids_walls_and_goes_through_gap() -> void:
 			_zone.is_walkable(cur_tile),
 			"Entity must never stand on unwalkable tile. Stood on %s at tick %d (pos=%s)" % [str(cur_tile), ticks, str(entity.pos)]
 		)
-		# Entity must strictly stay on orthogonal grid segments (at least one coord centered)
-		var x_centered := is_equal_approx(entity.pos.x - floor(entity.pos.x), 0.5)
-		var y_centered := is_equal_approx(entity.pos.y - floor(entity.pos.y), 0.5)
+		# Free movement: any angle is allowed, but each tick's motion must stay on walkable tiles.
 		assert_true(
-			x_centered or y_centered,
-			"Entity should never move diagonally: pos is (%f, %f) at tick %d" % [entity.pos.x, entity.pos.y, ticks]
+			DashRules.is_segment_walkable(prev_pos, entity.pos, _zone),
+			"Tick %d motion %s -> %s must not cross unwalkable tiles" % [ticks, str(prev_pos), str(entity.pos)]
 		)
+		prev_pos = entity.pos
 
 		if cur_tile == Vector2i(5, 6):
 			visited_gap = true

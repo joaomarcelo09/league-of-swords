@@ -316,6 +316,8 @@ static func command_for_right_click(
 		if not p_world.zone.is_walkable(target_tile):
 			return null
 
+	if target is Vector2:
+		return Commands.move_to_point(p_player_id, mouse_pos)
 	return Commands.move_to(p_player_id, target_tile)
 
 

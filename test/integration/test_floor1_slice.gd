@@ -289,12 +289,13 @@ func _pilot(goal: Vector2i, foe: Entity) -> void:
 		_sim.submit(Commands.move_to(_player.id, goal))
 
 
-## Walks to `goal` (fighting back only by dodging) until `done` returns true.
+## Walks to `goal` until `done` returns true, fighting back any enemy hunting
+## the player (an enemy can stand in a corridor the free-moving player must pass).
 func _walk_until(goal: Vector2i, done: Callable, label: String) -> void:
 	for _i in range(_max_ticks()):
 		if done.call() or _player.dead:
 			break
-		_pilot(goal, null)
+		_pilot(goal, _nearest_threat())
 		_tick()
 	assert_false(_player.dead, "%s: player must survive (hp=%.1f)" % [label, _player.hp])
 	assert_true(done.call(), "%s: goal not reached within the tick cap (at %s)" % [label, str(_player.tile())])
