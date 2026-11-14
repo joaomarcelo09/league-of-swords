@@ -517,7 +517,7 @@ func _build_player_sprite() -> LayeredSprite:
 		sprite.free()
 		return null
 	sprite.name = "PlayerSprite"
-	sprite.set_layer_textures(textures)
+	sprite.set_layer_textures(textures, built.get("tints", {}))
 	sprite.play(CharacterAnimator.ANIM_IDLE, "down")
 	return sprite
 

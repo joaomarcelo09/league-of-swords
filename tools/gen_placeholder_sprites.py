@@ -191,10 +191,12 @@ def draw_hair_frame(canvas: Canvas, fx: int, fy: int, anim: str, direction: str,
 
 
 def draw_clothes_frame(canvas: Canvas, fx: int, fy: int, anim: str, direction: str, frame: int) -> None:
-    tunic_col = (45, 95, 175, 255)
-    tunic_trim = (30, 70, 130, 255)
-    pants_col = (40, 50, 70, 255)
-    belt_col = (85, 45, 20, 255)
+    """Original dark outfit: long black coat (tails to the knees) over a dark shirt and pants."""
+    coat_col = (24, 24, 30, 255)
+    coat_edge = (48, 48, 60, 255)
+    shirt_col = (58, 58, 70, 255)
+    pants_col = (34, 34, 44, 255)
+    belt_col = (70, 70, 84, 255)
 
     bob = 0
     leg_offset = 0
@@ -210,21 +212,36 @@ def draw_clothes_frame(canvas: Canvas, fx: int, fy: int, anim: str, direction: s
     cx = fx + 32
     cy = fy + 18 + bob
     torso_top = cy + 8
-
-    # Tunic
-    canvas.fill_rect(cx - 6, torso_top, 12, 13, *tunic_col)
-    canvas.fill_rect(cx - 6, torso_top + 12, 12, 2, *tunic_trim)
-    # Belt
-    canvas.fill_rect(cx - 6, torso_top + 8, 12, 2, *belt_col)
-
-    # Sleeves
-    canvas.fill_rect(cx - 8, torso_top + 1, 3, 4, *tunic_col)
-    canvas.fill_rect(cx + 5, torso_top + 1, 3, 4, *tunic_col)
-
-    # Pants on legs
     legs_top = torso_top + 14
+
+    # Pants on legs (drawn first, the coat tails cover the thighs)
     canvas.draw_line(cx - 3, legs_top, cx - 4, legs_top + 10 + leg_offset, *pants_col, thickness=3)
     canvas.draw_line(cx + 3, legs_top, cx + 4, legs_top + 10 - leg_offset, *pants_col, thickness=3)
+
+    # Coat body
+    canvas.fill_rect(cx - 7, torso_top, 14, 14, *coat_col)
+    # Long tails down to the knees, swaying a little with the stride
+    sway = leg_offset // 2
+    canvas.fill_rect(cx - 7 + min(0, sway), legs_top, 7, 9, *coat_col)
+    canvas.fill_rect(cx + max(0, sway), legs_top, 7, 9, *coat_col)
+    canvas.fill_rect(cx - 7 + min(0, sway), legs_top + 8, 14 + abs(sway), 1, *coat_edge)
+
+    if direction == "down":
+        # Open front: dark shirt and belt between the lapels
+        canvas.fill_rect(cx - 2, torso_top, 4, 14, *shirt_col)
+        canvas.fill_rect(cx - 2, torso_top + 9, 4, 1, *belt_col)
+        canvas.fill_rect(cx - 3, torso_top, 1, 14, *coat_edge)
+        canvas.fill_rect(cx + 2, torso_top, 1, 14, *coat_edge)
+    elif direction == "up":
+        # Back seam splitting the tails
+        canvas.fill_rect(cx, legs_top, 1, 9, *coat_edge)
+    else:
+        front = -1 if direction == "left" else 1
+        canvas.fill_rect(cx + front * 6, torso_top, 1, 23, *coat_edge)
+
+    # Long sleeves along the upper arms
+    canvas.fill_rect(cx - 9, torso_top + 1, 3, 9, *coat_col)
+    canvas.fill_rect(cx + 6, torso_top + 1, 3, 9, *coat_col)
 
 
 def draw_armor_frame(canvas: Canvas, fx: int, fy: int, anim: str, direction: str, frame: int) -> None:
@@ -692,7 +709,13 @@ def main() -> None:
         default="all",
         help="Which outputs to regenerate (default: all).",
     )
+    parser.add_argument(
+        "--layers",
+        default="",
+        help="Comma-separated character layers to regenerate (default: every layer with a drawer).",
+    )
     args = parser.parse_args()
+    only_layers = {x.strip() for x in args.layers.split(",") if x.strip()}
 
     script_dir = os.path.dirname(os.path.abspath(__file__))
     root_dir = os.path.dirname(script_dir)
@@ -728,6 +751,8 @@ def main() -> None:
     layers = layout.get("layer_draw_order", ["body", "hair", "clothes", "armor", "weapon"])
 
     for layer in layers:
+        if only_layers and layer not in only_layers:
+            continue
         handler = DRAW_HANDLERS.get(layer)
         if not handler:
             print(f"Skipping unknown layer: {layer}")
@@ -736,6 +761,8 @@ def main() -> None:
         canvas = Canvas(sheet_w, sheet_h)
 
         for anim_name, anim_data in layout.get("animations", {}).items():
+            if anim_data.get("source_anim"):
+                continue  # alias (e.g. death -> hurt) reuses the source rows; drawing it would overdraw them
             frame_count = anim_data.get("frame_count", 1)
             rows = anim_data.get("rows", {})
             # Group directions sharing a row so each row is drawn only once
