@@ -9,6 +9,8 @@ var current_dir: String = "down"
 var current_frame: int = 0
 var frame_timer: float = 0.0
 var is_playing: bool = false
+## Playback speed multiplier for the current animation (1.0 = layout fps). Reset by play().
+var speed_scale: float = 1.0
 var appearance: Dictionary = {}
 var layer_sprites: Dictionary = {}
 
@@ -201,8 +203,29 @@ func play(anim: String, dir: String = "") -> void:
 		current_dir = dir
 	current_frame = 0
 	frame_timer = 0.0
+	speed_scale = 1.0
 	is_playing = true
 	_update_regions()
+
+
+## Switches the facing row of the current animation without restarting it (keeps the
+## frame and timer), e.g. a walk that turns mid-stride.
+func set_direction(dir: String) -> void:
+	if dir.is_empty() or dir == current_dir:
+		return
+	current_dir = dir
+	_update_regions()
+
+
+## Seconds one full pass of an animation takes at layout fps (0 if unknown).
+static func anim_seconds(p_layout: Dictionary, p_anim: String) -> float:
+	var anims: Dictionary = p_layout.get("animations", {})
+	var info: Dictionary = anims.get(p_anim, {})
+	var fps: float = float(info.get("fps", 0.0))
+	var frame_count: int = int(info.get("frame_count", 0))
+	if fps <= 0.0 or frame_count <= 0:
+		return 0.0
+	return float(frame_count) / fps
 
 
 ## Manually sets the current animation frame index.
@@ -225,7 +248,9 @@ func advance(dt: float) -> void:
 	if fps <= 0.0 or frame_count <= 0:
 		return
 
-	var frame_duration: float = 1.0 / fps
+	if speed_scale <= 0.0:
+		return
+	var frame_duration: float = 1.0 / (fps * speed_scale)
 	frame_timer += dt
 
 	while frame_timer >= frame_duration:

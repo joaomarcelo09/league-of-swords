@@ -1,5 +1,5 @@
 {
-  "_comment": "Stacked LPC layout. Placeholders are one stacked sheet; per-animation LPC files are composed into this layout by src/view/character_appearance.gd. idle rows 21-24 lie past the placeholder sheet and are filled from walk frame 0 (fallback) when no idle art exists. hurt_seconds is how long the view plays the hurt reaction after the entity takes damage. sprite_offset/sprite_scale place 64px frames so the feet sit on the entity (tile centre) position.",
+  "_comment": "Stacked LPC layout. Placeholders are one stacked sheet; per-animation LPC files are composed into this layout by src/view/character_appearance.gd. idle rows 21-24 lie past the placeholder sheet and are filled from walk frame 0 (fallback) when no idle art exists. hurt_seconds is how long the view plays the hurt reaction after the entity takes damage. sprite_offset/sprite_scale place 64px frames so the feet sit on the entity (tile centre) position. octant_dirs maps the 8 facing octants (Facing.EAST, SOUTH_EAST, SOUTH, SOUTH_WEST, WEST, NORTH_WEST, NORTH, NORTH_EAST) to the 4 LPC rows. slash_speed_scale_range [min, max] clamps how much the view may speed up/slow down the slash to fit an attack interval or enemy windup.",
   "frame_width": 64,
   "frame_height": 64,
   "frame_size": [
@@ -13,6 +13,20 @@
   "sprite_scale": 1.0,
   "hp_bar_y_offset": -52.0,
   "hurt_seconds": 0.4,
+  "octant_dirs": [
+    "right",
+    "right",
+    "down",
+    "left",
+    "left",
+    "left",
+    "up",
+    "right"
+  ],
+  "slash_speed_scale_range": [
+    0.25,
+    4.0
+  ],
   "lpc_direction_order": [
     "up",
     "left",
