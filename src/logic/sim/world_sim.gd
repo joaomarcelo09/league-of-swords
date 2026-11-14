@@ -25,6 +25,9 @@ var _command_queue: Array[Commands.Command] = []
 var _accumulator: float = 0.0
 
 var _begin_handlers: Dictionary = {}
+## Movement tuning, loaded from balance "movement" (defaults if absent).
+var path_smoothing: bool = true
+var arrival_epsilon: float = 0.001
 var _update_handlers: Dictionary = {}
 
 
@@ -49,6 +52,13 @@ func _init(
 		if hz_val != null and float(hz_val) > 0.0:
 			tick_hz = float(hz_val)
 	_tick_len = 1.0 / tick_hz
+	if registry != null:
+		var smoothing_val: Variant = registry.get_balance("movement.path_smoothing")
+		if typeof(smoothing_val) == TYPE_BOOL:
+			path_smoothing = smoothing_val
+		var eps_val: Variant = registry.get_balance("movement.arrival_epsilon_tiles")
+		if (eps_val is float or eps_val is int) and float(eps_val) >= 0.0:
+			arrival_epsilon = float(eps_val)
 
 	_begin_handlers = {
 		Commands.MoveTo: _begin_move_to,
@@ -66,22 +76,6 @@ func _init(
 
 static func tile_center(t: Vector2i) -> Vector2:
 	return Vector2(t.x + 0.5, t.y + 0.5)
-
-
-static func _is_on_segment(p: Vector2, a: Vector2, b: Vector2) -> bool:
-	if is_equal_approx(a.x, b.x):
-		if not is_equal_approx(p.x, a.x):
-			return false
-		var min_y := minf(a.y, b.y)
-		var max_y := maxf(a.y, b.y)
-		return p.y >= min_y - 0.0001 and p.y <= max_y + 0.0001
-	elif is_equal_approx(a.y, b.y):
-		if not is_equal_approx(p.y, a.y):
-			return false
-		var min_x := minf(a.x, b.x)
-		var max_x := maxf(a.x, b.x)
-		return p.x >= min_x - 0.0001 and p.x <= max_x + 0.0001
-	return false
 
 
 static func parse_tile_coord(tile: Variant) -> Variant:
@@ -448,7 +442,12 @@ func _update_entities() -> void:
 			EnemyAI.update(self, entity)
 
 
-func path_entity_to_tile(entity: Entity, target_tile: Vector2i) -> void:
+## Paths the entity toward target_tile with A* (8-way, no corner cutting),
+## then string-pulls the tile path so it walks straight segments. When
+## goal_point is finite, walkable and inside the reached tile, it becomes the
+## exact final waypoint; otherwise the last tile's centre is.
+func path_entity_to_tile(entity: Entity, target_tile: Vector2i, goal_point: Vector2 = Vector2.INF) -> void:
+	entity.path_goal = Vector2.INF
 	if zone == null:
 		entity.path.clear()
 		entity.path_index = 0
@@ -466,21 +465,74 @@ func path_entity_to_tile(entity: Entity, target_tile: Vector2i) -> void:
 		entity.path_index = 0
 		return
 
-	entity.path = path
+	var goal := Vector2.INF
+	if goal_point.is_finite() and _tile_of(goal_point) == path[path.size() - 1] and zone.is_walkable(_tile_of(goal_point)):
+		goal = goal_point
+	entity.path_goal = goal
+
 	if path.size() == 1:
-		var dest := tile_center(path[0])
+		entity.path = path
+		entity.path_index = 0
+		var dest := waypoint_position(path, 0, goal)
 		if entity.pos.is_equal_approx(dest):
 			entity.pos = dest
-			entity.path_index = 0
-		else:
-			entity.path_index = 0
-	else:
-		var p0 := tile_center(path[0])
-		var p1 := tile_center(path[1])
-		if _is_on_segment(entity.pos, p0, p1):
-			entity.path_index = 1
-		else:
-			entity.path_index = 0
+		return
+
+	var avoid_safe: bool = not entity.enemy_type_id.is_empty()
+	# Skip the start tile's centre when the entity can head straight on.
+	var start_index: int = 1 if _segment_clear(zone, entity.pos, waypoint_position(path, 1, goal), avoid_safe) else 0
+	if path_smoothing:
+		var anchor: Vector2 = entity.pos if start_index == 1 else tile_center(path[0])
+		path = smooth_path(zone, path, anchor, goal, avoid_safe)
+	entity.path = path
+	entity.path_index = start_index
+
+
+## Waypoint i of a tile path: the tile centre, or goal for the last tile when
+## goal is finite.
+static func waypoint_position(tiles: Array[Vector2i], i: int, goal: Vector2 = Vector2.INF) -> Vector2:
+	if i == tiles.size() - 1 and goal.is_finite() and _tile_of(goal) == tiles[i]:
+		return goal
+	return tile_center(tiles[i])
+
+
+## String pulling: from anchor (standing in tiles[0]), keeps only the tiles
+## whose waypoints cannot be skipped by a straight walkable segment. The first
+## and last tiles are always kept. With avoid_safe, shortcuts never enter a
+## safe tile (so safe tiles on the raw path stay as waypoints).
+static func smooth_path(
+	p_zone: Zone,
+	tiles: Array[Vector2i],
+	anchor: Vector2,
+	goal: Vector2 = Vector2.INF,
+	avoid_safe: bool = false
+) -> Array[Vector2i]:
+	var n: int = tiles.size()
+	if n <= 2 or p_zone == null:
+		return tiles.duplicate()
+	var out: Array[Vector2i] = [tiles[0]]
+	var i: int = 0
+	var from_pos: Vector2 = anchor
+	while i < n - 1:
+		var j: int = i + 1
+		while j + 1 < n and _segment_clear(p_zone, from_pos, waypoint_position(tiles, j + 1, goal), avoid_safe):
+			j += 1
+		out.append(tiles[j])
+		from_pos = waypoint_position(tiles, j, goal)
+		i = j
+	return out
+
+
+static func _segment_clear(p_zone: Zone, p0: Vector2, p1: Vector2, avoid_safe: bool) -> bool:
+	if not DashRules.is_segment_walkable(p0, p1, p_zone):
+		return false
+	if avoid_safe and p_zone.segment_crosses_safe(p0, p1, _tile_of(p0)):
+		return false
+	return true
+
+
+static func _tile_of(p: Vector2) -> Vector2i:
+	return Vector2i(int(floor(p.x)), int(floor(p.y)))
 
 
 func step_entity_along_path(entity: Entity, max_dist: float) -> void:
@@ -489,7 +541,7 @@ func step_entity_along_path(entity: Entity, max_dist: float) -> void:
 		if entity.path_index >= entity.path.size():
 			break
 
-		var target_pos: Vector2 = tile_center(entity.path[entity.path_index])
+		var target_pos: Vector2 = waypoint_position(entity.path, entity.path_index, entity.path_goal)
 		var to_target: Vector2 = target_pos - entity.pos
 		var dist: float = to_target.length()
 
@@ -499,7 +551,10 @@ func step_entity_along_path(entity: Entity, max_dist: float) -> void:
 			entity.path_index = 0
 			break
 
-		if dist <= remaining_dist + 0.001:
+		if dist > 0.0:
+			entity.facing_dir = to_target / dist
+
+		if dist <= remaining_dist + arrival_epsilon:
 			entity.pos = target_pos
 			remaining_dist -= dist
 			if remaining_dist < 0.0:
@@ -520,11 +575,11 @@ func step_entity_along_path(entity: Entity, max_dist: float) -> void:
 
 
 func _begin_move_to(entity: Entity, cmd: Commands.MoveTo) -> bool:
-	path_entity_to_tile(entity, cmd.target)
+	path_entity_to_tile(entity, cmd.target, cmd.point)
 	if entity.path.is_empty():
 		entity.command = null
 		return false
-	if entity.path.size() == 1 and entity.pos.is_equal_approx(tile_center(entity.path[0])):
+	if entity.path.size() == 1 and entity.pos.is_equal_approx(waypoint_position(entity.path, 0, entity.path_goal)):
 		entity.command = null
 		return false
 	entity.command = cmd

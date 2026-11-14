@@ -10,6 +10,11 @@ var stats: Stats = null
 var dead: bool = false
 var path: Array[Vector2i] = []
 var path_index: int = 0
+## Exact final position of the current path; used only while it lies in the
+## last path tile, otherwise that tile's centre is the final waypoint.
+var path_goal: Vector2 = Vector2.INF
+## Last non-zero movement direction (unit vector); see facing_octant().
+var facing_dir: Vector2 = Vector2.ZERO
 var command: Commands.Command = null
 var attack_ready_tick: float = 0.0
 var skills: Dictionary = {}
@@ -57,3 +62,8 @@ func _init(
 
 func tile() -> Vector2i:
 	return Vector2i(int(floor(pos.x)), int(floor(pos.y)))
+
+
+## Facing quantized to 8 directions (Facing.EAST..Facing.NORTH_EAST, or Facing.NONE).
+func facing_octant() -> int:
+	return Facing.octant(facing_dir)

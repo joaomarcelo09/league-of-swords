@@ -97,6 +97,70 @@ func find_path(a: Vector2i, b: Vector2i) -> Array[Vector2i]:
 	return _astar.get_id_path(a, b)
 
 
+# True when the straight segment p0 -> p1 enters a safe tile other than
+# exempt_tile. Walks the same tiles as DashRules.is_segment_walkable (both
+# side tiles count when the segment passes exactly through a tile corner).
+func segment_crosses_safe(p0: Vector2, p1: Vector2, exempt_tile: Vector2i) -> bool:
+	var tile0 := Vector2i(int(floor(p0.x)), int(floor(p0.y)))
+	var tile1 := Vector2i(int(floor(p1.x)), int(floor(p1.y)))
+	if tile0 != exempt_tile and is_safe(tile0):
+		return true
+	if tile0 == tile1:
+		return false
+	if tile1 != exempt_tile and is_safe(tile1):
+		return true
+
+	var delta := p1 - p0
+	var step_x := 0
+	var t_max_x := INF
+	var t_delta_x := INF
+	if delta.x > 0.0:
+		step_x = 1
+		t_max_x = (float(tile0.x + 1) - p0.x) / delta.x
+		t_delta_x = 1.0 / delta.x
+	elif delta.x < 0.0:
+		step_x = -1
+		t_max_x = (float(tile0.x) - p0.x) / delta.x
+		t_delta_x = -1.0 / delta.x
+
+	var step_y := 0
+	var t_max_y := INF
+	var t_delta_y := INF
+	if delta.y > 0.0:
+		step_y = 1
+		t_max_y = (float(tile0.y + 1) - p0.y) / delta.y
+		t_delta_y = 1.0 / delta.y
+	elif delta.y < 0.0:
+		step_y = -1
+		t_max_y = (float(tile0.y) - p0.y) / delta.y
+		t_delta_y = -1.0 / delta.y
+
+	var current := tile0
+	var max_iterations: int = (absi(tile1.x - tile0.x) + absi(tile1.y - tile0.y) + 2) * 2
+	for _iter in range(max_iterations):
+		if current == tile1:
+			return false
+		var diff := t_max_x - t_max_y
+		var touched: Array[Vector2i] = []
+		if absf(diff) <= 1e-7:
+			touched.append(Vector2i(current.x + step_x, current.y))
+			touched.append(Vector2i(current.x, current.y + step_y))
+			current = Vector2i(current.x + step_x, current.y + step_y)
+			t_max_x += t_delta_x
+			t_max_y += t_delta_y
+		elif t_max_x < t_max_y:
+			current = Vector2i(current.x + step_x, current.y)
+			t_max_x += t_delta_x
+		else:
+			current = Vector2i(current.x, current.y + step_y)
+			t_max_y += t_delta_y
+		touched.append(current)
+		for t: Vector2i in touched:
+			if t != exempt_tile and is_safe(t):
+				return true
+	return false
+
+
 func nearest_reachable(from: Vector2i, target: Vector2i) -> Vector2i:
 	if not is_valid() or not is_walkable(from):
 		return Vector2i(-1, -1)
@@ -384,7 +448,7 @@ func _init_astar() -> void:
 	_astar = AStarGrid2D.new()
 	_astar.region = Rect2i(0, 0, width, height)
 	_astar.cell_size = Vector2(1, 1)
-	_astar.diagonal_mode = AStarGrid2D.DIAGONAL_MODE_NEVER
+	_astar.diagonal_mode = AStarGrid2D.DIAGONAL_MODE_ONLY_IF_NO_OBSTACLES
 	_astar.update()
 
 	for y in range(height):

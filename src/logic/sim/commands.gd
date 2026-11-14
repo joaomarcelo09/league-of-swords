@@ -11,6 +11,9 @@ class Command extends RefCounted:
 
 class MoveTo extends Command:
 	var target: Vector2i = Vector2i.ZERO
+	## Exact destination inside `target` (e.g. the clicked point); non-finite
+	## means "the centre of `target`".
+	var point: Vector2 = Vector2.INF
 
 	func _init(p_entity_id: int = 0, p_target: Vector2i = Vector2i.ZERO) -> void:
 		entity_id = p_entity_id
@@ -33,6 +36,13 @@ class AttackTarget extends Command:
 
 static func move_to(entity_id: int, target: Vector2i) -> MoveTo:
 	return MoveTo.new(entity_id, target)
+
+
+## MoveTo whose final waypoint is the exact point (its tile is the A* target).
+static func move_to_point(entity_id: int, point: Vector2) -> MoveTo:
+	var cmd := MoveTo.new(entity_id, Vector2i(int(floor(point.x)), int(floor(point.y))))
+	cmd.point = point
+	return cmd
 
 
 static func attack_target(entity_id: int, target_id: int) -> AttackTarget:

@@ -24,6 +24,10 @@
     "attack_pick_radius": 1.5,
     "npc_pick_radius": 0.6
   },
+  "movement": {
+    "path_smoothing": true,
+    "arrival_epsilon_tiles": 0.001
+  },
   "npc_interact_range": 2.0,
   "player": {
     "move_speed_tiles_per_s": 4.0,
