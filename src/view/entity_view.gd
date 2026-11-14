@@ -45,6 +45,8 @@ var now_tick: int = 0
 var tick_length: float = 0.0
 ## Attack direction from this frame's telegraph_start event (consumed by the next sync).
 var _pending_attack_dir: Variant = null
+## Seconds the pending slash should last (the attack windup; 0 = layout fps).
+var _pending_attack_seconds: float = 0.0
 ## White hit flash on the sprite (or this node for the hexagon fallback), JGT-87.
 var flash: HitFlash = null
 
@@ -152,8 +154,10 @@ func sync(lerp_weight: float = 1.0) -> void:
 
 	if sprite != null:
 		var attack_dir: Variant = _pending_attack_dir
+		var attack_s := _pending_attack_seconds
 		_pending_attack_dir = null
-		animator.update(sprite, entity.pos, entity.dead, attack_dir, now_tick)
+		_pending_attack_seconds = 0.0
+		animator.update(sprite, entity.pos, entity.dead, attack_dir, now_tick, attack_s)
 
 	queue_redraw()
 
@@ -207,9 +211,11 @@ func is_hp_bar_visible() -> bool:
 	return entity == null or not entity.dead
 
 
-## View-only: the entity started an attack (telegraph_start) toward dir.
-func notify_attack(dir: Vector2) -> void:
+## View-only: the entity started an attack (telegraph_start) toward dir; the slash
+## lasts p_seconds (its windup, so the swing lands with the hit; 0 = layout fps).
+func notify_attack(dir: Vector2, p_seconds: float = 0.0) -> void:
 	_pending_attack_dir = dir
+	_pending_attack_seconds = maxf(p_seconds, 0.0)
 
 
 ## View-only: the entity took damage at sim tick p_tick.

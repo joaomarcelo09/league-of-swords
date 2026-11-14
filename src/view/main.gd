@@ -575,6 +575,21 @@ func _player_attack_dir(events: Array[Dictionary]) -> Variant:
 	return null
 
 
+## The player's current basic attack interval in seconds (effective stats, else the
+## balance value), 0 if unknown. View-only read; times the slash animation.
+func _player_attack_interval_s() -> float:
+	if player == null:
+		return 0.0
+	var stats: Stats = world.effective_stats(player) if world != null else player.stats
+	if stats != null and stats.attack_interval > 0.0:
+		return stats.attack_interval
+	if registry != null and not player.kind.is_empty():
+		var val: Variant = registry.get_balance(player.kind + ".attack_interval")
+		if val is float or val is int:
+			return maxf(float(val), 0.0)
+	return 0.0
+
+
 ## True if this frame's sim events contain damage dealt to the player. View-only read.
 func _player_was_damaged(events: Array[Dictionary]) -> bool:
 	if player == null:
@@ -655,7 +670,11 @@ func _update_views() -> void:
 		var now_tick: int = world.tick_count if world != null else 0
 		if player_hit:
 			player_animator.trigger_hurt(player_sprite, now_tick, world.tick_length if world != null else 0.0)
-		player_animator.update(player_sprite, player.pos, player.dead, _player_attack_dir(events), now_tick)
+		var attack_dir: Variant = _player_attack_dir(events)
+		var slash_s := 0.0
+		if attack_dir != null:
+			slash_s = CharacterAnimator.slash_seconds_within(player_sprite.layout, _player_attack_interval_s())
+		player_animator.update(player_sprite, player.pos, player.dead, attack_dir, now_tick, slash_s)
 
 	if camera != null:
 		camera.follow(world_pos)

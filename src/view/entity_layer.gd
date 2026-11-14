@@ -274,7 +274,9 @@ func _notify_view_attack(event: Dictionary) -> void:
 	if view == null or not is_instance_valid(view):
 		return
 	var dir: Variant = event.get("dir", null)
-	view.notify_attack(dir as Vector2 if dir is Vector2 else Vector2.ZERO)
+	var windup: Variant = event.get("duration_s", 0.0)
+	var windup_s: float = float(windup) if (windup is float or windup is int) else 0.0
+	view.notify_attack(dir as Vector2 if dir is Vector2 else Vector2.ZERO, windup_s)
 
 
 ## View-only: an enemy took damage; its sprite plays the hurt reaction.
