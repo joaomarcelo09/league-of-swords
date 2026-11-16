@@ -21,7 +21,7 @@ func _write_tmp(text: String) -> void:
 
 func _base_dict() -> Dictionary:
 	return {
-		"atlas": "res://assets/tiles/placeholder_tiles.png",
+		"atlas": "res://assets/tiles/world_tiles.png",
 		"tile_px": 32,
 		"tiles": {"wall": [0, 0], "floor": [1, 0], "grass": [2, 0]},
 		"fallback": [3, 0],
@@ -45,7 +45,7 @@ func _mixed_zone() -> Zone:
 func test_default_json_matches_original_coords() -> void:
 	var ts := TilesetData.load_file(TilesetData.DEFAULT_PATH)
 	assert_false(ts.is_default, "floor1.json should load (not the built-in default)")
-	assert_eq(ts.atlas_path, "res://assets/tiles/placeholder_tiles.png")
+	assert_eq(ts.atlas_path, "res://assets/tiles/world_tiles.png")
 	assert_eq(ts.tile_px, 32)
 	# Base coords of the original 4 tiles stay put (JGT-80 only adds variants/decor).
 	assert_eq(ts.tiles["wall"], Vector2i(0, 0))

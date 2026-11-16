@@ -18,7 +18,7 @@ extends RefCounted
 const DEFAULT_PATH: String = "res://data/tilesets/floor1.json"
 
 # Built-in minimal default: used only when the tileset JSON is missing/invalid.
-const DEFAULT_ATLAS: String = "res://assets/tiles/placeholder_tiles.png"
+const DEFAULT_ATLAS: String = "res://assets/tiles/world_tiles.png"
 const DEFAULT_TILE_PX: int = 32
 const DEFAULT_TILES: Dictionary = {
 	"wall": Vector2i(0, 0),
