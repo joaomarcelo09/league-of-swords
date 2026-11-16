@@ -66,7 +66,8 @@ static func on_player_death(
 	store: SaveStore = null,
 	slot: String = "",
 	merchant_id: String = "",
-	registry: DataRegistry = null
+	registry: DataRegistry = null,
+	chunk: String = ""
 ) -> Dictionary:
 	if world == null:
 		return {
@@ -106,11 +107,13 @@ static func on_player_death(
 	character.status = "dead"
 
 	# Exactly one cemetery entry for this character (dedupe by character_id across reloads)
+	var death_chunk := chunk if not chunk.is_empty() else character.chunk
 	var cemetery_entry: Dictionary = {
 		"character_id": character.id,
 		"name": character.name,
 		"level": character.level,
 		"zone": character.zone,
+		"chunk": death_chunk,
 		"cause": cause,
 		"date": date_str,
 		"appearance": character.appearance.duplicate(true)
@@ -189,7 +192,8 @@ static func new_character(
 	slot: String = "",
 	base_stats: Stats = null,
 	zone: String = "",
-	registry: DataRegistry = null
+	registry: DataRegistry = null,
+	chunk: String = ""
 ) -> Dictionary:
 	if world == null:
 		return {
@@ -275,6 +279,7 @@ static func new_character(
 	cs.stats = cs_stats
 	cs.zone = char_zone
 	cs.position = pos
+	cs.chunk = chunk
 
 	if store != null and not slot.is_empty():
 		var save_c := store.save_character(slot, cs)
