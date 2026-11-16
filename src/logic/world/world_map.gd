@@ -6,7 +6,10 @@ extends RefCounted
 #   chunk_size: [width, height] in tiles
 #   load_radius: chunk radius (Chebyshev) kept loaded around the player
 #   chunks: [{id, grid: [cx, cy], zone: "<zone file stem>", kind: "..."}]
-# No Node/SceneTree/Input/rendering dependencies.
+#   transitions: [{id, kind: "gate"|"door", from: {chunk, tile},
+#                  to: {chunk, tile} or {zone, tile} for doors,
+#                  requires_boss (optional), label (optional)}]
+# Tiles are local to their chunk. No Node/SceneTree/Input/rendering dependencies.
 
 var chunk_size: Vector2i = Vector2i.ZERO
 var load_radius: int = 0
@@ -14,6 +17,8 @@ var errors: Array[String] = []
 
 var _chunks: Dictionary = {}  # chunk id (String) -> {id, grid: Vector2i, zone, kind}
 var _cells: Dictionary = {}  # grid cell (Vector2i) -> chunk id (String)
+var _transitions: Array[Dictionary] = []
+var _transition_at: Dictionary = {}  # chunk id (String) -> {Vector2i -> transition}
 
 
 func is_valid() -> bool:
@@ -54,6 +59,32 @@ func chunk_at_cell(cell: Vector2i) -> String:
 	if _cells.has(cell):
 		return str(_cells[cell])
 	return ""
+
+
+# Transition whose `from` tile is local_tile inside chunk_id, or an empty
+# Dictionary when the tile has no transition. The returned dictionary is a
+# copy with keys: id, kind, from_chunk, from_tile, to_chunk, to_zone,
+# to_tile, requires_boss, label (to_chunk is empty for zone doors).
+func transition_at(chunk_id: String, local_tile: Vector2i) -> Dictionary:
+	var by_tile: Variant = _transition_at.get(chunk_id)
+	if not (by_tile is Dictionary):
+		return {}
+	var entry: Variant = (by_tile as Dictionary).get(local_tile)
+	if entry is Dictionary:
+		return (entry as Dictionary).duplicate(true)
+	return {}
+
+
+# Transitions starting inside chunk_id, sorted by transition id.
+func transitions_of(chunk_id: String) -> Array[Dictionary]:
+	var result: Array[Dictionary] = []
+	for transition: Dictionary in _transitions:
+		if str(transition.get("from_chunk", "")) == chunk_id:
+			result.append(transition.duplicate(true))
+	result.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
+		return str(a.get("id", "")) < str(b.get("id", ""))
+	)
+	return result
 
 
 # Maps a world tile to its chunk cell and the tile inside that chunk.
@@ -155,6 +186,7 @@ static func load_from_dict(data: Variant, json_name: String = "world.json") -> W
 	map._parse_chunk_size(world, json_name)
 	map._parse_load_radius(world, json_name)
 	map._parse_chunks(world, json_name)
+	map._parse_transitions(world, json_name)
 	return map
 
 
@@ -265,6 +297,165 @@ func _parse_chunk(entry: Dictionary, index: int, json_name: String, seen_ids: Di
 		"kind": kind_value,
 	}
 	_cells[cell] = chunk_id
+
+
+func _parse_transitions(world: Dictionary, json_name: String) -> void:
+	if not world.has("transitions"):
+		return
+	var value: Variant = world["transitions"]
+	if not (value is Array):
+		errors.append("%s: 'transitions' must be an array" % json_name)
+		return
+	var arr: Array = value
+	var seen_ids: Dictionary = {}
+	var seen_from: Dictionary = {}  # chunk id (String) -> {Vector2i -> transition id}
+	for i in range(arr.size()):
+		var item: Variant = arr[i]
+		if not (item is Dictionary):
+			errors.append("%s: transition[%d] must be an object" % [json_name, i])
+			continue
+		_parse_transition(item, i, json_name, seen_ids, seen_from)
+
+
+func _parse_transition(entry: Dictionary, index: int, json_name: String, seen_ids: Dictionary, seen_from: Dictionary) -> void:
+	var error_count := errors.size()
+
+	var transition_id := ""
+	if not entry.has("id"):
+		errors.append("%s: transition[%d] missing 'id' field" % [json_name, index])
+	else:
+		var id_value: Variant = entry["id"]
+		if not _is_non_empty_string(id_value):
+			errors.append("%s: transition[%d] id must be a non-empty string" % [json_name, index])
+		elif seen_ids.has(str(id_value)):
+			errors.append("%s: transition[%d] id '%s' is duplicated" % [json_name, index, str(id_value)])
+		else:
+			seen_ids[str(id_value)] = true
+			transition_id = str(id_value)
+
+	var kind := ""
+	if not entry.has("kind"):
+		errors.append("%s: transition[%d] missing 'kind' field" % [json_name, index])
+	else:
+		var kind_value: Variant = entry["kind"]
+		if not _is_non_empty_string(kind_value):
+			errors.append("%s: transition[%d] kind must be a non-empty string" % [json_name, index])
+		elif str(kind_value) != "gate" and str(kind_value) != "door":
+			errors.append("%s: transition[%d] kind must be 'gate' or 'door', got '%s'" % [json_name, index, str(kind_value)])
+		else:
+			kind = str(kind_value)
+
+	var from_end: Variant = null
+	if not entry.has("from"):
+		errors.append("%s: transition[%d] missing 'from' field" % [json_name, index])
+	else:
+		from_end = _parse_transition_end(entry["from"], "transition[%d] from" % index, json_name, false)
+
+	var to_end: Variant = null
+	if not entry.has("to"):
+		errors.append("%s: transition[%d] missing 'to' field" % [json_name, index])
+	else:
+		to_end = _parse_transition_end(entry["to"], "transition[%d] to" % index, json_name, kind == "door")
+
+	var boss := ""
+	if entry.has("requires_boss"):
+		var boss_value: Variant = entry["requires_boss"]
+		if typeof(boss_value) != TYPE_STRING:
+			errors.append("%s: transition[%d] requires_boss must be a string" % [json_name, index])
+		else:
+			boss = str(boss_value)
+
+	var label := ""
+	if entry.has("label"):
+		var label_value: Variant = entry["label"]
+		if typeof(label_value) != TYPE_STRING:
+			errors.append("%s: transition[%d] label must be a string" % [json_name, index])
+		else:
+			label = str(label_value)
+
+	if errors.size() != error_count:
+		return
+
+	var from_chunk := str((from_end as Dictionary)["chunk"])
+	var from_tile: Vector2i = (from_end as Dictionary)["tile"]
+	var chunk_tiles: Dictionary = seen_from.get(from_chunk, {})
+	if chunk_tiles.has(from_tile):
+		errors.append("%s: transition[%d] from tile [%d, %d] in chunk '%s' is already used by '%s'" % [json_name, index, from_tile.x, from_tile.y, from_chunk, str(chunk_tiles[from_tile])])
+		return
+	chunk_tiles[from_tile] = transition_id
+	seen_from[from_chunk] = chunk_tiles
+
+	var transition := {
+		"id": transition_id,
+		"kind": kind,
+		"from_chunk": from_chunk,
+		"from_tile": from_tile,
+		"to_chunk": "",
+		"to_zone": "",
+		"to_tile": (to_end as Dictionary)["tile"],
+		"requires_boss": boss,
+		"label": label,
+	}
+	if (to_end as Dictionary).has("chunk"):
+		transition["to_chunk"] = str((to_end as Dictionary)["chunk"])
+	else:
+		transition["to_zone"] = str((to_end as Dictionary)["zone"])
+	_transitions.append(transition)
+
+	var by_tile: Dictionary = _transition_at.get(from_chunk, {})
+	by_tile[from_tile] = transition
+	_transition_at[from_chunk] = by_tile
+
+
+# Parses a transition endpoint. Chunk targets are checked against the chunk
+# grid; zone targets (doors only) are external zones with their own bounds.
+# Returns {chunk, tile} / {zone, tile}, or null after recording errors.
+func _parse_transition_end(value: Variant, label: String, json_name: String, allow_zone: bool) -> Variant:
+	if not (value is Dictionary):
+		errors.append("%s: %s must be an object" % [json_name, label])
+		return null
+	var end: Dictionary = value
+	var has_chunk := end.has("chunk")
+	var has_zone := end.has("zone")
+	if has_chunk and has_zone:
+		errors.append("%s: %s must target either a chunk or a zone, not both" % [json_name, label])
+		return null
+
+	var parsed_tile: Variant = _parse_int_pair(end.get("tile"), "%s tile" % label, json_name)
+	if parsed_tile == null:
+		return null
+	var tile: Vector2i = parsed_tile
+
+	if has_chunk:
+		var chunk_value: Variant = end["chunk"]
+		if not _is_non_empty_string(chunk_value):
+			errors.append("%s: %s chunk must be a non-empty string" % [json_name, label])
+			return null
+		var chunk_id := str(chunk_value)
+		if not _chunks.has(chunk_id):
+			errors.append("%s: %s references unknown chunk '%s'" % [json_name, label, chunk_id])
+			return null
+		if chunk_size.x > 0 and chunk_size.y > 0:
+			if tile.x < 0 or tile.y < 0 or tile.x >= chunk_size.x or tile.y >= chunk_size.y:
+				errors.append("%s: %s tile [%d, %d] is outside chunk '%s' bounds [%d, %d]" % [json_name, label, tile.x, tile.y, chunk_id, chunk_size.x, chunk_size.y])
+				return null
+		return {"chunk": chunk_id, "tile": tile}
+
+	if has_zone:
+		if not allow_zone:
+			errors.append("%s: %s must target a chunk; only doors may target a zone" % [json_name, label])
+			return null
+		var zone_value: Variant = end["zone"]
+		if not _is_non_empty_string(zone_value):
+			errors.append("%s: %s zone must be a non-empty string" % [json_name, label])
+			return null
+		if tile.x < 0 or tile.y < 0:
+			errors.append("%s: %s tile [%d, %d] must be non-negative for a zone target" % [json_name, label, tile.x, tile.y])
+			return null
+		return {"zone": str(zone_value), "tile": tile}
+
+	errors.append("%s: %s must target a chunk, or a zone for doors" % [json_name, label])
+	return null
 
 
 static func _is_non_empty_string(value: Variant) -> bool:
