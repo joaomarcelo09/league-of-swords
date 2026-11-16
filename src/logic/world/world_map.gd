@@ -8,7 +8,10 @@ extends RefCounted
 #   chunks: [{id, grid: [cx, cy], zone: "<zone file stem>", kind: "..."}]
 #   transitions: [{id, kind: "gate"|"door", from: {chunk, tile},
 #                  to: {chunk, tile} or {zone, tile} for doors,
+#                  return: {tile, chunk, to_tile} (optional, zone doors only),
 #                  requires_boss (optional), label (optional)}]
+# A zone door's optional "return" link is the tile inside the destination zone
+# that takes the player back to `chunk` at local tile `to_tile`.
 # Tiles are local to their chunk. No Node/SceneTree/Input/rendering dependencies.
 
 var chunk_size: Vector2i = Vector2i.ZERO
@@ -64,7 +67,9 @@ func chunk_at_cell(cell: Vector2i) -> String:
 # Transition whose `from` tile is local_tile inside chunk_id, or an empty
 # Dictionary when the tile has no transition. The returned dictionary is a
 # copy with keys: id, kind, from_chunk, from_tile, to_chunk, to_zone,
-# to_tile, requires_boss, label (to_chunk is empty for zone doors).
+# to_tile, return_tile, return_chunk, return_to_tile, requires_boss, label
+# (to_chunk is empty for zone doors; return_tile/return_to_tile default to
+# (-1, -1) and return_chunk to "" when the door has no return link).
 func transition_at(chunk_id: String, local_tile: Vector2i) -> Dictionary:
 	var by_tile: Variant = _transition_at.get(chunk_id)
 	if not (by_tile is Dictionary):
@@ -373,6 +378,10 @@ func _parse_transition(entry: Dictionary, index: int, json_name: String, seen_id
 		else:
 			label = str(label_value)
 
+	var return_link := {}
+	if entry.has("return"):
+		return_link = _parse_transition_return(entry["return"], index, json_name, kind, to_end)
+
 	if errors.size() != error_count:
 		return
 
@@ -393,6 +402,9 @@ func _parse_transition(entry: Dictionary, index: int, json_name: String, seen_id
 		"to_chunk": "",
 		"to_zone": "",
 		"to_tile": (to_end as Dictionary)["tile"],
+		"return_tile": return_link.get("tile", Vector2i(-1, -1)),
+		"return_chunk": str(return_link.get("chunk", "")),
+		"return_to_tile": return_link.get("to_tile", Vector2i(-1, -1)),
 		"requires_boss": boss,
 		"label": label,
 	}
@@ -456,6 +468,49 @@ func _parse_transition_end(value: Variant, label: String, json_name: String, all
 
 	errors.append("%s: %s must target a chunk, or a zone for doors" % [json_name, label])
 	return null
+
+
+# Parses the optional "return" link of a zone door: the tile inside the
+# destination zone that takes the player back to a chunk at `to_tile`.
+# Returns {tile, chunk, to_tile}, or {} after recording errors.
+func _parse_transition_return(value: Variant, index: int, json_name: String, kind: String, to_end: Variant) -> Dictionary:
+	var label := "transition[%d] return" % index
+	var is_zone_door := kind == "door" and to_end is Dictionary and (to_end as Dictionary).has("zone")
+	if not is_zone_door:
+		errors.append("%s: %s is only allowed on doors to a zone" % [json_name, label])
+		return {}
+	if not (value is Dictionary):
+		errors.append("%s: %s must be an object" % [json_name, label])
+		return {}
+	var link: Dictionary = value
+
+	var tile_val: Variant = _parse_int_pair(link.get("tile"), "%s tile" % label, json_name)
+	if tile_val == null:
+		return {}
+	var tile: Vector2i = tile_val
+	if tile.x < 0 or tile.y < 0:
+		errors.append("%s: %s tile [%d, %d] must be non-negative for a zone tile" % [json_name, label, tile.x, tile.y])
+		return {}
+
+	var chunk_value: Variant = link.get("chunk")
+	if not _is_non_empty_string(chunk_value):
+		errors.append("%s: %s chunk must be a non-empty string" % [json_name, label])
+		return {}
+	var chunk := str(chunk_value)
+	if not _chunks.has(chunk):
+		errors.append("%s: %s references unknown chunk '%s'" % [json_name, label, chunk])
+		return {}
+
+	var to_tile_val: Variant = _parse_int_pair(link.get("to_tile"), "%s to_tile" % label, json_name)
+	if to_tile_val == null:
+		return {}
+	var to_tile: Vector2i = to_tile_val
+	if chunk_size.x > 0 and chunk_size.y > 0:
+		if to_tile.x < 0 or to_tile.y < 0 or to_tile.x >= chunk_size.x or to_tile.y >= chunk_size.y:
+			errors.append("%s: %s to_tile [%d, %d] is outside chunk '%s' bounds [%d, %d]" % [json_name, label, to_tile.x, to_tile.y, chunk, chunk_size.x, chunk_size.y])
+			return {}
+
+	return {"tile": tile, "chunk": chunk, "to_tile": to_tile}
 
 
 static func _is_non_empty_string(value: Variant) -> bool:

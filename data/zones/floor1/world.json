@@ -75,6 +75,7 @@
       "kind": "door",
       "from": {"chunk": "floor1_center", "tile": [30, 16]},
       "to": {"zone": "floor1", "tile": [20, 7]},
+      "return": {"tile": [20, 8], "chunk": "floor1_center", "to_tile": [29, 16]},
       "label": "Dungeon Entrance"
     }
   ]

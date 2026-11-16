@@ -26,6 +26,12 @@ var _events: Array[Dictionary] = []
 var bosses_defeated: Array[String] = []
 ## Last exit tile each entity stood on (entity id -> Vector2i); cleared when it leaves.
 var _exit_tiles: Dictionary = {}
+## Last world tile checked for a gate/door transition (entity id -> Vector2i).
+## Kept after a travel so arriving on a transition tile does not travel straight
+## back until the entity steps off it.
+var _travel_tiles: Dictionary = {}
+## Gate/door resolver for the chunked floor (null on the classic single-zone path).
+var _chunk_travel: ChunkTravel = null
 
 var _next_entity_id: int = 1
 var _command_queue: Array[Commands.Command] = []
@@ -56,6 +62,8 @@ func _init(
 	var chunked_zone := zone as ChunkedZone
 	if chunked_zone != null:
 		chunked_world = chunked_zone.world
+		if chunked_world != null:
+			_chunk_travel = ChunkTravel.new(chunked_world.map, chunked_world.loader)
 	var tick_hz: float = 30.0
 	if registry != null:
 		var hz_val: Variant = registry.get_balance("sim.tick_hz")
@@ -217,7 +225,14 @@ func update_chunks(player_world_tile: Vector2i) -> Dictionary:
 	if chunked_world == null:
 		return {"loaded": [], "unloaded": [], "player_chunk": "", "changed": false}
 
-	var changes := chunked_world.update(player_world_tile)
+	return _apply_chunk_changes(chunked_world.update(player_world_tile))
+
+
+## Applies already-known loader changes (from ChunkedWorld.update or from
+## ChunkTravel, which updates the loader itself): drops the unloaded chunks'
+## entities, refreshes the world-space zone and spawns the newly loaded chunks.
+## Returns the changes plus "changed" (bool) and "spawned" (Array[Entity]).
+func _apply_chunk_changes(changes: Dictionary) -> Dictionary:
 	var loaded_ids: Array = changes.get("loaded", [])
 	var unloaded_ids: Array = changes.get("unloaded", [])
 	if loaded_ids.is_empty() and unloaded_ids.is_empty():
@@ -235,6 +250,82 @@ func update_chunks(player_world_tile: Vector2i) -> Dictionary:
 	changes["changed"] = true
 	changes["spawned"] = spawned
 	return changes
+
+
+## Checks whether the entity stands on a world tile that holds a gate or door
+## transition and resolves it with ChunkTravel. Gates teleport the entity to the
+## destination world tile, clear its movement and refresh chunk streaming; doors
+## to a zone are resolved but not entered here (GameSession loads that zone).
+## The tile is remembered, so an arrival on a transition tile (e.g. the gate
+## back) does not travel again until the entity steps off it.
+## Returns a ChunkTravel result, with "changed"/"spawned" for gate streaming.
+func check_world_transition(entity_id: int) -> Dictionary:
+	var none := {"ok": false, "reason": "none"}
+	if chunked_world == null or _chunk_travel == null:
+		return none
+	var entity: Entity = get_entity(entity_id)
+	if entity == null or entity.dead:
+		_travel_tiles.erase(entity_id)
+		return none
+
+	var world_tile := entity.tile()
+	if _travel_tiles.get(entity_id) == world_tile:
+		return none
+	var chunk_id := chunked_world.chunk_at(world_tile)
+	if chunk_id.is_empty():
+		_travel_tiles.erase(entity_id)
+		return none
+
+	var local_tile := chunked_world.local_tile_at(world_tile)
+	var result := _chunk_travel.travel(chunk_id, local_tile, bosses_defeated)
+	var reason := str(result.get("reason", ""))
+	if bool(result.get("ok", false)):
+		var is_zone_door := str(result.get("kind", "")) == "door" and not str(result.get("to_zone", "")).is_empty()
+		if is_zone_door:
+			_travel_tiles[entity_id] = world_tile
+			return result
+		# Gates and doors that target a chunk both move within the chunked floor.
+		return _travel_through_gate(entity, result)
+
+	if reason == "none":
+		_travel_tiles.erase(entity_id)
+		return result
+
+	# Locked (or otherwise failed) tile: remember it so standing there does not
+	# re-check every frame; stepping off and back retries.
+	_travel_tiles[entity_id] = world_tile
+	if reason == "locked":
+		_events.append({
+			"type": "world_travel_locked",
+			"tick": tick_count,
+			"entity": entity_id,
+			"id": str(result.get("id", "")),
+			"label": str(result.get("label", "")),
+			"boss": str(result.get("boss", "")),
+		})
+	return result
+
+
+## Teleports entity to the gate's destination world tile and streams chunks around it.
+func _travel_through_gate(entity: Entity, result: Dictionary) -> Dictionary:
+	var to_world: Vector2i = result.get("to_world", entity.tile())
+	_travel_tiles[entity.id] = to_world
+	entity.command = null
+	entity.path.clear()
+	entity.path_index = 0
+	entity.pos = tile_center(to_world)
+
+	# ChunkTravel already moved the loader, so feed its changes to the world;
+	# the update only refreshes the tracked player chunk here (no changes left).
+	chunked_world.update(to_world)
+	var applied := _apply_chunk_changes({
+		"loaded": result.get("loaded", []),
+		"unloaded": result.get("unloaded", []),
+		"player_chunk": chunked_world.player_chunk,
+	})
+	result["changed"] = bool(applied.get("changed", false))
+	result["spawned"] = applied.get("spawned", [])
+	return result
 
 
 ## Spawns one chunk's zone spawns in world tiles (once per world).

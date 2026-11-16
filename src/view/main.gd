@@ -213,6 +213,7 @@ func _init_game() -> void:
 
 	# 6. Create GameSession, spawn player and zone enemies
 	session = GameSession.new(zone, registry, inventory, item_db)
+	session.zone_loader = Callable(self, "_load_travel_zone")
 	world = session.world
 	var player_speed: float = float(registry.get_balance("player.move_speed_tiles_per_s", 4.0))
 	var spawn_pos: Variant = zone.entry
@@ -365,6 +366,75 @@ func _update_chunks() -> void:
 	_create_npc_views(true)
 
 
+## Reacts to a gate/door travel resolved by the session. A gate only changes the
+## loaded chunks; a door switches the whole zone, so every view is rebound.
+func _handle_travel(travel: Dictionary) -> void:
+	if bool(travel.get("zone_changed", false)):
+		_rebuild_after_zone_change()
+		return
+	if str(travel.get("kind", "")) == "gate":
+		_sync_chunk_views()
+		_create_npc_views(true)
+
+
+## Rebinds the simulation world and every view after a door switched zones.
+func _rebuild_after_zone_change() -> void:
+	if session == null or session.player == null:
+		return
+	zone = session.zone
+	world = session.world
+	player = session.player
+
+	if in_chunked_mode():
+		zone_view.build(null)
+		_sync_chunk_views()
+	else:
+		_clear_chunk_views()
+		zone_view.build(zone)
+	_create_npc_views(true)
+
+	player_animator.reset(player.pos)
+	if player_input != null:
+		player_input.process_mode = Node.PROCESS_MODE_INHERIT
+		player_input.setup(player.id, world, zone_view, registry)
+	if entity_layer != null:
+		entity_layer.reset()
+		entity_layer.setup(session, zone_view, registry, player_marker)
+	if vfx_layer != null:
+		vfx_layer.setup(world, zone_view, registry)
+	if hud != null:
+		hud.clear_loot_markers()
+		hud.setup(session, world, player, inventory, item_db, registry, entities_root, zone_view)
+	_sync_items_to_entity()
+
+
+## True when the session currently runs on the chunked floor.
+func in_chunked_mode() -> bool:
+	return session != null and session.in_chunked_world()
+
+
+## Frees every chunk tilemap (entering a classic door zone, or rebuilding the floor).
+func _clear_chunk_views() -> void:
+	var ids: Array[String] = []
+	for chunk_key: Variant in chunk_views.keys():
+		ids.append(str(chunk_key))
+	for chunk_id: String in ids:
+		var view: ZoneView = chunk_views[chunk_id]
+		chunk_views.erase(chunk_id)
+		if is_instance_valid(view):
+			if view.get_parent() != null:
+				view.get_parent().remove_child(view)
+			view.queue_free()
+
+
+## Zone loader the session uses for door transitions.
+func _load_travel_zone(stem: String) -> Zone:
+	return Zone.load_files(
+		ZONES_DIR.path_join(stem + ".map"),
+		ZONES_DIR.path_join(stem + ".json")
+	)
+
+
 func _create_npc_views(force: bool = false) -> void:
 	if entities_root == null:
 		return
@@ -513,15 +583,17 @@ func _on_new_character_requested(new_name: String) -> void:
 
 
 ## Streams the chunked floor back to the start chunk (the town), so a new
-## character always respawns in a loaded town, whatever chunk the previous
-## character died in. No-op on the classic single-zone fallback.
+## character always respawns in a loaded town, whatever chunk (or door zone)
+## the previous character died in. No-op on the classic single-zone fallback.
 func _stream_chunks_to_start() -> void:
-	if chunked_world == null or session == null:
+	if chunked_world == null:
 		return
 	var start_tile := chunked_world.chunk_offset(chunked_world.start_chunk)
-	var changes := session.update_chunks(start_tile)
-	if not bool(changes.get("changed", false)):
-		return
+	chunked_world.update(start_tile)
+	zone = ChunkedZone.new(chunked_world)
+	_clear_chunk_views()
+	if zone_view != null:
+		zone_view.build(null)
 	_sync_chunk_views()
 	_create_npc_views(true)
 
@@ -529,6 +601,7 @@ func _stream_chunks_to_start() -> void:
 func _respawn_new_character() -> void:
 	_stream_chunks_to_start()
 	session = GameSession.new(zone, registry, inventory, item_db)
+	session.zone_loader = Callable(self, "_load_travel_zone")
 	world = session.world
 
 	var player_speed: float = float(registry.get_balance("player.move_speed_tiles_per_s", 4.0))
@@ -760,6 +833,11 @@ static func clamp_frame_dt(delta: float, max_dt: float) -> float:
 func _update_views() -> void:
 	if player == null or zone_view == null:
 		return
+
+	if session != null:
+		var travel := session.take_travel()
+		if not travel.is_empty():
+			_handle_travel(travel)
 
 	_update_chunks()
 

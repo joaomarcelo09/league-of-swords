@@ -219,6 +219,71 @@ func test_missing_and_invalid_transition_fields_are_errors() -> void:
 	assert_true(_has_error(gate_to_zone, "only doors may target a zone"), str(gate_to_zone.errors))
 
 
+func test_zone_door_return_link_parses() -> void:
+	var map := WorldMap.load_from_dict(_make_world(_row_of_three(), [
+		_door_to_zone("dungeon_door", "b", [10, 10], "test_arena", [3, 2], {
+			"return": {"tile": [3, 3], "chunk": "a", "to_tile": [9, 10]},
+		}),
+	]))
+	assert_true(map.is_valid(), "return link should parse: %s" % str(map.errors))
+
+	var door := map.transition_at("b", Vector2i(10, 10))
+	assert_eq(door["return_tile"], Vector2i(3, 3))
+	assert_eq(door["return_chunk"], "a")
+	assert_eq(door["return_to_tile"], Vector2i(9, 10))
+
+
+func test_transitions_without_a_return_link_keep_empty_return_fields() -> void:
+	var map := WorldMap.load_from_dict(_make_world(_row_of_three(), [
+		_gate("a_to_b", "a", [31, 5], "b", [0, 5]),
+		_door_to_zone("dungeon_door", "b", [10, 10], "test_arena", [3, 2]),
+	]))
+	assert_true(map.is_valid(), str(map.errors))
+
+	var gate := map.transition_at("a", Vector2i(31, 5))
+	assert_eq(gate["return_tile"], Vector2i(-1, -1))
+	assert_eq(gate["return_chunk"], "")
+	assert_eq(gate["return_to_tile"], Vector2i(-1, -1))
+	var door := map.transition_at("b", Vector2i(10, 10))
+	assert_eq(door["return_tile"], Vector2i(-1, -1))
+
+
+func test_return_link_is_only_allowed_on_zone_doors() -> void:
+	var on_gate := WorldMap.load_from_dict(_make_world(_row_of_three(), [
+		_gate("a_to_b", "a", [31, 5], "b", [0, 5], {
+			"return": {"tile": [3, 3], "chunk": "a", "to_tile": [1, 1]},
+		}),
+	]))
+	assert_false(on_gate.is_valid())
+	assert_true(_has_error(on_gate, "return is only allowed on doors to a zone"), str(on_gate.errors))
+
+	var on_chunk_door := WorldMap.load_from_dict(_make_world(_row_of_three(), [
+		_gate("door_to_chunk", "a", [5, 5], "b", [5, 5], {
+			"kind": "door",
+			"return": {"tile": [3, 3], "chunk": "a", "to_tile": [1, 1]},
+		}),
+	]))
+	assert_false(on_chunk_door.is_valid())
+	assert_true(_has_error(on_chunk_door, "return is only allowed on doors to a zone"), str(on_chunk_door.errors))
+
+
+func test_invalid_return_links_are_errors() -> void:
+	var cases: Array = [
+		{"tile": [3, 3], "chunk": "a"},
+		{"chunk": "a", "to_tile": [1, 1]},
+		{"tile": [-1, 3], "chunk": "a", "to_tile": [1, 1]},
+		{"tile": [3, 3], "chunk": "missing", "to_tile": [1, 1]},
+		{"tile": [3, 3], "chunk": "a"},
+		{"tile": [3, 3], "chunk": "a", "to_tile": [32, 1]},
+	]
+	for link: Dictionary in cases:
+		var map := WorldMap.load_from_dict(_make_world(_row_of_three(), [
+			_door_to_zone("dungeon_door", "b", [10, 10], "test_arena", [3, 2], {"return": link}),
+		]))
+		assert_false(map.is_valid(), "return link %s must be invalid" % str(link))
+		assert_eq(map.transition_at("b", Vector2i(10, 10)), {}, "an invalid transition is not indexed")
+
+
 func test_real_world_json_transitions_are_valid_and_walkable() -> void:
 	var map := WorldMap.load_file(WORLD_PATH)
 	assert_true(map.is_valid(), "world.json errors: %s" % str(map.errors))

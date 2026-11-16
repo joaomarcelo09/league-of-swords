@@ -27,6 +27,11 @@ const DEFAULT_INVENTORY_HEIGHT: float = 320.0
 const DEFAULT_PICKUP_RADIUS: float = 1.2
 const DEFAULT_CLICK_RADIUS: float = 24.0
 
+## Transient travel message shown when a locked gate/door blocks the player.
+const DEFAULT_TRAVEL_MESSAGE_DURATION_S: float = 2.5
+const DEFAULT_TRAVEL_MESSAGE_FONT_SIZE: int = 20
+const DEFAULT_TRAVEL_MESSAGE_COLOR := Color(1.0, 0.82, 0.4, 1.0)
+
 const EQUIPPED_MARKER: String = "[E]"
 
 
@@ -291,6 +296,8 @@ var inventory_empty_label: Label = null
 var boss_bar: BossBar = null
 var floor_cleared_panel: FloorClearedPanel = null
 var merchant_panel: MerchantPanel = null
+var travel_message_label: Label = null
+var travel_message_time_left: float = 0.0
 
 
 # --- Lifecycle & Setup ---
@@ -350,6 +357,7 @@ func _ensure_ui_tree() -> void:
 	_build_boss_bar()
 	_build_floor_cleared_panel()
 	_build_merchant_panel()
+	_build_travel_message()
 
 
 func _build_bottom_hud() -> void:
@@ -561,6 +569,36 @@ func _build_merchant_panel() -> void:
 	root_control.add_child(merchant_panel)
 
 
+## Short centered message above the bottom HUD (locked gates/doors).
+func _build_travel_message() -> void:
+	travel_message_label = Label.new()
+	travel_message_label.name = "TravelMessage"
+	travel_message_label.visible = false
+	travel_message_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	travel_message_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	travel_message_label.add_theme_font_size_override("font_size", DEFAULT_TRAVEL_MESSAGE_FONT_SIZE)
+	travel_message_label.add_theme_color_override("font_color", DEFAULT_TRAVEL_MESSAGE_COLOR)
+	travel_message_label.add_theme_color_override("font_outline_color", Color(0.0, 0.0, 0.0, 0.9))
+	travel_message_label.add_theme_constant_override("outline_size", 4)
+	var vp := _viewport_size()
+	travel_message_label.position = Vector2(0.0, vp.y * 0.5 - 120.0)
+	travel_message_label.size = Vector2(vp.x, 30.0)
+	root_control.add_child(travel_message_label)
+
+
+## Shows `text` centered for a few seconds, replacing any previous message.
+func show_travel_message(text: String) -> void:
+	if travel_message_label == null or text.is_empty():
+		return
+	travel_message_label.text = text
+	travel_message_label.visible = true
+	travel_message_time_left = DEFAULT_TRAVEL_MESSAGE_DURATION_S
+
+
+func get_travel_message_label() -> Label:
+	return travel_message_label
+
+
 ## Resolves each slot's icon (data/skills.json icon id -> data/icons.json) and hands it to
 ## the slot; missing art falls back to a coloured letter.
 func refresh_skill_icons() -> void:
@@ -641,8 +679,17 @@ func _try_pickup_at_world_pos(world_pos: Vector2) -> bool:
 
 # --- Process & View Updates ---
 
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
+	_advance_travel_message(delta)
 	update_view()
+
+
+func _advance_travel_message(delta: float) -> void:
+	if travel_message_time_left <= 0.0:
+		return
+	travel_message_time_left -= maxf(delta, 0.0)
+	if travel_message_time_left <= 0.0 and travel_message_label != null:
+		travel_message_label.visible = false
 
 
 func update_view() -> void:
@@ -765,6 +812,17 @@ func handle_event(event: Dictionary) -> void:
 		show_cast_fail(str(event.get("slot", "")), event)
 	elif event_type == "dash_failed":
 		show_cast_fail(DASH_SLOT_KEY, event)
+	elif event_type == "world_travel_locked":
+		show_travel_locked(event)
+
+
+## Message for a gate/door that is sealed until its boss is defeated.
+func show_travel_locked(event: Dictionary) -> void:
+	var boss := str(event.get("boss", ""))
+	if boss.is_empty():
+		show_travel_message("The way is locked")
+	else:
+		show_travel_message("Locked: defeat %s first" % boss)
 
 
 ## Flashes `slot_key`'s slot with the event's reason, only for the player's own failures.

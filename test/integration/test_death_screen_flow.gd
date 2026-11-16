@@ -153,8 +153,8 @@ func test_respawn_after_death_far_from_town_starts_in_town() -> void:
 	assert_not_null(view.chunked_world, "floor 1 must run on the chunked world")
 	assert_true(view.chunked_world.is_loaded("floor1_town"), "the game starts in the town chunk")
 
-	# Die far from town, on floor1_plains_east's entry tile, so the town unloads.
-	view.player.pos = Vector2(64, 16)
+	# Die far from town, on floor1_plains_east away from its gates, so the town unloads.
+	view.player.pos = Vector2(64, 10)
 	view._process(0.016)
 	assert_false(view.chunked_world.is_loaded("floor1_town"), "the town unloads away from it")
 	assert_eq(view.zone.entry, Vector2i(16, 19), "the zone entry stays the town entry")

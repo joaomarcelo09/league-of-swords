@@ -362,3 +362,21 @@ func test_skill_slots_cooldown_updates() -> void:
 
 	assert_eq(q_slot.cd_fraction, 0.0, "Cooldown fraction should return to 0 after ready")
 	assert_false(q_slot.cd_label.visible, "CD label should be hidden when ready")
+
+
+func test_locked_travel_event_shows_a_short_message() -> void:
+	var session := GameSession.new(_zone, _registry, _inventory, _item_db)
+	var player := session.spawn_player()
+	var hud := HUD.new()
+	autofree(hud)
+	hud.setup(session, session.world, player, _inventory, _item_db, _registry)
+
+	hud.handle_event({"type": "world_travel_locked", "boss": "warden", "label": "Dungeon Entrance"})
+
+	var label := hud.get_travel_message_label()
+	assert_not_null(label, "the HUD must build a travel message label")
+	assert_true(label.visible, "a locked transition must show its message")
+	assert_true(label.text.contains("warden"), "the message must name the boss: '%s'" % label.text)
+
+	hud._advance_travel_message(HUD.DEFAULT_TRAVEL_MESSAGE_DURATION_S + 0.1)
+	assert_false(label.visible, "the message disappears after its duration")
