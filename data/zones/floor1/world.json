@@ -21,9 +21,9 @@
       "kind": "plains"
     },
     {
-      "id": "floor1_arena",
+      "id": "floor1_center",
       "grid": [3, 0],
-      "zone": "test_arena",
+      "zone": "center",
       "kind": "dungeon_door"
     }
   ],
@@ -57,10 +57,24 @@
       "label": "Gate to the Western Plains"
     },
     {
-      "id": "plains_to_dungeon_door",
-      "kind": "door",
+      "id": "plains_east_to_center_gate",
+      "kind": "gate",
       "from": {"chunk": "floor1_plains_east", "tile": [31, 16]},
-      "to": {"zone": "test_arena", "tile": [3, 2]},
+      "to": {"chunk": "floor1_center", "tile": [0, 16]},
+      "label": "Gate to the Ruined Plaza"
+    },
+    {
+      "id": "center_to_plains_east_gate",
+      "kind": "gate",
+      "from": {"chunk": "floor1_center", "tile": [0, 16]},
+      "to": {"chunk": "floor1_plains_east", "tile": [31, 16]},
+      "label": "Gate to the Eastern Plains"
+    },
+    {
+      "id": "center_to_dungeon_door",
+      "kind": "door",
+      "from": {"chunk": "floor1_center", "tile": [30, 16]},
+      "to": {"zone": "floor1", "tile": [20, 7]},
       "label": "Dungeon Entrance"
     }
   ]
