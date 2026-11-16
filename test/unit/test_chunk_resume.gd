@@ -145,6 +145,36 @@ func test_capture_then_resume_across_a_chunk_border() -> void:
 	_assert_ids(loader.loaded_ids(), ["c_1", "c_2", "c_3"], "loaded_ids")
 
 
+func test_capture_position_keeps_sub_tile_precision() -> void:
+	var map := _make_world()
+	var character := _make_character()
+
+	var capture_result := ChunkResume.capture_position(map, character, Vector2(CHUNK_SIZE + 4.25, 7.75))
+
+	assert_true(capture_result["ok"], str(capture_result))
+	assert_eq(character.chunk, "c_1")
+	assert_eq(character.position, [4.25, 7.75], "the chunk-local position keeps its fraction")
+	assert_eq(capture_result["local_tile"], Vector2i(4, 7))
+	assert_eq(capture_result["world_tile"], Vector2i(CHUNK_SIZE + 4, 7))
+
+	var result := ChunkResume.resume(map, _make_loader(map), character)
+
+	assert_true(result["ok"], str(result))
+	assert_eq(result["world_tile"], Vector2i(CHUNK_SIZE + 4, 7))
+	assert_eq(result["world_pos"], Vector2(CHUNK_SIZE + 4.25, 7.75), "resume returns the saved float position")
+
+
+func test_capture_position_rejects_a_non_finite_position() -> void:
+	var map := _make_world()
+	var character := _make_character()
+
+	var result := ChunkResume.capture_position(map, character, Vector2(INF, 1.0))
+
+	assert_false(result["ok"])
+	assert_eq(result["reason"], "invalid_position")
+	assert_eq(character.chunk, "", "a failed capture must not change the character")
+
+
 func test_capture_rejects_a_world_tile_outside_every_chunk() -> void:
 	var map := _make_world()
 	var character := _make_character()

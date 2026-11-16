@@ -170,6 +170,7 @@ func _init_game() -> void:
 	else:
 		inventory = Inventory.new(item_db)
 
+	var new_character_created := false
 	if character_state == null and world_state != null:
 		var target_char_id := ""
 		if LaunchRequest.mode == "continue" and not LaunchRequest.character_id.is_empty():
@@ -195,21 +196,57 @@ func _init_game() -> void:
 				var name_val: Variant = registry.get_balance("permadeath.default_player_name")
 				if name_val != null and not str(name_val).is_empty():
 					init_name = str(name_val)
+			# A new character starts in the chunked floor's start chunk (the
+			# town); the classic fallback keeps its zone entry.
+			var new_chunk := ""
+			var new_entry: Variant = zone.entry if zone != null else null
+			if chunked_world != null:
+				var start := ChunkResume.start_position(chunked_world)
+				if bool(start.get("ok", false)):
+					new_chunk = str(start.get("chunk", ""))
+					new_entry = start.get("local_tile")
 			var create_res := Lifecycle.new_character(
 				world_state,
 				init_name,
 				{},
-				zone.entry if zone != null else null,
+				new_entry,
 				save_store,
 				save_slot,
 				null,
 				"floor1",
-				registry
+				registry,
+				new_chunk
 			)
 			if create_res.get("ok", false):
 				character_state = create_res.get("value")
+				new_character_created = true
 
 	LaunchRequest.reset()
+
+	# 5b. Resume the character's chunk before the session is built: stream the
+	#     floor around the saved chunk and spawn there. A classic save (empty
+	#     chunk) keeps the start area and its saved_spawn_pos path; a chunk that
+	#     cannot be resumed falls back to the start chunk entry.
+	var resume_spawn: Variant = null
+	if chunked_world != null and character_state != null and not character_state.chunk.is_empty():
+		var resumed := ChunkResume.resume(chunked_world.map, chunked_world.loader, character_state)
+		if bool(resumed.get("ok", false)) and bool(resumed.get("chunked", false)):
+			var resumed_tile: Vector2i = resumed.get("world_tile", Vector2i(-1, -1))
+			chunked_world.update(resumed_tile)
+			resume_spawn = resumed.get("world_pos", resumed_tile)
+		else:
+			var start := ChunkResume.start_position(chunked_world)
+			if bool(start.get("ok", false)):
+				var start_tile: Vector2i = start.get("world_tile", Vector2i(-1, -1))
+				var start_pos: Variant = start.get("world_pos")
+				chunked_world.update(start_tile)
+				# Drop the unreadable chunk/position so a later save (or death
+				# record) does not carry it forward.
+				ChunkResume.capture_position(chunked_world.map, character_state, start_pos)
+				resume_spawn = start_pos
+		zone = ChunkedZone.new(chunked_world)
+		_clear_chunk_views()
+		_sync_chunk_views()
 
 	# 6. Create GameSession, spawn player and zone enemies
 	session = GameSession.new(zone, registry, inventory, item_db)
@@ -218,13 +255,22 @@ func _init_game() -> void:
 	var player_speed: float = float(registry.get_balance("player.move_speed_tiles_per_s", 4.0))
 	var spawn_pos: Variant = zone.entry
 	var saved_pos: Variant = null
-	if character_state != null:
+	if character_state != null and not character_state.chunk.is_empty():
+		# Chunked save: resume already streamed the floor around its chunk.
+		if resume_spawn != null:
+			spawn_pos = resume_spawn
+	elif character_state != null:
 		saved_pos = saved_spawn_pos(zone, character_state.position)
-	if saved_pos != null:
-		spawn_pos = saved_pos
+		if saved_pos != null:
+			spawn_pos = saved_pos
 	player = session.spawn_player(spawn_pos, player_speed)
 	if saved_pos != null:
 		player.pos = saved_pos
+	elif character_state != null and not new_character_created and resume_spawn is Vector2:
+		# Resume keeps the saved sub-tile position (spawn snapped it to the tile
+		# center for the walkability check). A character created just now keeps
+		# the tile-center spawn, as before.
+		player.pos = resume_spawn
 	if character_state != null and character_state.stats != null:
 		player.stats = character_state.stats.duplicate()
 	if world_state != null:
@@ -482,6 +528,9 @@ func _on_event_emitted(ev: Dictionary) -> void:
 
 
 func _persist_player_death(death_event: Dictionary) -> Dictionary:
+	# Record the chunk the player died in before the character is written, so
+	# the cemetery entry keeps it.
+	_capture_character_position()
 	_sync_items_to_character()
 
 	var date_str := SaveDate.get_date_string()
@@ -561,16 +610,25 @@ func _on_new_character_requested(new_name: String) -> void:
 	# The new character starts in the town: stream the floor back to the start
 	# chunk first, so zone.entry (used below and to spawn) is the town entry.
 	_stream_chunks_to_start()
+	# The new character starts in the town chunk, like a fresh character.
+	var new_chunk := ""
+	var new_entry: Variant = zone.entry if zone != null else null
+	if chunked_world != null:
+		var start := ChunkResume.start_position(chunked_world)
+		if bool(start.get("ok", false)):
+			new_chunk = str(start.get("chunk", ""))
+			new_entry = start.get("local_tile")
 	var create_res := Lifecycle.new_character(
 		world_state,
 		valid_name,
 		{},
-		zone.entry if zone != null else null,
+		new_entry,
 		save_store,
 		save_slot,
 		null,
 		"floor1",
-		registry
+		registry,
+		new_chunk
 	)
 
 	if not create_res.get("ok", false):
@@ -879,12 +937,34 @@ func _play_player_hit_feedback() -> void:
 		camera.shake()
 
 
+## Records where the player stands in the save: chunk + chunk-local position on
+## the chunked floor; inside a door's zone (the dungeon) the door's return chunk
+## and tile, so a load resumes on the chunked floor; the raw world position on
+## the classic single-zone path. Leaves the character untouched when the
+## position cannot be recorded safely.
+func _capture_character_position() -> void:
+	if character_state == null or player == null:
+		return
+	if in_chunked_mode() and chunked_world != null:
+		ChunkResume.capture_position(chunked_world.map, character_state, player.pos)
+		return
+	if chunked_world != null:
+		# Inside a door's zone: keep the chunk the door returns to (never write
+		# zone coordinates as a chunk-local position).
+		if session != null and not session.active_door.is_empty():
+			ChunkResume.capture_door_return(chunked_world.map, character_state, session.active_door)
+		return
+	# Classic single-zone path: keep the old raw world position.
+	if character_state.chunk.is_empty():
+		character_state.position = [player.pos.x, player.pos.y]
+
+
 func save_now() -> Dictionary:
 	if save_store == null or world_state == null:
 		return {"ok": false, "error": "MainView is not initialized", "value": null}
 
 	if character_state != null and character_state.status != "dead" and player != null:
-		character_state.position = [player.pos.x, player.pos.y]
+		_capture_character_position()
 		if player.stats != null:
 			character_state.stats = player.stats.duplicate()
 		if character_state.zone.is_empty():
