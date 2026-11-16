@@ -1,28 +1,13 @@
 {
   "legend": {
-    "#": {
-      "type": "wall",
-      "walkable": false
-    },
-    "T": {
-      "type": "town_floor",
+    ",": {
+      "type": "grass",
       "walkable": true,
-      "safe": true
+      "decor": "grass_tuft"
     },
-    "H": {
-      "type": "wall",
-      "walkable": false,
-      "decor": "house"
-    },
-    "F": {
-      "type": "town_floor",
-      "walkable": false,
-      "decor": "fountain"
-    },
-    "t": {
-      "type": "wall",
-      "walkable": false,
-      "decor": "torch"
+    ".": {
+      "type": "grass",
+      "walkable": true
     },
     "B": {
       "type": "town_floor",
@@ -30,26 +15,43 @@
       "safe": true,
       "decor": "barrel"
     },
+    "F": {
+      "type": "town_floor",
+      "walkable": false,
+      "safe": true,
+      "decor": "fountain"
+    },
+    "H": {
+      "type": "town_floor",
+      "walkable": false,
+      "safe": true,
+      "decor": "house"
+    },
     "K": {
       "type": "town_floor",
       "walkable": false,
       "safe": true,
       "decor": "crate"
+    },
+    "T": {
+      "type": "town_floor",
+      "walkable": true,
+      "safe": true
+    },
+    "t": {
+      "type": "town_floor",
+      "walkable": false,
+      "safe": true,
+      "decor": "torch"
     }
   },
-  "entry": [
-    16,
-    19
-  ],
+  "entry": [29, 26],
   "npcs": [
     {
       "id": "floor1_city_merchant",
       "kind": "merchant",
       "name": "Merchant Tavi",
-      "tile": [
-        13,
-        15
-      ]
+      "tile": [26, 28]
     }
   ],
   "spawns": [],

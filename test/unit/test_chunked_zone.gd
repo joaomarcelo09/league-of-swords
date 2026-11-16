@@ -109,41 +109,45 @@ func test_path_crosses_the_chunk_boundary() -> void:
 	assert_eq(blocked.size(), 0, "no path into an unloaded chunk")
 
 
-func test_real_floor_path_crosses_town_and_plains() -> void:
+func test_real_floor_path_crosses_city_and_plains_chunks() -> void:
 	var world := ChunkedWorld.load_file(
 		"res://data/zones/floor1/world.json",
 		"res://data/zones/floor1",
-		"floor1_town"
+		"floor1_x2_y1"
 	)
 	assert_true(world.is_valid(), "chunked floor 1 must load: %s" % str(world.errors))
 	var chunked := ChunkedZone.new(world)
 
-	assert_true(chunked.is_walkable(Vector2i(31, 6)), "town gate tile")
-	assert_true(chunked.is_walkable(Vector2i(32, 6)), "plains gate tile")
-	var path := chunked.find_path(Vector2i(30, 6), Vector2i(33, 6))
-	assert_gt(path.size(), 0, "the town gate opens a path into the plains chunk")
-	assert_eq(path[path.size() - 1], Vector2i(33, 6))
+	# From the city entry west across the chunk seam (x = 64) out onto the plains.
+	var target := Vector2i(45, 58)
+	assert_true(chunked.is_walkable(Vector2i(63, 58)), "city tile west of the seam")
+	assert_true(chunked.is_walkable(Vector2i(64, 58)), "city tile east of the seam")
+	assert_false(chunked.is_safe(target), "the target is on the plains")
+	var path := chunked.find_path(chunked.entry, target)
+	assert_gt(path.size(), 0, "the city opens seamlessly into the neighbouring plains chunk")
+	if path.size() > 0:
+		assert_eq(path[path.size() - 1], target)
 
 
 func test_entry_stays_the_town_entry_when_the_town_unloads() -> void:
 	var world := ChunkedWorld.load_file(
 		"res://data/zones/floor1/world.json",
 		"res://data/zones/floor1",
-		"floor1_town"
+		"floor1_x2_y1"
 	)
 	assert_true(world.is_valid(), "chunked floor 1 must load: %s" % str(world.errors))
 	var chunked := ChunkedZone.new(world)
 	var town_entry := chunked.entry
-	assert_eq(town_entry, Vector2i(16, 19), "the start spawn is the town entry")
+	assert_eq(town_entry, Vector2i(93, 58), "the start spawn is the city entry")
 
-	world.update(Vector2i(64, 16))
-	assert_false(world.is_loaded("floor1_town"), "moving to floor1_plains_east unloads the town")
+	world.update(Vector2i(180, 110))
+	assert_false(world.is_loaded("floor1_x2_y1"), "moving to the far south-east plains unloads the city start chunk")
 	chunked.refresh()
 	assert_eq(chunked.entry, town_entry, "entry must not depend on the loaded chunks")
 
-	world.update(Vector2i(0, 0))
+	world.update(Vector2i(64, 32))
 	chunked.refresh()
-	assert_true(world.is_loaded("floor1_town"), "the town reloads at the start chunk")
+	assert_true(world.is_loaded("floor1_x2_y1"), "the city start chunk reloads")
 	assert_eq(chunked.entry, town_entry, "reloading the town keeps the same entry")
 	assert_true(chunked.is_walkable(chunked.entry), "the town entry is walkable with the town loaded")
 

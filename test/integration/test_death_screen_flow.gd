@@ -106,7 +106,8 @@ func test_death_screen_flow_full() -> void:
 	assert_eq(view.character_state.name, new_name, "New character name should match submitted name")
 	assert_eq(view.character_state.status, "alive", "New character must be alive")
 	assert_ne(view.character_state.id, char_a_id, "New character must have a different ID")
-	assert_eq(view.character_state.position, [float(view.zone.entry.x), float(view.zone.entry.y)], "New character should be at floor entry")
+	var local_entry: Vector2i = view.zone.entry - view.chunked_world.chunk_offset(view.chunked_world.start_chunk)
+	assert_eq(view.character_state.position, [float(local_entry.x), float(local_entry.y)], "New character should be at floor entry (chunk-local)")
 
 	# Cemetery still has Char A's entry
 	assert_gte(view.world_state.cemetery.size(), 1, "Cemetery must still contain prior entry")
@@ -151,13 +152,13 @@ func test_respawn_after_death_far_from_town_starts_in_town() -> void:
 	view._ready()
 
 	assert_not_null(view.chunked_world, "floor 1 must run on the chunked world")
-	assert_true(view.chunked_world.is_loaded("floor1_town"), "the game starts in the town chunk")
+	assert_true(view.chunked_world.is_loaded("floor1_x2_y1"), "the game starts in the town chunk")
 
-	# Die far from town, on floor1_plains_east away from its gates, so the town unloads.
-	view.player.pos = Vector2(64, 10)
+	# Die far from town, on the south-east plains, so the city start chunk unloads.
+	view.player.pos = Vector2(180.5, 110.5)
 	view._process(0.016)
-	assert_false(view.chunked_world.is_loaded("floor1_town"), "the town unloads away from it")
-	assert_eq(view.zone.entry, Vector2i(16, 19), "the zone entry stays the town entry")
+	assert_false(view.chunked_world.is_loaded("floor1_x2_y1"), "the town unloads away from it")
+	assert_eq(view.zone.entry, Vector2i(93, 58), "the zone entry stays the town entry")
 
 	view.world.apply_damage(99, view.player, 9999.0)
 	view._process(0.016)
@@ -166,12 +167,12 @@ func test_respawn_after_death_far_from_town_starts_in_town() -> void:
 	view.death_screen.name_input.text = "Wanderer"
 	view.death_screen.start_button.pressed.emit()
 
-	var town_entry := Vector2i(16, 19)
+	var town_entry := Vector2i(93, 58)
 	assert_false(view.death_screen.is_open(), "the new character starts")
-	assert_true(view.chunked_world.is_loaded("floor1_town"), "the town chunk is loaded for the respawn")
+	assert_true(view.chunked_world.is_loaded("floor1_x2_y1"), "the town chunk is loaded for the respawn")
 	assert_eq(Vector2i(view.player.pos), town_entry, "the new player spawns at the town entry")
 	assert_true(view.zone.is_walkable(town_entry), "the town entry tile is walkable")
-	assert_eq(view.character_state.position, [float(town_entry.x), float(town_entry.y)], "the new character is saved at the town entry")
+	assert_eq(view.character_state.position, [29.0, 26.0], "the new character is saved at the town entry, chunk-local")
 
 
 func test_death_save_failure_blocks_new_character() -> void:

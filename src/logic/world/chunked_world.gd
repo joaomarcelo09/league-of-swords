@@ -8,7 +8,7 @@ extends RefCounted
 # Chunk grids are expected to be non-negative; the world spans up to the highest
 # occupied grid cell. No Node/SceneTree/Input/rendering dependencies.
 
-const DEFAULT_START_CHUNK: String = "floor1_town"
+const DEFAULT_START_CHUNK: String = "floor1_x2_y1"
 
 var map: WorldMap = null
 var loader: ChunkLoader = null

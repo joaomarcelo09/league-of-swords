@@ -291,8 +291,8 @@ func test_real_world_json_transitions_are_valid_and_walkable() -> void:
 	var transitions: Array[Dictionary] = []
 	for chunk_id: String in map.chunk_ids():
 		transitions.append_array(map.transitions_of(chunk_id))
-	assert_gt(transitions.size(), 0, "world.json must define transitions")
-
+	# Floor 1 chunks join seamlessly (open shared edges), so the list may be
+	# empty; every transition it does hold must be valid and walkable.
 	var seen_ids: Dictionary = {}
 	var gate_count := 0
 	var door_count := 0
@@ -334,5 +334,4 @@ func test_real_world_json_transitions_are_valid_and_walkable() -> void:
 			assert_true(door_zone.is_valid(), "zone '%s' errors: %s" % [zone_stem, str(door_zone.errors)])
 			assert_true(door_zone.is_walkable(to_tile), "to tile %s of '%s' must be walkable in '%s'" % [str(to_tile), transition_id, zone_stem])
 
-	assert_gte(gate_count, 1, "world.json must contain a gate")
-	assert_gte(door_count, 1, "world.json must contain a door")
+	assert_eq(gate_count + door_count, transitions.size(), "every transition is a gate or a door")

@@ -3,80 +3,149 @@
   "load_radius": 1,
   "chunks": [
     {
-      "id": "floor1_town",
+      "id": "floor1_x0_y0",
       "grid": [0, 0],
-      "zone": "city",
+      "zone": "chunk_x0_y0",
+      "kind": "plains"
+    },
+    {
+      "id": "floor1_x1_y0",
+      "grid": [1, 0],
+      "zone": "chunk_x1_y0",
+      "kind": "plains"
+    },
+    {
+      "id": "floor1_x2_y0",
+      "grid": [2, 0],
+      "zone": "chunk_x2_y0",
       "kind": "city"
     },
     {
-      "id": "floor1_plains",
-      "grid": [1, 0],
-      "zone": "plains_west",
-      "kind": "plains"
-    },
-    {
-      "id": "floor1_plains_east",
-      "grid": [2, 0],
-      "zone": "plains_east",
-      "kind": "plains"
-    },
-    {
-      "id": "floor1_center",
+      "id": "floor1_x3_y0",
       "grid": [3, 0],
-      "zone": "center",
-      "kind": "dungeon_door"
+      "zone": "chunk_x3_y0",
+      "kind": "city"
+    },
+    {
+      "id": "floor1_x4_y0",
+      "grid": [4, 0],
+      "zone": "chunk_x4_y0",
+      "kind": "plains"
+    },
+    {
+      "id": "floor1_x5_y0",
+      "grid": [5, 0],
+      "zone": "chunk_x5_y0",
+      "kind": "plains"
+    },
+    {
+      "id": "floor1_x0_y1",
+      "grid": [0, 1],
+      "zone": "chunk_x0_y1",
+      "kind": "plains"
+    },
+    {
+      "id": "floor1_x1_y1",
+      "grid": [1, 1],
+      "zone": "chunk_x1_y1",
+      "kind": "city"
+    },
+    {
+      "id": "floor1_x2_y1",
+      "grid": [2, 1],
+      "zone": "chunk_x2_y1",
+      "kind": "city"
+    },
+    {
+      "id": "floor1_x3_y1",
+      "grid": [3, 1],
+      "zone": "chunk_x3_y1",
+      "kind": "city"
+    },
+    {
+      "id": "floor1_x4_y1",
+      "grid": [4, 1],
+      "zone": "chunk_x4_y1",
+      "kind": "city"
+    },
+    {
+      "id": "floor1_x5_y1",
+      "grid": [5, 1],
+      "zone": "chunk_x5_y1",
+      "kind": "plains"
+    },
+    {
+      "id": "floor1_x0_y2",
+      "grid": [0, 2],
+      "zone": "chunk_x0_y2",
+      "kind": "plains"
+    },
+    {
+      "id": "floor1_x1_y2",
+      "grid": [1, 2],
+      "zone": "chunk_x1_y2",
+      "kind": "city"
+    },
+    {
+      "id": "floor1_x2_y2",
+      "grid": [2, 2],
+      "zone": "chunk_x2_y2",
+      "kind": "city"
+    },
+    {
+      "id": "floor1_x3_y2",
+      "grid": [3, 2],
+      "zone": "chunk_x3_y2",
+      "kind": "city"
+    },
+    {
+      "id": "floor1_x4_y2",
+      "grid": [4, 2],
+      "zone": "chunk_x4_y2",
+      "kind": "city"
+    },
+    {
+      "id": "floor1_x5_y2",
+      "grid": [5, 2],
+      "zone": "chunk_x5_y2",
+      "kind": "plains"
+    },
+    {
+      "id": "floor1_x0_y3",
+      "grid": [0, 3],
+      "zone": "chunk_x0_y3",
+      "kind": "plains"
+    },
+    {
+      "id": "floor1_x1_y3",
+      "grid": [1, 3],
+      "zone": "chunk_x1_y3",
+      "kind": "plains"
+    },
+    {
+      "id": "floor1_x2_y3",
+      "grid": [2, 3],
+      "zone": "chunk_x2_y3",
+      "kind": "plains"
+    },
+    {
+      "id": "floor1_x3_y3",
+      "grid": [3, 3],
+      "zone": "chunk_x3_y3",
+      "kind": "plains"
+    },
+    {
+      "id": "floor1_x4_y3",
+      "grid": [4, 3],
+      "zone": "chunk_x4_y3",
+      "kind": "plains"
+    },
+    {
+      "id": "floor1_x5_y3",
+      "grid": [5, 3],
+      "zone": "chunk_x5_y3",
+      "kind": "plains"
     }
   ],
-  "transitions": [
-    {
-      "id": "town_to_plains_gate",
-      "kind": "gate",
-      "from": {"chunk": "floor1_town", "tile": [31, 6]},
-      "to": {"chunk": "floor1_plains", "tile": [0, 6]},
-      "label": "Gate to the Plains"
-    },
-    {
-      "id": "plains_to_town_gate",
-      "kind": "gate",
-      "from": {"chunk": "floor1_plains", "tile": [0, 6]},
-      "to": {"chunk": "floor1_town", "tile": [30, 6]},
-      "label": "Gate to Town"
-    },
-    {
-      "id": "plains_to_plains_east_gate",
-      "kind": "gate",
-      "from": {"chunk": "floor1_plains", "tile": [31, 16]},
-      "to": {"chunk": "floor1_plains_east", "tile": [0, 16]},
-      "label": "Gate to the Eastern Plains"
-    },
-    {
-      "id": "plains_east_to_plains_gate",
-      "kind": "gate",
-      "from": {"chunk": "floor1_plains_east", "tile": [0, 16]},
-      "to": {"chunk": "floor1_plains", "tile": [31, 16]},
-      "label": "Gate to the Western Plains"
-    },
-    {
-      "id": "plains_east_to_center_gate",
-      "kind": "gate",
-      "from": {"chunk": "floor1_plains_east", "tile": [31, 16]},
-      "to": {"chunk": "floor1_center", "tile": [0, 16]},
-      "label": "Gate to the Ruined Plaza"
-    },
-    {
-      "id": "center_to_plains_east_gate",
-      "kind": "gate",
-      "from": {"chunk": "floor1_center", "tile": [0, 16]},
-      "to": {"chunk": "floor1_plains_east", "tile": [31, 16]},
-      "label": "Gate to the Eastern Plains"
-    },
-    {
-      "id": "center_to_dungeon_door",
-      "kind": "door",
-      "from": {"chunk": "floor1_center", "tile": [30, 16]},
-      "to": {"zone": "floor1", "tile": [20, 7]},
-      "return": {"tile": [20, 8], "chunk": "floor1_center", "to_tile": [29, 16]},
-      "label": "Dungeon Entrance"
-    }
-  ]
+  "transitions": []
 }

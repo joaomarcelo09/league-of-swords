@@ -160,16 +160,18 @@ func test_zone_file_loader_reads_the_real_floor1_chunks() -> void:
 	var world := ChunkedWorld.load_file(
 		"res://data/zones/floor1/world.json",
 		"res://data/zones/floor1",
-		"floor1_town"
+		"floor1_x2_y1"
 	)
 
 	assert_true(world.is_valid(), "chunked floor 1 must load: %s" % str(world.errors))
-	assert_eq(world.loaded_ids(), ["floor1_plains", "floor1_town"], "town plus its loaded neighbour")
-	assert_true(world.zone_for("floor1_town").is_valid())
-	assert_true(world.zone_for("floor1_plains").is_valid())
-	assert_eq(world.chunk_offset("floor1_town"), Vector2i.ZERO)
-	assert_eq(world.chunk_offset("floor1_plains"), Vector2i(32, 0))
-	assert_eq(world.start_entry(), Vector2i(16, 19), "city.json entry in world tiles")
-	assert_true(world.is_walkable(Vector2i(31, 6)), "town gate tile is walkable")
-	assert_true(world.is_walkable(Vector2i(32, 6)), "gate tile on the plains side is walkable")
-	assert_false(world.is_world_tile_loaded(Vector2i(64, 16)), "floor1_center is outside the load radius")
+	assert_eq(world.loaded_ids().size(), 9, "the city start chunk plus its 8 neighbours")
+	assert_true(world.loaded_ids().has("floor1_x1_y0"))
+	assert_true(world.loaded_ids().has("floor1_x3_y2"))
+	assert_true(world.zone_for("floor1_x2_y1").is_valid())
+	assert_true(world.zone_for("floor1_x1_y1").is_valid())
+	assert_eq(world.chunk_offset("floor1_x2_y1"), Vector2i(64, 32))
+	assert_eq(world.chunk_offset("floor1_x1_y1"), Vector2i(32, 32))
+	assert_eq(world.start_entry(), Vector2i(93, 58), "city entry in world tiles")
+	assert_true(world.is_walkable(Vector2i(63, 58)), "city floor on the west side of the seam")
+	assert_true(world.is_walkable(Vector2i(64, 58)), "city floor on the east side of the seam")
+	assert_false(world.is_world_tile_loaded(Vector2i(180, 110)), "the far south-east chunk is outside the load radius")
