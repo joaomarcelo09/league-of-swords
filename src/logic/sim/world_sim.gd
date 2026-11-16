@@ -7,6 +7,13 @@ var inventory: Inventory = null
 var item_db: ItemDB = null
 var rng: RandomNumberGenerator = null
 var zone_id: String = "floor1"
+## Chunk streaming owner when this world runs on a chunked floor (null for the
+## classic single-zone path, e.g. the dungeon).
+var chunked_world: ChunkedWorld = null
+## Chunk id of each entity spawned from a chunk's zone (entity id -> chunk id).
+var _entity_chunks: Dictionary = {}
+## Chunks whose zone spawns are already live in this world.
+var _spawned_chunks: Dictionary = {}
 var _tick_len: float = 0.0
 var tick_length: float:
 	get:
@@ -46,6 +53,9 @@ func _init(
 	rng = p_rng
 	if not p_zone_id.is_empty():
 		zone_id = p_zone_id
+	var chunked_zone := zone as ChunkedZone
+	if chunked_zone != null:
+		chunked_world = chunked_zone.world
 	var tick_hz: float = 30.0
 	if registry != null:
 		var hz_val: Variant = registry.get_balance("sim.tick_hz")
@@ -189,10 +199,63 @@ func _enemy_stats_for(enemy_cfg: Dictionary) -> Stats:
 
 
 func spawn_zone_enemies() -> Array[Entity]:
-	var spawned: Array[Entity] = []
+	if chunked_world != null:
+		var chunk_spawned: Array[Entity] = []
+		for chunk_id: String in chunked_world.loaded_ids():
+			chunk_spawned.append_array(_spawn_chunk_enemies(chunk_id))
+		return chunk_spawned
 	if zone == null:
+		var empty_spawned: Array[Entity] = []
+		return empty_spawned
+	return _spawn_entries(zone, Vector2i.ZERO, "")
+
+
+## Streams the chunked world around player_world_tile: newly loaded chunks spawn
+## their zone enemies, unloaded chunks drop theirs. Returns the loader changes
+## plus "changed" (bool) and "spawned" (Array[Entity]). No-op on classic zones.
+func update_chunks(player_world_tile: Vector2i) -> Dictionary:
+	if chunked_world == null:
+		return {"loaded": [], "unloaded": [], "player_chunk": "", "changed": false}
+
+	var changes := chunked_world.update(player_world_tile)
+	var loaded_ids: Array = changes.get("loaded", [])
+	var unloaded_ids: Array = changes.get("unloaded", [])
+	if loaded_ids.is_empty() and unloaded_ids.is_empty():
+		changes["changed"] = false
+		return changes
+
+	for chunk_val: Variant in unloaded_ids:
+		_drop_chunk_entities(str(chunk_val))
+	if zone is ChunkedZone:
+		(zone as ChunkedZone).refresh()
+
+	var spawned: Array[Entity] = []
+	for chunk_val: Variant in loaded_ids:
+		spawned.append_array(_spawn_chunk_enemies(str(chunk_val)))
+	changes["changed"] = true
+	changes["spawned"] = spawned
+	return changes
+
+
+## Spawns one chunk's zone spawns in world tiles (once per world).
+func _spawn_chunk_enemies(chunk_id: String) -> Array[Entity]:
+	var spawned: Array[Entity] = []
+	if chunked_world == null or _spawned_chunks.has(chunk_id):
 		return spawned
-	for s: Dictionary in zone.spawns:
+	var chunk_zone := chunked_world.zone_for(chunk_id)
+	if chunk_zone == null:
+		return spawned
+	_spawned_chunks[chunk_id] = true
+	return _spawn_entries(chunk_zone, chunked_world.chunk_offset(chunk_id), chunk_id)
+
+
+## Spawns every enemy entry of source_zone, offset into world tiles. Spawns from
+## a chunk are recorded so the chunk unloading can drop them again.
+func _spawn_entries(source_zone: Zone, offset: Vector2i, chunk_id: String) -> Array[Entity]:
+	var spawned: Array[Entity] = []
+	if source_zone == null:
+		return spawned
+	for s: Dictionary in source_zone.spawns:
 		var enemy_type: String = str(s.get("enemy", s.get("enemy_type_id", s.get("type", ""))))
 		var tile_val: Variant = s.get("tile")
 		if enemy_type.is_empty() or tile_val == null:
@@ -201,12 +264,30 @@ func spawn_zone_enemies() -> Array[Entity]:
 		var is_boss: bool = typeof(s.get("boss", false)) == TYPE_BOOL and bool(s.get("boss", false))
 		if is_boss and not spawn_id.is_empty() and bosses_defeated.has(spawn_id):
 			continue
-		var entity := spawn_enemy(enemy_type, tile_val)
+		var parsed_tile: Variant = parse_tile_coord(tile_val)
+		if parsed_tile == null:
+			continue
+		var world_tile: Vector2i = parsed_tile
+		var entity := spawn_enemy(enemy_type, world_tile + offset)
 		if entity != null:
 			entity.spawn_id = spawn_id
 			entity.is_boss = is_boss
+			if not chunk_id.is_empty():
+				_entity_chunks[entity.id] = chunk_id
 			spawned.append(entity)
 	return spawned
+
+
+## Removes the entities spawned from an unloaded chunk.
+func _drop_chunk_entities(chunk_id: String) -> void:
+	var to_drop: Array[int] = []
+	for entity_key: Variant in _entity_chunks.keys():
+		if str(_entity_chunks[entity_key]) == chunk_id:
+			to_drop.append(int(entity_key))
+	for entity_id: int in to_drop:
+		entities.erase(entity_id)
+		_entity_chunks.erase(entity_id)
+	_spawned_chunks.erase(chunk_id)
 
 
 func spawn_enemies() -> Array[Entity]:

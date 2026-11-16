@@ -3,6 +3,11 @@ extends Node2D
 
 const ZONE_MAP_PATH: String = "res://data/zones/floor1/floor1.map"
 const ZONE_JSON_PATH: String = "res://data/zones/floor1/floor1.json"
+## Chunked Floor 1: the running game streams these chunks (the classic single
+## zone above stays as the fallback when the chunked world cannot load).
+const WORLD_PATH: String = "res://data/zones/floor1/world.json"
+const ZONES_DIR: String = "res://data/zones/floor1"
+const START_CHUNK: String = "floor1_town"
 const DATA_DIR: String = "res://data"
 const DEFAULT_SAVE_ROOT: String = "user://saves"
 const DEFAULT_SAVE_SLOT: String = "slot_1"
@@ -44,6 +49,11 @@ var player_flash: HitFlash = null
 var max_frame_dt_s: float = 0.0
 
 var world_state: WorldState = null
+## Chunk streaming for the chunked floor (null when running the classic single zone).
+var chunked_world: ChunkedWorld = null
+## One tilemap per loaded chunk, keyed by chunk id.
+var chunk_views: Dictionary = {}
+var chunks_root: Node2D = null
 var character_state: CharacterState = null
 var save_store: SaveStore = null
 var death_screen: DeathScreen = null
@@ -76,21 +86,33 @@ func _init_game() -> void:
 	else:
 		push_error("MainView: Missing sim.max_frame_dt_s in balance data")
 
-	# 2. Load zone
-	var map_path := zone_map_path if not zone_map_path.is_empty() else ZONE_MAP_PATH
-	var json_path := zone_json_path if not zone_json_path.is_empty() else ZONE_JSON_PATH
-	zone = Zone.load_files(map_path, json_path)
-	if not zone.is_valid():
-		push_error("MainView: Failed to load zone: %s" % str(zone.errors))
-		return
+	# 2. Load the chunked floor, starting in the town chunk. The classic single
+	#    zone remains the fallback when the chunked world cannot load.
+	chunked_world = ChunkedWorld.load_file(WORLD_PATH, ZONES_DIR, START_CHUNK)
+	if chunked_world.is_valid():
+		zone = ChunkedZone.new(chunked_world)
+	else:
+		push_error("MainView: Failed to load chunked floor: %s" % str(chunked_world.errors))
+		chunked_world = null
+		var map_path := zone_map_path if not zone_map_path.is_empty() else ZONE_MAP_PATH
+		var json_path := zone_json_path if not zone_json_path.is_empty() else ZONE_JSON_PATH
+		zone = Zone.load_files(map_path, json_path)
+		if not zone.is_valid():
+			push_error("MainView: Failed to load zone: %s" % str(zone.errors))
+			return
 
-	# 3. Setup ZoneView
+	# 3. Setup the ZoneView used for tile<->world conversions. On a chunked floor
+	#    each loaded chunk gets its own ZoneView, positioned at its chunk offset.
 	if zone_view == null:
 		zone_view = ZoneView.new()
 		zone_view.name = "ZoneView"
 		add_child(zone_view)
 	zone_view.setup(registry)
-	zone_view.build(zone)
+	if chunked_world != null:
+		_ensure_chunks_root()
+		_sync_chunk_views()
+	else:
+		zone_view.build(zone)
 
 	# 4. Setup Entities Y-Sort root
 	if entities_root == null:
@@ -285,9 +307,75 @@ func _create_hud() -> void:
 	)
 
 
-func _create_npc_views() -> void:
-	if entities_root == null or not npc_views.is_empty():
+## Draws one tilemap per loaded chunk, each positioned at its chunk offset.
+func _ensure_chunks_root() -> void:
+	if chunks_root != null:
 		return
+	chunks_root = Node2D.new()
+	chunks_root.name = "Chunks"
+	add_child(chunks_root)
+	# Chunks draw above the origin ZoneView but below the Entities node.
+	move_child(chunks_root, 1)
+
+
+func _sync_chunk_views() -> void:
+	if chunked_world == null or chunks_root == null:
+		return
+
+	var loaded: Dictionary = {}
+	for chunk_id: String in chunked_world.loaded_ids():
+		loaded[chunk_id] = true
+		if chunk_views.has(chunk_id):
+			continue
+		var chunk_zone := chunked_world.zone_for(chunk_id)
+		if chunk_zone == null:
+			continue
+		var view := ZoneView.new()
+		view.name = "Chunk_%s" % chunk_id
+		view.setup(registry)
+		view.build(chunk_zone)
+		var offset := chunked_world.chunk_offset(chunk_id)
+		view.position = Vector2(offset) * float(zone_view.tile_px)
+		chunks_root.add_child(view)
+		chunk_views[chunk_id] = view
+
+	var stale: Array[String] = []
+	for chunk_key: Variant in chunk_views.keys():
+		if not loaded.has(str(chunk_key)):
+			stale.append(str(chunk_key))
+	for chunk_id: String in stale:
+		var view: ZoneView = chunk_views[chunk_id]
+		chunk_views.erase(chunk_id)
+		if is_instance_valid(view):
+			if view.get_parent() != null:
+				view.get_parent().remove_child(view)
+			view.queue_free()
+
+
+## Streams chunks around the player; rebuilds chunk tilemaps and NPCs when the
+## loaded set changed.
+func _update_chunks() -> void:
+	if session == null or player == null or chunked_world == null:
+		return
+	var tile := Vector2i(floori(player.pos.x), floori(player.pos.y))
+	var changes := session.update_chunks(tile)
+	if not bool(changes.get("changed", false)):
+		return
+	_sync_chunk_views()
+	_create_npc_views(true)
+
+
+func _create_npc_views(force: bool = false) -> void:
+	if entities_root == null:
+		return
+	if not force and not npc_views.is_empty():
+		return
+	for view: NpcView in npc_views:
+		if is_instance_valid(view):
+			if view.get_parent() != null:
+				view.get_parent().remove_child(view)
+			view.queue_free()
+	npc_views.clear()
 	npc_views = NpcView.build_all(zone, entities_root, zone_view)
 
 
@@ -400,6 +488,9 @@ func _on_new_character_requested(new_name: String) -> void:
 		return
 
 	var valid_name: String = str(validation.get("value", new_name))
+	# The new character starts in the town: stream the floor back to the start
+	# chunk first, so zone.entry (used below and to spawn) is the town entry.
+	_stream_chunks_to_start()
 	var create_res := Lifecycle.new_character(
 		world_state,
 		valid_name,
@@ -421,7 +512,22 @@ func _on_new_character_requested(new_name: String) -> void:
 	_respawn_new_character()
 
 
+## Streams the chunked floor back to the start chunk (the town), so a new
+## character always respawns in a loaded town, whatever chunk the previous
+## character died in. No-op on the classic single-zone fallback.
+func _stream_chunks_to_start() -> void:
+	if chunked_world == null or session == null:
+		return
+	var start_tile := chunked_world.chunk_offset(chunked_world.start_chunk)
+	var changes := session.update_chunks(start_tile)
+	if not bool(changes.get("changed", false)):
+		return
+	_sync_chunk_views()
+	_create_npc_views(true)
+
+
 func _respawn_new_character() -> void:
+	_stream_chunks_to_start()
 	session = GameSession.new(zone, registry, inventory, item_db)
 	world = session.world
 
@@ -654,6 +760,8 @@ static func clamp_frame_dt(delta: float, max_dt: float) -> float:
 func _update_views() -> void:
 	if player == null or zone_view == null:
 		return
+
+	_update_chunks()
 
 	var world_pos := zone_view.entity_to_world(player.pos)
 	if player_marker != null:

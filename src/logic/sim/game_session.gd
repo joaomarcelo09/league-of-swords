@@ -88,6 +88,13 @@ func step(dt: float) -> void:
 		world.step(dt)
 
 
+## Streams the chunked floor around the player's world tile; no-op for classic zones.
+func update_chunks(player_world_tile: Vector2i) -> Dictionary:
+	if world != null:
+		return world.update_chunks(player_world_tile)
+	return {"loaded": [], "unloaded": [], "player_chunk": "", "changed": false}
+
+
 func drain_events() -> Array[Dictionary]:
 	if world != null:
 		return world.drain_events()

@@ -21,7 +21,7 @@ const CAST_FAIL_Q_REASON: String = "cooldown"
 const CAST_FAIL_E_REASON: String = "invalid_aim"
 ## Share of each slot's full cooldown still remaining in the hud_cooldowns preview.
 const COOLDOWN_PREVIEW_RATIOS: Dictionary = {"Q": 0.8, "W": 0.6, "R": 0.4, "E": 0.25}
-const MERCHANT_NPC_ID: String = "floor1_smith"
+const MERCHANT_NPC_ID: String = "floor1_city_merchant"
 const MERCHANT_PREVIEW_STOCK: Array[String] = ["iron_sword", "iron_plate", "healing_draught"]
 const BOSS_TYPE_ID: String = "thornback_warden"
 const BOSS_PREVIEW_HP_RATIO: float = 0.62
