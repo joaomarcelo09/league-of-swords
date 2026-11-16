@@ -1,0 +1,24 @@
+{
+  "chunk_size": [32, 32],
+  "load_radius": 1,
+  "chunks": [
+    {
+      "id": "floor1_town",
+      "grid": [0, 0],
+      "zone": "floor1",
+      "kind": "city"
+    },
+    {
+      "id": "floor1_plains",
+      "grid": [1, 0],
+      "zone": "test_small",
+      "kind": "plains"
+    },
+    {
+      "id": "floor1_arena",
+      "grid": [2, 0],
+      "zone": "test_arena",
+      "kind": "dungeon_door"
+    }
+  ]
+}
