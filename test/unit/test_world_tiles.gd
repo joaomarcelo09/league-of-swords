@@ -7,7 +7,7 @@ const TILESET_PATH: String = "res://data/tilesets/floor1.json"
 const ATLAS_PATH: String = "res://assets/tiles/world_tiles.png"
 const TILE_PX: int = 32
 const ATLAS_COLS: int = 8
-const ATLAS_ROWS: int = 3
+const ATLAS_ROWS: int = 4
 
 
 func _tileset() -> TilesetData:
@@ -57,8 +57,8 @@ func test_atlas_file_loads_with_expected_grid() -> void:
 	assert_not_null(img)
 	if img == null:
 		return
-	assert_eq(img.get_width(), ATLAS_COLS * TILE_PX, "atlas keeps the original 8x3 grid")
-	assert_eq(img.get_height(), ATLAS_ROWS * TILE_PX, "atlas keeps the original 8x3 grid")
+	assert_eq(img.get_width(), ATLAS_COLS * TILE_PX, "atlas keeps the 8x4 grid")
+	assert_eq(img.get_height(), ATLAS_ROWS * TILE_PX, "atlas keeps the 8x4 grid")
 
 
 func test_every_referenced_coord_is_inside_atlas() -> void:

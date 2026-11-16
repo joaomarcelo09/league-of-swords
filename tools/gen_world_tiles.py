@@ -24,7 +24,7 @@ import zlib
 
 TILE_PX = 32
 ATLAS_COLS = 8
-ATLAS_ROWS = 3
+ATLAS_ROWS = 4
 DEFAULT_SEED = 20261116
 DEFAULT_OUT = os.path.join("assets", "tiles", "world_tiles.png")
 
@@ -779,6 +779,39 @@ def draw_decor_rock(cv: Canvas, ox: int, oy: int, rng: random.Random) -> None:
     cv.set(ox + 25, oy + 24, rgba(156, 152, 144))
 
 
+def draw_gate_floor(cv: Canvas, ox: int, oy: int, rng: random.Random) -> None:
+    """Boss gate threshold: dark flagstones with a worn rust-red runner."""
+    cv.rect(ox, oy, TILE_PX, TILE_PX, rgba(44, 38, 40))
+    for sy in (0, 16):
+        for sx in (0, 16):
+            slab = shade(rgba(78, 66, 66), rng.randint(-5, 5))
+            cv.rect(ox + sx + 1, oy + sy + 1, 14, 14, slab)
+            cv.rect(ox + sx + 1, oy + sy + 1, 14, 1, shade(slab, 12))
+            cv.rect(ox + sx + 1, oy + sy + 14, 14, 1, shade(slab, -16))
+    # Worn runner stripe down the middle of the passage.
+    cv.rect(ox + 10, oy, 12, TILE_PX, rgba(112, 40, 38))
+    cv.rect(ox + 10, oy, 1, TILE_PX, rgba(150, 62, 52))
+    cv.rect(ox + 21, oy, 1, TILE_PX, rgba(74, 24, 26))
+    for _ in range(14):
+        cv.set(ox + 11 + rng.randrange(10), oy + rng.randrange(TILE_PX), rgba(90, 30, 30))
+
+
+def draw_gate_post(cv: Canvas, ox: int, oy: int, rng: random.Random) -> None:
+    """Gate frame pillar: massive dark stone with bronze bands."""
+    cv.rect(ox, oy, TILE_PX, TILE_PX, rgba(30, 28, 34))
+    cv.rect(ox + 3, oy, 26, TILE_PX, rgba(70, 68, 80))
+    cv.rect(ox + 3, oy, 3, TILE_PX, rgba(96, 94, 108))
+    cv.rect(ox + 26, oy, 3, TILE_PX, rgba(46, 44, 54))
+    for by in range(0, TILE_PX, 8):
+        cv.rect(ox + 3, oy + by + 7, 26, 1, rgba(40, 38, 46))
+        for _ in range(6):
+            cv.set(ox + 7 + rng.randrange(18), oy + by + rng.randrange(7), shade(rgba(70, 68, 80), rng.randint(-14, 10)))
+    for by in (4, 24):
+        cv.rect(ox + 1, oy + by, 30, 4, rgba(150, 110, 52))
+        cv.rect(ox + 1, oy + by, 30, 1, rgba(206, 164, 86))
+        cv.rect(ox + 1, oy + by + 3, 30, 1, rgba(96, 66, 30))
+
+
 # (col, row) -> drawer. The layout is mirrored in data/tilesets/floor1.json.
 TILE_DRAWERS = {
     (0, 0): draw_wall,
@@ -805,6 +838,8 @@ TILE_DRAWERS = {
     (5, 2): draw_decor_crate,
     (6, 2): draw_decor_barrel,
     (7, 2): draw_decor_rubble,
+    (0, 3): draw_gate_floor,
+    (1, 3): draw_gate_post,
 }
 
 

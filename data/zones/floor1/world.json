@@ -147,5 +147,186 @@
       "kind": "plains"
     }
   ],
-  "transitions": []
+  "transitions": [
+    {
+      "id": "boss_gate_0",
+      "kind": "door",
+      "from": {
+        "chunk": "floor1_x5_y3",
+        "tile": [2, 31]
+      },
+      "to": {
+        "zone": "floor1",
+        "tile": [20, 7]
+      },
+      "return": {
+        "tile": [20, 7],
+        "chunk": "floor1_x5_y3",
+        "to_tile": [2, 29]
+      },
+      "label": "Boss Gate"
+    },
+    {
+      "id": "boss_gate_1",
+      "kind": "door",
+      "from": {
+        "chunk": "floor1_x5_y3",
+        "tile": [3, 31]
+      },
+      "to": {
+        "zone": "floor1",
+        "tile": [20, 7]
+      },
+      "return": {
+        "tile": [20, 7],
+        "chunk": "floor1_x5_y3",
+        "to_tile": [3, 29]
+      },
+      "label": "Boss Gate"
+    },
+    {
+      "id": "boss_gate_2",
+      "kind": "door",
+      "from": {
+        "chunk": "floor1_x5_y3",
+        "tile": [4, 31]
+      },
+      "to": {
+        "zone": "floor1",
+        "tile": [20, 7]
+      },
+      "return": {
+        "tile": [20, 7],
+        "chunk": "floor1_x5_y3",
+        "to_tile": [4, 29]
+      },
+      "label": "Boss Gate"
+    },
+    {
+      "id": "boss_gate_3",
+      "kind": "door",
+      "from": {
+        "chunk": "floor1_x5_y3",
+        "tile": [5, 31]
+      },
+      "to": {
+        "zone": "floor1",
+        "tile": [20, 7]
+      },
+      "return": {
+        "tile": [20, 7],
+        "chunk": "floor1_x5_y3",
+        "to_tile": [5, 29]
+      },
+      "label": "Boss Gate"
+    },
+    {
+      "id": "boss_gate_4",
+      "kind": "door",
+      "from": {
+        "chunk": "floor1_x5_y3",
+        "tile": [6, 31]
+      },
+      "to": {
+        "zone": "floor1",
+        "tile": [20, 7]
+      },
+      "return": {
+        "tile": [20, 7],
+        "chunk": "floor1_x5_y3",
+        "to_tile": [6, 29]
+      },
+      "label": "Boss Gate"
+    },
+    {
+      "id": "boss_gate_5",
+      "kind": "door",
+      "from": {
+        "chunk": "floor1_x5_y3",
+        "tile": [7, 31]
+      },
+      "to": {
+        "zone": "floor1",
+        "tile": [20, 7]
+      },
+      "return": {
+        "tile": [20, 7],
+        "chunk": "floor1_x5_y3",
+        "to_tile": [7, 29]
+      },
+      "label": "Boss Gate"
+    },
+    {
+      "id": "boss_gate_6",
+      "kind": "door",
+      "from": {
+        "chunk": "floor1_x5_y3",
+        "tile": [8, 31]
+      },
+      "to": {
+        "zone": "floor1",
+        "tile": [20, 7]
+      },
+      "return": {
+        "tile": [20, 7],
+        "chunk": "floor1_x5_y3",
+        "to_tile": [8, 29]
+      },
+      "label": "Boss Gate"
+    },
+    {
+      "id": "boss_gate_7",
+      "kind": "door",
+      "from": {
+        "chunk": "floor1_x5_y3",
+        "tile": [9, 31]
+      },
+      "to": {
+        "zone": "floor1",
+        "tile": [20, 7]
+      },
+      "return": {
+        "tile": [20, 7],
+        "chunk": "floor1_x5_y3",
+        "to_tile": [9, 29]
+      },
+      "label": "Boss Gate"
+    },
+    {
+      "id": "boss_gate_8",
+      "kind": "door",
+      "from": {
+        "chunk": "floor1_x5_y3",
+        "tile": [10, 31]
+      },
+      "to": {
+        "zone": "floor1",
+        "tile": [20, 7]
+      },
+      "return": {
+        "tile": [20, 7],
+        "chunk": "floor1_x5_y3",
+        "to_tile": [10, 29]
+      },
+      "label": "Boss Gate"
+    },
+    {
+      "id": "boss_gate_9",
+      "kind": "door",
+      "from": {
+        "chunk": "floor1_x5_y3",
+        "tile": [11, 31]
+      },
+      "to": {
+        "zone": "floor1",
+        "tile": [20, 7]
+      },
+      "return": {
+        "tile": [20, 7],
+        "chunk": "floor1_x5_y3",
+        "to_tile": [11, 29]
+      },
+      "label": "Boss Gate"
+    }
+  ]
 }

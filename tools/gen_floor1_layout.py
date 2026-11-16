@@ -13,7 +13,7 @@ Layout (see .team/plans/floor1-layout-sketch.md):
   - Everything else is open plains (grass) with enemy spawns.
 Chunks are joined seamlessly: neighbouring chunks share open edges, so the
 player walks between them while the chunk loader streams them in; no gate
-transitions are needed. The boss gate is added separately.
+transitions are needed. The only transition is the boss gate in the south wall.
 
 Uses the Python standard library only. Output is deterministic (seeded).
 Run from the repo root: python3 tools/gen_floor1_layout.py
@@ -64,6 +64,15 @@ HOUSE_OFFSETS = [
     for dx in (-30, -22, -14, 10, 18, 26)
 ]
 
+# Boss gate: an opening in the south outer wall at ~87% x, the only floor exit.
+GATE_X0 = 162  # first open gate tile (global x)
+GATE_W = 10
+GATE_Y = HEIGHT - 1
+GATE_DOOR_ZONE = "floor1"  # dungeon zone (placeholder boss room)
+GATE_DOOR_TILE = [20, 7]
+GATE_RETURN_TILE = [20, 7]  # tile in the dungeon zone that leads back out
+GATE_RETURN_DY = 2  # return lands this many tiles north of the gate row
+
 ENEMIES = ["ash_stalker", "bog_slime", "cinder_bat"]
 SPAWNS_PER_FULL_CHUNK = 3
 RESPAWN_S = 30
@@ -80,6 +89,8 @@ LEGEND = {
     "t": {"type": "town_floor", "walkable": False, "safe": True, "decor": "torch"},
     "B": {"type": "town_floor", "walkable": False, "safe": True, "decor": "barrel"},
     "K": {"type": "town_floor", "walkable": False, "safe": True, "decor": "crate"},
+    "G": {"type": "gate", "walkable": True},
+    "P": {"type": "gate_post", "walkable": False},
 }
 WALKABLE = {ch for ch, entry in LEGEND.items() if entry["walkable"]}
 
@@ -152,6 +163,9 @@ def build_world(rng: random.Random) -> list[list[str]]:
         ty = int(math.floor(CITY_CY + math.sin(angle) * (CITY_RY - 2.0)))
         if in_city(tx, ty):
             grid[ty][tx] = "t"
+
+    for x in range(GATE_X0 - 1, GATE_X0 + GATE_W + 1):
+        grid[GATE_Y][x] = "P" if x in (GATE_X0 - 1, GATE_X0 + GATE_W) else "G"
 
     for x, y in (ENTRY, MERCHANT_TILE):
         assert grid[y][x] == "T", "entry/merchant must be on open town floor"
@@ -264,11 +278,30 @@ def main() -> None:
                 "kind": "city" if has_city else "plains",
             })
 
+    gate_cx, gate_cy = GATE_X0 // CHUNK, GATE_Y // CHUNK
+    transitions = []
+    for i in range(GATE_W):
+        gx = GATE_X0 + i
+        assert gx // CHUNK == gate_cx, "gate must sit inside one chunk"
+        assert grid[GATE_Y - GATE_RETURN_DY][gx] in WALKABLE, "gate return tile must be walkable"
+        transitions.append({
+            "id": "boss_gate_%d" % i,
+            "kind": "door",
+            "from": {"chunk": chunk_id(gate_cx, gate_cy), "tile": [gx % CHUNK, GATE_Y % CHUNK]},
+            "to": {"zone": GATE_DOOR_ZONE, "tile": list(GATE_DOOR_TILE)},
+            "return": {
+                "tile": list(GATE_RETURN_TILE),
+                "chunk": chunk_id(gate_cx, gate_cy),
+                "to_tile": [gx % CHUNK, (GATE_Y - GATE_RETURN_DY) % CHUNK],
+            },
+            "label": "Boss Gate",
+        })
+
     world = {
         "chunk_size": [CHUNK, CHUNK],
         "load_radius": 1,
         "chunks": chunks,
-        "transitions": [],
+        "transitions": transitions,
     }
     write_json(os.path.join(args.out_dir, "world.json"), world)
     ex, ey = ENTRY

@@ -12,6 +12,14 @@
     ".": {
       "type": "grass",
       "walkable": true
+    },
+    "G": {
+      "type": "gate",
+      "walkable": true
+    },
+    "P": {
+      "type": "gate_post",
+      "walkable": false
     }
   },
   "entry": [16, 16],

@@ -97,13 +97,17 @@ func test_old_strip_chunks_and_dungeon_door_are_gone() -> void:
 		assert_false(world.has_chunk(old_id), "%s must be removed" % old_id)
 	for chunk_id: String in world.chunk_ids():
 		for transition: Dictionary in world.transitions_of(chunk_id):
-			assert_ne(str(transition["kind"]), "door", "no door in the floor yet (boss gate comes later)")
+			# The boss gate (JGT-122) is the only door; see test_floor1_boss_gate.gd.
+			assert_true(str(transition["id"]).begins_with("boss_gate_"), "only the boss gate is a transition")
 
 
 func test_no_dangling_transition_refs() -> void:
 	for chunk_id: String in world.chunk_ids():
 		for transition: Dictionary in world.transitions_of(chunk_id):
 			var to_chunk := str(transition.get("to_chunk", ""))
+			if to_chunk.is_empty():
+				assert_eq(str(transition["kind"]), "door", "a transition without a chunk target is a zone door")
+				continue  # zone door (boss gate): validated in test_floor1_boss_gate.gd
 			assert_true(world.has_chunk(str(transition["from_chunk"])), "transition %s from chunk exists" % transition["id"])
 			assert_true(world.has_chunk(to_chunk), "transition %s targets a known chunk" % transition["id"])
 			assert_true(_walkable(world.chunk_to_world(chunk_id, transition["from_tile"])), "transition %s from tile walkable" % transition["id"])
@@ -155,7 +159,9 @@ func test_every_walkable_tile_is_reachable_from_the_entry() -> void:
 func test_outer_ring_is_wall_with_rounded_corners() -> void:
 	for x in range(MAP_W):
 		assert_false(_walkable(Vector2i(x, 0)), "top wall at x=%d" % x)
-		assert_false(_walkable(Vector2i(x, MAP_H - 1)), "bottom wall at x=%d" % x)
+		# The boss gate (x 162..171) is the one opening in the bottom wall.
+		var in_gate := x >= 162 and x <= 171
+		assert_eq(_walkable(Vector2i(x, MAP_H - 1)), in_gate, "bottom wall at x=%d" % x)
 	for y in range(MAP_H):
 		assert_false(_walkable(Vector2i(0, y)), "left wall at y=%d" % y)
 		assert_false(_walkable(Vector2i(MAP_W - 1, y)), "right wall at y=%d" % y)
@@ -207,7 +213,7 @@ func test_city_is_safe_and_plains_are_not() -> void:
 			if _in_ellipse(t):
 				assert_eq(type, "town_floor", "%s inside the ellipse is town floor" % str(t))
 				assert_true(_safe(t), "%s inside the ellipse is safe" % str(t))
-			elif type != "wall":
+			elif type != "wall" and type != "gate" and type != "gate_post":
 				assert_eq(type, "grass", "%s outside the city is plains" % str(t))
 				assert_false(_safe(t), "%s on the plains is not safe" % str(t))
 
