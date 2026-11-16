@@ -1,6 +1,6 @@
 extends GutTest
 
-const LAYOUT_PATH: String = "res://data/sprites/layout_lpc.json"
+const LAYOUT_PATH: String = "res://data/sprites/layout.json"
 const PLACEHOLDER_BODY: String = "res://assets/characters/placeholder/body.png"
 const PLACEHOLDER_HAIR: String = "res://assets/characters/placeholder/hair.png"
 const PLACEHOLDER_CLOTHES: String = "res://assets/characters/placeholder/clothes.png"
@@ -42,7 +42,7 @@ func test_layout_json_keys_complete() -> void:
 		for dir_name in expected_dirs:
 			assert_true(rows.has(dir_name), "%s rows must define direction '%s'" % [anim_name, dir_name])
 
-		# Verify LPC row order for directional anims: up < left < down < right
+		# Verify row order for directional anims: up < left < down < right
 		var r_up: int = int(rows["up"])
 		var r_left: int = int(rows["left"])
 		var r_down: int = int(rows["down"])
@@ -214,7 +214,7 @@ func test_draw_order_from_layout() -> void:
 
 	assert_eq(sprite.get_child_count(), 5, "All 5 layers should be created")
 
-	# In layout_lpc.json, layer_draw_order is: body, clothes, armor, hair, weapon
+	# In layout.json, layer_draw_order is: body, clothes, armor, hair, weapon
 	var child_names: Array[String] = []
 	for i in range(sprite.get_child_count()):
 		child_names.append(sprite.get_child(i).name)

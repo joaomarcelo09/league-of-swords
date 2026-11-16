@@ -1,9 +1,9 @@
 class_name AnimState
 extends RefCounted
 ## Pure, static animation-state helper for view characters (player and enemies).
-## Decides which layout animation and which of the 4 LPC directions to show from plain
+## Decides which layout animation and which of the 4 directions to show from plain
 ## entity state. Facing is computed in 8 directions (Facing.octant) and mapped to one of
-## the 4 LPC rows (layout "octant_dirs"). No nodes, no textures, no logic writes.
+## the 4 direction rows (layout "octant_dirs"). No nodes, no textures, no logic writes.
 
 const ANIM_IDLE: String = "idle"
 const ANIM_WALK: String = "walk"
@@ -16,14 +16,14 @@ const DIR_DOWN: String = "down"
 const DIR_LEFT: String = "left"
 const DIR_RIGHT: String = "right"
 
-## LPC row per Facing octant (EAST, SOUTH_EAST, SOUTH, ... NORTH_EAST), used when the
-## layout has no "octant_dirs". Diagonals use the side-view row (LPC convention).
+## Direction row per Facing octant (EAST, SOUTH_EAST, SOUTH, ... NORTH_EAST), used when the
+## layout has no "octant_dirs". Diagonals use the side-view row.
 const DEFAULT_OCTANT_DIRS: Array = [
 	DIR_RIGHT, DIR_RIGHT, DIR_DOWN, DIR_LEFT, DIR_LEFT, DIR_LEFT, DIR_UP, DIR_RIGHT,
 ]
 
 
-## Octant -> LPC direction table from the layout ("octant_dirs", 8 entries), else default.
+## Octant -> direction table from the layout ("octant_dirs", 8 entries), else default.
 static func octant_dirs_from_layout(p_layout: Dictionary) -> Array:
 	var val: Variant = p_layout.get("octant_dirs", null)
 	if val is Array and (val as Array).size() == 8:
@@ -31,19 +31,19 @@ static func octant_dirs_from_layout(p_layout: Dictionary) -> Array:
 	return DEFAULT_OCTANT_DIRS
 
 
-## LPC direction for a Facing octant; p_fallback for Facing.NONE or an invalid octant.
+## Direction for a Facing octant; p_fallback for Facing.NONE or an invalid octant.
 static func dir_for_octant(p_octant: int, p_fallback: String = DIR_DOWN, p_octant_dirs: Array = DEFAULT_OCTANT_DIRS) -> String:
 	if p_octant < 0 or p_octant >= p_octant_dirs.size():
 		return p_fallback
 	return str(p_octant_dirs[p_octant])
 
 
-## LPC direction for a vector through its 8-way octant (Facing.octant).
+## Direction for a vector through its 8-way octant (Facing.octant).
 static func dir_for_vector(v: Vector2, p_fallback: String = DIR_DOWN, p_octant_dirs: Array = DEFAULT_OCTANT_DIRS) -> String:
 	return dir_for_octant(Facing.octant(v), p_fallback, p_octant_dirs)
 
 
-## LPC direction name for a vector (dominant axis; ties go horizontal).
+## Direction name for a vector (dominant axis; ties go horizontal).
 ## Returns p_fallback for a zero vector.
 static func facing_from_vector(v: Vector2, p_fallback: String = DIR_DOWN) -> String:
 	if v.is_zero_approx():

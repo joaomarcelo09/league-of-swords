@@ -1,9 +1,9 @@
 extends GutTest
 ## JGT-103: characters visibly animate. Walk keeps cycling while the sim ticks slower than
-## the render rate, facing follows movement in 8 directions (mapped to the 4 LPC rows),
+## the render rate, facing follows movement in 8 directions (mapped to the 4 direction rows),
 ## and the slash length follows the attack interval / windup from data.
 
-const LAYOUT_PATH := "res://data/sprites/layout_lpc.json"
+const LAYOUT_PATH := "res://data/sprites/layout.json"
 const P := Vector2(5, 5)
 const RENDER_DT := 1.0 / 60.0
 

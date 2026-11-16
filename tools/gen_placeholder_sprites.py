@@ -3,7 +3,7 @@
 tools/gen_placeholder_sprites.py
 
 Procedurally generates original placeholder sprite sheets for the layered sprite system.
-Compatible with the layout defined in data/sprites/layout_lpc.json.
+Compatible with the layout defined in data/sprites/layout.json.
 Uses Python standard library only (struct, zlib, json, math) - NO third-party packages.
 """
 
@@ -725,7 +725,7 @@ def main() -> None:
     if args.only == "tiles":
         return
 
-    layout_path = os.path.join(root_dir, "data", "sprites", "layout_lpc.json")
+    layout_path = os.path.join(root_dir, "data", "sprites", "layout.json")
 
     with open(layout_path, "r", encoding="utf-8") as f:
         layout = json.load(f)

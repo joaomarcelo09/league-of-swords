@@ -2,7 +2,7 @@ extends GutTest
 ## JGT-73: AnimState picks animation + 4-way direction from entity state; CharacterAnimator
 ## uses it and adds a view-side hurt reaction.
 
-const LAYOUT_PATH := "res://data/sprites/layout_lpc.json"
+const LAYOUT_PATH := "res://data/sprites/layout.json"
 const P := Vector2(5, 5)
 
 

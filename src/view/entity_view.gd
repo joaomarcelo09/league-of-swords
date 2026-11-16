@@ -13,6 +13,8 @@ const DEFAULT_HP_BAR_BORDER_COLOR := Color(0.0, 0.0, 0.0, 0.9)
 const ENEMIES_TABLE: String = "enemies"
 const APPEARANCES_TABLE: String = "appearances"
 const LAYOUT_DIR: String = "res://data/sprites/"
+## Enemy "layout" value that selects LayeredSprite.DEFAULT_LAYOUT_PATH.
+const DEFAULT_LAYOUT_ID: String = "default"
 const DEFAULT_VIEW_SCALE: float = 1.0
 
 var entity_id: int = 0
@@ -34,7 +36,7 @@ var hp_bar_bg_color: Color = DEFAULT_HP_BAR_BG_COLOR
 var hp_bar_fill_color: Color = DEFAULT_HP_BAR_FILL_COLOR
 var hp_bar_border_color: Color = DEFAULT_HP_BAR_BORDER_COLOR
 
-## Layered LPC sprite built from the enemy type's "appearance" (null = hexagon fallback).
+## Layered sprite built from the enemy type's "appearance" (null = hexagon fallback).
 var sprite: LayeredSprite = null
 var sprite_source: String = CharacterAppearance.SOURCE_NONE
 ## Visual-only sprite scale from the enemy type's "view_scale" (logic hitbox unchanged).
@@ -162,11 +164,12 @@ func sync(lerp_weight: float = 1.0) -> void:
 	queue_redraw()
 
 
-## Pure: resolves an enemy "layout" value to a res:// path. "" -> the default LPC layout,
-## a res:// path is used as is, a bare id "<name>" -> data/sprites/layout_<name>.json.
+## Pure: resolves an enemy "layout" value to a res:// path. "" or "default" -> the
+## default layout, a res:// path is used as is, a bare id "<name>" ->
+## data/sprites/layout_<name>.json.
 static func layout_path_for(layout_val: String) -> String:
 	var v := layout_val.strip_edges()
-	if v.is_empty():
+	if v.is_empty() or v == DEFAULT_LAYOUT_ID:
 		return LayeredSprite.DEFAULT_LAYOUT_PATH
 	if v.begins_with("res://"):
 		return v
@@ -256,7 +259,7 @@ func _build_sprite() -> void:
 	new_sprite.name = "EnemySprite"
 	# Drawn behind this node's own _draw so the HP bar stays on top of the sprite.
 	new_sprite.show_behind_parent = true
-	new_sprite.set_layer_textures(textures, built.get("tints", {}))
+	new_sprite.set_layer_textures(textures)
 	new_sprite.play(CharacterAnimator.ANIM_IDLE, AnimState.DIR_DOWN)
 	new_sprite.scale = Vector2(view_scale, view_scale)
 	add_child(new_sprite)

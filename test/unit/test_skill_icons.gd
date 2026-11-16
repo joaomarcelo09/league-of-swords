@@ -2,10 +2,10 @@ extends GutTest
 
 const SLOTS: Array[String] = ["Q", "W", "R", "E"]
 const EXPECTED_FILES: Dictionary = {
-	"Q": "fire-dash.svg",
-	"W": "quick-slash.svg",
-	"R": "healing-shield.svg",
-	"E": "run.svg",
+	"Q": "icon_ember_lance",
+	"W": "icon_crescent_sweep",
+	"R": "icon_mending_gale",
+	"E": "icon_shadow_step",
 }
 
 var _registry: DataRegistry
@@ -34,7 +34,7 @@ func test_every_skill_icon_has_an_icons_entry() -> void:
 		assert_false(icon_id.is_empty(), "skill '%s' needs an icon id" % s_id)
 		assert_true(_registry.has_entry("icons", icon_id), "icon '%s' (skill '%s') needs an icons.json entry" % [icon_id, s_id])
 		var path := SkillIcons.icon_path(_registry, icon_id)
-		assert_true(path.begins_with("res://"), "icon '%s' path must be a res:// path, got '%s'" % [icon_id, path])
+		assert_true(path.is_empty() or ResourceLoader.exists(path), "icon '%s' path must be empty (letter fallback) or an existing file, got '%s'" % [icon_id, path])
 
 
 func test_icon_entries_are_well_formed() -> void:
@@ -46,12 +46,11 @@ func test_icon_entries_are_well_formed() -> void:
 			assert_true(color is Array and (color as Array).size() == 4, "icon '%s' color must be [r,g,b,a]" % icon_id)
 
 
-func test_each_slot_maps_to_the_chosen_icon_file() -> void:
+func test_each_slot_maps_to_the_chosen_icon_id() -> void:
 	for slot_key: String in SLOTS:
 		var skill_id := SkillIcons.skill_id_for_slot(_registry, slot_key)
 		assert_false(skill_id.is_empty(), "slot %s should resolve to a skill" % slot_key)
-		var path := SkillIcons.icon_path(_registry, SkillIcons.icon_id_for_skill(_registry, skill_id))
-		assert_eq(path.get_file(), EXPECTED_FILES[slot_key], "slot %s icon file" % slot_key)
+		assert_eq(SkillIcons.icon_id_for_skill(_registry, skill_id), EXPECTED_FILES[slot_key], "slot %s icon id" % slot_key)
 
 
 func test_skill_id_for_slot_prefers_equipped_skill() -> void:
