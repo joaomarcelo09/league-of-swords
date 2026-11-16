@@ -1,0 +1,39 @@
+{
+  "legend": {
+    ",": {
+      "type": "grass",
+      "walkable": true,
+      "decor": "grass_tuft"
+    },
+    ".": {
+      "type": "grass",
+      "walkable": true
+    },
+    "T": {
+      "type": "town_floor",
+      "walkable": true,
+      "safe": true
+    },
+    "t": {
+      "type": "town_floor",
+      "walkable": false,
+      "safe": true,
+      "decor": "torch"
+    }
+  },
+  "entry": [16, 16],
+  "npcs": [],
+  "spawns": [
+    {
+      "enemy": "cinder_bat",
+      "tile": [17, 20],
+      "respawn_s": 30
+    },
+    {
+      "enemy": "cinder_bat",
+      "tile": [22, 28],
+      "respawn_s": 30
+    }
+  ],
+  "exits": []
+}

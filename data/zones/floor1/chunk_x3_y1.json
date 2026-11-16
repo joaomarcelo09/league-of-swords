@@ -1,0 +1,40 @@
+{
+  "legend": {
+    ",": {
+      "type": "grass",
+      "walkable": true,
+      "decor": "grass_tuft"
+    },
+    ".": {
+      "type": "grass",
+      "walkable": true
+    },
+    "F": {
+      "type": "town_floor",
+      "walkable": false,
+      "safe": true,
+      "decor": "fountain"
+    },
+    "H": {
+      "type": "town_floor",
+      "walkable": false,
+      "safe": true,
+      "decor": "house"
+    },
+    "T": {
+      "type": "town_floor",
+      "walkable": true,
+      "safe": true
+    },
+    "t": {
+      "type": "town_floor",
+      "walkable": false,
+      "safe": true,
+      "decor": "torch"
+    }
+  },
+  "entry": [16, 16],
+  "npcs": [],
+  "spawns": [],
+  "exits": []
+}

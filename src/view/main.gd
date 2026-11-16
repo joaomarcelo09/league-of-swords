@@ -7,7 +7,7 @@ const ZONE_JSON_PATH: String = "res://data/zones/floor1/floor1.json"
 ## zone above stays as the fallback when the chunked world cannot load).
 const WORLD_PATH: String = "res://data/zones/floor1/world.json"
 const ZONES_DIR: String = "res://data/zones/floor1"
-const START_CHUNK: String = "floor1_town"
+const START_CHUNK: String = "floor1_x2_y1"
 const DATA_DIR: String = "res://data"
 const DEFAULT_SAVE_ROOT: String = "user://saves"
 const DEFAULT_SAVE_SLOT: String = "slot_1"
