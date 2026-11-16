@@ -1,0 +1,295 @@
+class_name WorldMap
+extends RefCounted
+
+# Pure-logic description of a floor laid out as a grid of chunks.
+# Built from data/zones/<floor>/world.json:
+#   chunk_size: [width, height] in tiles
+#   load_radius: chunk radius (Chebyshev) kept loaded around the player
+#   chunks: [{id, grid: [cx, cy], zone: "<zone file stem>", kind: "..."}]
+# No Node/SceneTree/Input/rendering dependencies.
+
+var chunk_size: Vector2i = Vector2i.ZERO
+var load_radius: int = 0
+var errors: Array[String] = []
+
+var _chunks: Dictionary = {}  # chunk id (String) -> {id, grid: Vector2i, zone, kind}
+var _cells: Dictionary = {}  # grid cell (Vector2i) -> chunk id (String)
+
+
+func is_valid() -> bool:
+	return errors.is_empty()
+
+
+func has_chunk(chunk_id: String) -> bool:
+	return _chunks.has(chunk_id)
+
+
+func chunk_ids() -> Array[String]:
+	var result: Array[String] = []
+	for id_key: Variant in _chunks.keys():
+		result.append(str(id_key))
+	result.sort()
+	return result
+
+
+func zone_stem(chunk_id: String) -> String:
+	if _chunks.has(chunk_id):
+		return str((_chunks[chunk_id] as Dictionary).get("zone", ""))
+	return ""
+
+
+func chunk_kind(chunk_id: String) -> String:
+	if _chunks.has(chunk_id):
+		return str((_chunks[chunk_id] as Dictionary).get("kind", ""))
+	return ""
+
+
+func grid_cell(chunk_id: String) -> Vector2i:
+	if _chunks.has(chunk_id):
+		return (_chunks[chunk_id] as Dictionary).get("grid", Vector2i(-1, -1))
+	return Vector2i(-1, -1)
+
+
+func chunk_at_cell(cell: Vector2i) -> String:
+	if _cells.has(cell):
+		return str(_cells[cell])
+	return ""
+
+
+# Maps a world tile to its chunk cell and the tile inside that chunk.
+# The returned dictionary always has "chunk_id", "local_tile" and "chunk_cell";
+# "chunk_id" is empty when no chunk is placed on that grid cell.
+func world_to_chunk(world_tile: Vector2i) -> Dictionary:
+	if chunk_size.x <= 0 or chunk_size.y <= 0:
+		return {
+			"chunk_id": "",
+			"local_tile": world_tile,
+			"chunk_cell": Vector2i.ZERO,
+		}
+	var cell := Vector2i(
+		int(floorf(float(world_tile.x) / float(chunk_size.x))),
+		int(floorf(float(world_tile.y) / float(chunk_size.y)))
+	)
+	var local_tile := Vector2i(
+		posmod(world_tile.x, chunk_size.x),
+		posmod(world_tile.y, chunk_size.y)
+	)
+	return {
+		"chunk_id": chunk_at_cell(cell),
+		"local_tile": local_tile,
+		"chunk_cell": cell,
+	}
+
+
+func chunk_id_at_tile(world_tile: Vector2i) -> String:
+	return str(world_to_chunk(world_tile).get("chunk_id", ""))
+
+
+# Converts a tile local to a chunk into its world tile. Returns (-1, -1)
+# when the chunk id is unknown.
+func chunk_to_world(chunk_id: String, local_tile: Vector2i) -> Vector2i:
+	if not _chunks.has(chunk_id):
+		return Vector2i(-1, -1)
+	var cell: Vector2i = (_chunks[chunk_id] as Dictionary).get("grid", Vector2i.ZERO)
+	return Vector2i(cell.x * chunk_size.x + local_tile.x, cell.y * chunk_size.y + local_tile.y)
+
+
+# Ids of the chunks in the 8 surrounding grid cells (Chebyshev neighbours).
+func neighbors(chunk_id: String) -> Array[String]:
+	var result: Array[String] = []
+	if not _chunks.has(chunk_id):
+		return result
+	var cell: Vector2i = grid_cell(chunk_id)
+	for dy in range(-1, 2):
+		for dx in range(-1, 2):
+			if dx == 0 and dy == 0:
+				continue
+			var neighbor_id := chunk_at_cell(cell + Vector2i(dx, dy))
+			if not neighbor_id.is_empty():
+				result.append(neighbor_id)
+	result.sort()
+	return result
+
+
+# Ids of the chunks whose grid cell is within `radius` (Chebyshev) of `cell`.
+# A negative radius falls back to the map's load_radius.
+func chunks_near(cell: Vector2i, radius: int = -1) -> Array[String]:
+	var effective_radius: int = load_radius if radius < 0 else radius
+	var result: Array[String] = []
+	if effective_radius < 0:
+		return result
+	for dy in range(-effective_radius, effective_radius + 1):
+		for dx in range(-effective_radius, effective_radius + 1):
+			var near_id := chunk_at_cell(cell + Vector2i(dx, dy))
+			if not near_id.is_empty():
+				result.append(near_id)
+	result.sort()
+	return result
+
+
+static func load_file(path: String) -> WorldMap:
+	var map := WorldMap.new()
+	var file := FileAccess.open(path, FileAccess.READ)
+	if file == null:
+		map.errors.append("%s: Cannot open file (error %d)" % [path, FileAccess.get_open_error()])
+		return map
+	var text := file.get_as_text()
+	file.close()
+
+	var json := JSON.new()
+	var parse_err := json.parse(text)
+	if parse_err != OK:
+		map.errors.append("%s: JSON parse error at line %d: %s" % [path, json.get_error_line(), json.get_error_message()])
+		return map
+
+	return load_from_dict(json.data, path)
+
+
+static func load_from_dict(data: Variant, json_name: String = "world.json") -> WorldMap:
+	var map := WorldMap.new()
+	if not (data is Dictionary):
+		map.errors.append("%s: Top-level JSON must be an object" % json_name)
+		return map
+	var world: Dictionary = data
+
+	map._parse_chunk_size(world, json_name)
+	map._parse_load_radius(world, json_name)
+	map._parse_chunks(world, json_name)
+	return map
+
+
+func _parse_chunk_size(world: Dictionary, json_name: String) -> void:
+	if not world.has("chunk_size"):
+		errors.append("%s: Missing 'chunk_size' field" % json_name)
+		return
+	var parsed: Variant = _parse_int_pair(world["chunk_size"], "chunk_size", json_name)
+	if parsed == null:
+		return
+	var size: Vector2i = parsed
+	if size.x <= 0 or size.y <= 0:
+		errors.append("%s: 'chunk_size' must be positive, got [%d, %d]" % [json_name, size.x, size.y])
+		return
+	chunk_size = size
+
+
+func _parse_load_radius(world: Dictionary, json_name: String) -> void:
+	if not world.has("load_radius"):
+		errors.append("%s: Missing 'load_radius' field" % json_name)
+		return
+	var value: Variant = world["load_radius"]
+	if not _is_int_value(value):
+		errors.append("%s: 'load_radius' must be an integer" % json_name)
+		return
+	var radius: int = _to_int(value)
+	if radius < 0:
+		errors.append("%s: 'load_radius' must be >= 0, got %d" % [json_name, radius])
+		return
+	load_radius = radius
+
+
+func _parse_chunks(world: Dictionary, json_name: String) -> void:
+	if not world.has("chunks"):
+		errors.append("%s: Missing 'chunks' field" % json_name)
+		return
+	var chunks_value: Variant = world["chunks"]
+	if not (chunks_value is Array):
+		errors.append("%s: 'chunks' must be an array" % json_name)
+		return
+
+	var chunks_arr: Array = chunks_value
+	var seen_ids: Dictionary = {}
+	var seen_cells: Dictionary = {}
+	for i in range(chunks_arr.size()):
+		var item: Variant = chunks_arr[i]
+		if not (item is Dictionary):
+			errors.append("%s: chunk[%d] must be an object" % [json_name, i])
+			continue
+		_parse_chunk(item, i, json_name, seen_ids, seen_cells)
+
+
+func _parse_chunk(entry: Dictionary, index: int, json_name: String, seen_ids: Dictionary, seen_cells: Dictionary) -> void:
+	var chunk_id := ""
+	if not entry.has("id"):
+		errors.append("%s: chunk[%d] missing 'id' field" % [json_name, index])
+	else:
+		var id_value: Variant = entry["id"]
+		if not _is_non_empty_string(id_value):
+			errors.append("%s: chunk[%d] id must be a non-empty string" % [json_name, index])
+		elif seen_ids.has(str(id_value)):
+			errors.append("%s: chunk[%d] id '%s' is duplicated" % [json_name, index, str(id_value)])
+		else:
+			seen_ids[str(id_value)] = true
+			chunk_id = str(id_value)
+
+	var parsed_cell: Variant = null
+	if not entry.has("grid"):
+		errors.append("%s: chunk[%d] missing 'grid' field" % [json_name, index])
+	else:
+		parsed_cell = _parse_int_pair(entry["grid"], "chunk[%d] grid" % index, json_name)
+
+	var zone_stem_value := ""
+	if not entry.has("zone"):
+		errors.append("%s: chunk[%d] missing 'zone' field" % [json_name, index])
+	else:
+		var zone_value: Variant = entry["zone"]
+		if not _is_non_empty_string(zone_value):
+			errors.append("%s: chunk[%d] zone must be a non-empty string" % [json_name, index])
+		else:
+			zone_stem_value = str(zone_value)
+
+	var kind_value := ""
+	if not entry.has("kind"):
+		errors.append("%s: chunk[%d] missing 'kind' field" % [json_name, index])
+	else:
+		var kind_raw: Variant = entry["kind"]
+		if not _is_non_empty_string(kind_raw):
+			errors.append("%s: chunk[%d] kind must be a non-empty string" % [json_name, index])
+		else:
+			kind_value = str(kind_raw)
+
+	if parsed_cell == null:
+		return
+
+	var cell: Vector2i = parsed_cell
+	if seen_cells.has(cell):
+		errors.append("%s: chunk[%d] grid cell [%d, %d] is already used by '%s'" % [json_name, index, cell.x, cell.y, str(seen_cells[cell])])
+		return
+	seen_cells[cell] = chunk_id if not chunk_id.is_empty() else "?"
+	if chunk_id.is_empty():
+		return
+
+	_chunks[chunk_id] = {
+		"id": chunk_id,
+		"grid": cell,
+		"zone": zone_stem_value,
+		"kind": kind_value,
+	}
+	_cells[cell] = chunk_id
+
+
+static func _is_non_empty_string(value: Variant) -> bool:
+	return (typeof(value) == TYPE_STRING or typeof(value) == TYPE_STRING_NAME) and not str(value).is_empty()
+
+
+static func _is_int_value(value: Variant) -> bool:
+	if typeof(value) == TYPE_INT:
+		return true
+	if typeof(value) == TYPE_FLOAT:
+		var number: float = value
+		return is_finite(number) and is_equal_approx(number, floorf(number))
+	return false
+
+
+static func _to_int(value: Variant) -> int:
+	if typeof(value) == TYPE_FLOAT:
+		return int(roundf(value))
+	return int(value)
+
+
+func _parse_int_pair(value: Variant, label: String, json_name: String) -> Variant:
+	if value is Array:
+		var arr: Array = value
+		if arr.size() == 2 and _is_int_value(arr[0]) and _is_int_value(arr[1]):
+			return Vector2i(_to_int(arr[0]), _to_int(arr[1]))
+	errors.append("%s: %s must be [x, y] with integer values" % [json_name, label])
+	return null
