@@ -20,5 +20,28 @@
       "zone": "test_arena",
       "kind": "dungeon_door"
     }
+  ],
+  "transitions": [
+    {
+      "id": "town_to_plains_gate",
+      "kind": "gate",
+      "from": {"chunk": "floor1_town", "tile": [31, 6]},
+      "to": {"chunk": "floor1_plains", "tile": [1, 6]},
+      "label": "Gate to the Plains"
+    },
+    {
+      "id": "plains_to_town_gate",
+      "kind": "gate",
+      "from": {"chunk": "floor1_plains", "tile": [1, 6]},
+      "to": {"chunk": "floor1_town", "tile": [30, 6]},
+      "label": "Gate to Town"
+    },
+    {
+      "id": "plains_to_dungeon_door",
+      "kind": "door",
+      "from": {"chunk": "floor1_plains", "tile": [6, 6]},
+      "to": {"zone": "test_arena", "tile": [3, 2]},
+      "label": "Dungeon Entrance"
+    }
   ]
 }
