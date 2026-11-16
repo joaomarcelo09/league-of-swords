@@ -121,7 +121,5 @@ func test_entity_view_applies_view_scale_to_sprite_only() -> void:
 	view.setup(boss, null, _registry)
 	assert_almost_eq(view.view_scale, 1.5, 1e-6)
 	assert_eq(view.scale, Vector2.ONE, "node (and logic) scale untouched")
-	if view.has_sprite():
-		assert_eq(view.sprite.scale, Vector2(1.5, 1.5), "sprite drawn at view_scale")
-	else:
-		pass_test("no LPC art fetched; hexagon fallback")
+	assert_true(view.has_sprite(), "warden is drawn with the placeholder sheets")
+	assert_eq(view.sprite.scale, Vector2(1.5, 1.5), "sprite drawn at view_scale")

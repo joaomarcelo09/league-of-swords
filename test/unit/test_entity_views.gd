@@ -40,7 +40,7 @@ func test_layer_creates_view_for_spawned_enemy_and_removes_it_after_death() -> v
 	assert_true(enemy.dead)
 
 	layer.sync()
-	# JGT-74: a sprite enemy (LPC art fetched) lingers to play its death animation;
+	# JGT-74: a sprite enemy lingers to play its death animation;
 	# the hexagon fallback is removed at once.
 	var guard := 0
 	while layer.has_entity_view(enemy.id) and guard < 1000:

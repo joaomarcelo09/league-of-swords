@@ -33,7 +33,7 @@ var player_marker: Node2D = null
 ## LayeredSprite drawing the player inside player_marker (null when only the diamond
 ## fallback marker could be built).
 var player_sprite: LayeredSprite = null
-## "lpc", "placeholder" or "none" (diamond marker) - which art the player uses.
+## "placeholder" or "none" (diamond marker) - which art the player uses.
 var player_sprite_source: String = CharacterAppearance.SOURCE_NONE
 var player_animator: CharacterAnimator = CharacterAnimator.new()
 var entity_layer: EntityLayer = null
@@ -471,8 +471,8 @@ func _create_entity_layer() -> void:
 
 
 ## Builds the "PlayerMarker" node (EntityLayer hangs the HP bar on it). The player is
-## drawn by a LayeredSprite from data/appearances.json (LPC art, or the placeholder sheets
-## if any LPC file is missing); the diamond marker is only used if no sheet loads at all.
+## drawn by a LayeredSprite from data/appearances.json (one stacked sheet per layer); the
+## diamond marker is only used if no sheet loads at all.
 func _create_player_marker() -> void:
 	if entities_root.has_node("PlayerMarker"):
 		player_marker = entities_root.get_node("PlayerMarker") as Node2D
@@ -517,7 +517,7 @@ func _build_player_sprite() -> LayeredSprite:
 		sprite.free()
 		return null
 	sprite.name = "PlayerSprite"
-	sprite.set_layer_textures(textures, built.get("tints", {}))
+	sprite.set_layer_textures(textures)
 	sprite.play(CharacterAnimator.ANIM_IDLE, "down")
 	return sprite
 

@@ -1,13 +1,11 @@
 extends GutTest
-## JGT-74: enemies with an "appearance" render as a layered LPC sprite driven by
+## JGT-74: enemies with an "appearance" render as a layered sprite driven by
 ## CharacterAnimator; without appearance/art they keep the hexagon fallback.
-## Animation and death-linger tests use synthetic sheets under user:// so they pass
-## with and without the fetched LPC art.
+## Animation and death-linger tests use synthetic sheets under user://.
 
 const MAP_PATH := "res://data/zones/floor1/test_arena.map"
 const JSON_PATH := "res://data/zones/floor1/test_arena.json"
 const DATA_DIR := "res://data"
-const MANIFEST_PATH := "res://data/art_manifest.json"
 const TMP_DIR := "user://test_enemy_sprite"
 const ENEMY_ID := "ash_stalker"
 const FS: int = 64
@@ -50,24 +48,9 @@ func _write_png(cols: int, rows: int, name: String) -> String:
 
 ## Points the in-memory ash_stalker appearance at synthetic sheets (art-independent).
 func _use_synthetic_art() -> void:
-	var files := {
-		"walk": _write_png(9, 4, "walk.png"),
-		"slash": _write_png(6, 4, "slash.png"),
-		"hurt": _write_png(6, 1, "hurt.png"),
-	}
+	var sheet := _write_png(13, 21, "body.png")
 	var entry := _registry.get_entry("appearances", ENEMY_ID)
-	entry["layers"] = {"body": files.duplicate(), "head": files.duplicate()}
-
-
-func _real_art_present() -> bool:
-	var entry := _registry.get_entry("appearances", ENEMY_ID)
-	var layers: Dictionary = entry.get("layers", {})
-	if layers.is_empty():
-		return false
-	for layer_name: Variant in layers.keys():
-		if not CharacterAppearance.first_missing_file(layers[layer_name], _layout()).is_empty():
-			return false
-	return true
+	entry["layers"] = {"body": sheet, "armor": sheet}
 
 
 func _new_view(session: GameSession, enemy: Entity) -> EntityView:
@@ -80,14 +63,7 @@ func _new_view(session: GameSession, enemy: Entity) -> EntityView:
 
 # --- data ---------------------------------------------------------------------------
 
-func test_enemy_appearance_entries_reference_manifest_rows() -> void:
-	var manifest := CharacterAppearance.load_json(MANIFEST_PATH)
-	var dests: Dictionary = {}
-	for row_id: Variant in manifest.keys():
-		var row: Variant = manifest[row_id]
-		if row is Dictionary:
-			dests["res://" + str((row as Dictionary).get("dest", ""))] = true
-
+func test_enemy_appearance_uses_own_placeholder_sheets() -> void:
 	var enemy := _registry.get_entry("enemies", ENEMY_ID)
 	var appearance_id := str(enemy.get("appearance", ""))
 	assert_eq(appearance_id, ENEMY_ID, "ash_stalker must name its appearance")
@@ -95,19 +71,17 @@ func test_enemy_appearance_entries_reference_manifest_rows() -> void:
 
 	var appearance := _registry.get_entry("appearances", appearance_id)
 	var layers: Dictionary = appearance.get("layers", {})
-	assert_true(layers.has("body") and layers.has("head"), "skeleton body + head layers")
+	assert_true(layers.has("body"), "enemy needs a body layer")
 	for layer_name: Variant in layers.keys():
-		var files: Dictionary = layers[layer_name]
-		for anim: String in ["idle", "walk", "slash", "hurt"]:
-			var path := str(files.get(anim, ""))
-			assert_true(dests.has(path), "%s/%s must be a manifest dest: %s" % [layer_name, anim, path])
-			assert_true(path.contains("skeleton"), "ash_stalker uses skeleton art: " + path)
-	assert_false(appearance.has("fallback"), "enemy fallback is the hexagon, not placeholder sheets")
+		var path := str(layers[layer_name])
+		assert_true(path.begins_with("res://assets/characters/placeholder/"), "%s uses an own sheet: %s" % [layer_name, path])
+		assert_true(CharacterAppearance.file_exists(path), "sheet exists: " + path)
 
 
 func test_layout_path_and_death_seconds_helpers() -> void:
 	assert_eq(EntityView.layout_path_for(""), LayeredSprite.DEFAULT_LAYOUT_PATH)
-	assert_eq(EntityView.layout_path_for("lpc"), "res://data/sprites/layout_lpc.json")
+	assert_eq(EntityView.layout_path_for("default"), LayeredSprite.DEFAULT_LAYOUT_PATH)
+	assert_eq(EntityView.layout_path_for("tall"), "res://data/sprites/layout_tall.json")
 	assert_eq(EntityView.layout_path_for("res://x/y.json"), "res://x/y.json")
 
 	var layout := _layout()
@@ -119,24 +93,18 @@ func test_layout_path_and_death_seconds_helpers() -> void:
 
 # --- sprite vs hexagon --------------------------------------------------------------
 
-func test_real_art_builds_sprite_or_falls_back_to_hexagon() -> void:
+func test_real_art_builds_sprite() -> void:
 	var session := GameSession.new(_zone, _registry)
 	var enemy := session.world.spawn_enemy(ENEMY_ID, Vector2i(4, 10))
 	var view := _new_view(session, enemy)
-	if _real_art_present():
-		assert_true(view.has_sprite(), "fetched skeleton art -> layered sprite")
-		assert_eq(view.sprite_source, CharacterAppearance.SOURCE_LPC)
-		assert_true(view.sprite.get_parent() == view, "sprite is a child of the view")
-		assert_almost_eq(view.hp_bar_y_offset, float(_layout()["hp_bar_y_offset"]), 0.001, "HP bar uses layout offset")
-	else:
-		assert_false(view.has_sprite(), "no art -> hexagon fallback")
-		assert_eq(view.get_child_count(), 0, "hexagon draws itself, no sprite child")
+	assert_true(view.has_sprite(), "placeholder sheets -> layered sprite")
+	assert_eq(view.sprite_source, CharacterAppearance.SOURCE_PLACEHOLDER)
+	assert_true(view.sprite.get_parent() == view, "sprite is a child of the view")
+	assert_almost_eq(view.hp_bar_y_offset, float(_layout()["hp_bar_y_offset"]), 0.001, "HP bar uses layout offset")
 
 
 func test_missing_art_falls_back_to_hexagon() -> void:
-	_registry.get_entry("appearances", ENEMY_ID)["layers"] = {
-		"body": {"walk": "res://nope/walk.png", "slash": "res://nope/slash.png", "hurt": "res://nope/hurt.png"},
-	}
+	_registry.get_entry("appearances", ENEMY_ID)["layers"] = {"body": "res://nope/body.png"}
 	var session := GameSession.new(_zone, _registry)
 	var enemy := session.world.spawn_enemy(ENEMY_ID, Vector2i(4, 10))
 	var view := _new_view(session, enemy)
