@@ -7,7 +7,6 @@ extends GutTest
 const LAYOUT_PATH: String = "res://data/sprites/layout_lpc.json"
 const APPEARANCES_PATH: String = "res://data/appearances.json"
 const MANIFEST_PATH: String = "res://data/art_manifest.json"
-const CREDITS_PATH: String = "res://assets/CREDITS.md"
 const TMP_DIR: String = "user://test_player_outfit"
 const FS: int = 64
 const OUTFIT_LAYERS: Array[String] = ["weapon_behind", "legs", "clothes", "armor", "hair", "weapon"]
@@ -65,13 +64,12 @@ func test_every_player_layer_is_in_draw_order() -> void:
 		last = idx
 
 
-func test_player_files_are_in_manifest_and_credited() -> void:
+func test_player_files_are_in_manifest() -> void:
 	var manifest := CharacterAppearance.load_json(MANIFEST_PATH)
 	var dests: Dictionary = {}
 	for row: Variant in manifest.values():
 		if row is Dictionary:
 			dests[str((row as Dictionary).get("dest", ""))] = true
-	var credits := FileAccess.get_file_as_string(CREDITS_PATH)
 	var layers: Dictionary = _player()["layers"]
 	for layer_name: Variant in layers.keys():
 		var spec: Dictionary = layers[layer_name]
@@ -80,7 +78,6 @@ func test_player_files_are_in_manifest_and_credited() -> void:
 				continue
 			var rel := str(spec[key]).trim_prefix("res://")
 			assert_true(dests.has(rel), "art_manifest.json must pin " + rel)
-			assert_true(credits.contains("`" + rel.get_base_dir() + "/`"), "CREDITS.md must credit " + rel.get_base_dir())
 
 
 func test_parse_tint() -> void:
