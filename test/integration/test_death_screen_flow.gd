@@ -143,6 +143,37 @@ func test_death_screen_flow_full() -> void:
 	assert_gt(view.world.tick_count, tick_before_run, "Simulation should resume stepping after respawn")
 
 
+func test_respawn_after_death_far_from_town_starts_in_town() -> void:
+	var view := MainView.new()
+	view.save_root = TEST_ROOT
+	view.save_slot = TEST_SLOT
+	autofree(view)
+	view._ready()
+
+	assert_not_null(view.chunked_world, "floor 1 must run on the chunked world")
+	assert_true(view.chunked_world.is_loaded("floor1_town"), "the game starts in the town chunk")
+
+	# Die far from town, on floor1_plains_east's entry tile, so the town unloads.
+	view.player.pos = Vector2(64, 16)
+	view._process(0.016)
+	assert_false(view.chunked_world.is_loaded("floor1_town"), "the town unloads away from it")
+	assert_eq(view.zone.entry, Vector2i(16, 19), "the zone entry stays the town entry")
+
+	view.world.apply_damage(99, view.player, 9999.0)
+	view._process(0.016)
+	assert_true(view.death_screen.is_open(), "the death screen opens")
+
+	view.death_screen.name_input.text = "Wanderer"
+	view.death_screen.start_button.pressed.emit()
+
+	var town_entry := Vector2i(16, 19)
+	assert_false(view.death_screen.is_open(), "the new character starts")
+	assert_true(view.chunked_world.is_loaded("floor1_town"), "the town chunk is loaded for the respawn")
+	assert_eq(Vector2i(view.player.pos), town_entry, "the new player spawns at the town entry")
+	assert_true(view.zone.is_walkable(town_entry), "the town entry tile is walkable")
+	assert_eq(view.character_state.position, [float(town_entry.x), float(town_entry.y)], "the new character is saved at the town entry")
+
+
 func test_death_save_failure_blocks_new_character() -> void:
 	var temp_root := TEST_ROOT.path_join("fail_store")
 	_clean_dir(temp_root)
