@@ -12,13 +12,14 @@ const WEST_CHUNK := "floor1_plains"
 const WEST_ZONE_STEM := "plains_west"
 const EAST_CHUNK := "floor1_plains_east"
 const EAST_ZONE_STEM := "plains_east"
-const ARENA_CHUNK := "floor1_arena"
+const CENTER_CHUNK := "floor1_center"
 
 const TOWN_TO_PLAINS_GATE := "town_to_plains_gate"
 const PLAINS_TO_TOWN_GATE := "plains_to_town_gate"
 const PLAINS_TO_EAST_GATE := "plains_to_plains_east_gate"
 const EAST_TO_PLAINS_GATE := "plains_east_to_plains_gate"
-const DUNGEON_DOOR := "plains_to_dungeon_door"
+const EAST_TO_CENTER_GATE := "plains_east_to_center_gate"
+const CENTER_TO_EAST_GATE := "center_to_plains_east_gate"
 
 ## Spawns must stay more than this many tiles (Chebyshev) from any gate or entry.
 const MIN_GATE_DISTANCE := 5
@@ -122,13 +123,15 @@ func test_world_places_the_plains_east_of_the_city() -> void:
 	assert_eq(world.zone_stem(WEST_CHUNK), WEST_ZONE_STEM, "floor1_plains must load plains_west")
 	assert_eq(world.zone_stem(EAST_CHUNK), EAST_ZONE_STEM, "floor1_plains_east must load plains_east")
 	assert_eq(world.grid_cell(WEST_CHUNK), Vector2i(1, 0), "the western plains sit right after the city")
-	assert_eq(world.grid_cell(EAST_CHUNK), Vector2i(2, 0), "the eastern plains sit between the west plains and the arena")
-	assert_eq(world.grid_cell(ARENA_CHUNK), Vector2i(3, 0), "the arena moved one cell east")
+	assert_eq(world.grid_cell(EAST_CHUNK), Vector2i(2, 0), "the eastern plains sit between the west plains and the center")
+	assert_eq(world.grid_cell(CENTER_CHUNK), Vector2i(3, 0), "the dungeon-door center chunk closes the row")
+	assert_eq(world.zone_stem(CENTER_CHUNK), "center")
 	assert_eq(world.chunk_kind(WEST_CHUNK), "plains")
 	assert_eq(world.chunk_kind(EAST_CHUNK), "plains")
+	assert_eq(world.chunk_kind(CENTER_CHUNK), "dungeon_door")
 	assert_eq(world.chunk_at_cell(Vector2i(1, 0)), WEST_CHUNK)
 	assert_eq(world.chunk_at_cell(Vector2i(2, 0)), EAST_CHUNK)
-	assert_eq(world.chunk_at_cell(Vector2i(3, 0)), ARENA_CHUNK)
+	assert_eq(world.chunk_at_cell(Vector2i(3, 0)), CENTER_CHUNK)
 
 
 func test_entries_are_walkable() -> void:
@@ -269,19 +272,27 @@ func test_plains_gates_form_a_symmetric_passage() -> void:
 	assert_eq(to_west["to_tile"], west_edge, "the return gate ends on the same plains_west edge tile")
 
 
-func test_dungeon_door_starts_on_the_east_plains_edge() -> void:
-	var door := _transition(DUNGEON_DOOR)
-	assert_false(door.is_empty(), "world.json must define '%s'" % DUNGEON_DOOR)
-	if door.is_empty():
+func test_center_gate_starts_on_the_east_plains_edge() -> void:
+	var to_center := _transition(EAST_TO_CENTER_GATE)
+	var to_east := _transition(CENTER_TO_EAST_GATE)
+	assert_false(to_center.is_empty(), "world.json must define '%s'" % EAST_TO_CENTER_GATE)
+	assert_false(to_east.is_empty(), "world.json must define '%s'" % CENTER_TO_EAST_GATE)
+	if to_center.is_empty() or to_east.is_empty():
 		return
-	assert_eq(str(door["kind"]), "door")
-	assert_eq(str(door["from_chunk"]), EAST_CHUNK, "the dungeon door now sits in the eastern plains")
-	var door_tile: Vector2i = door["from_tile"]
-	assert_eq(door_tile.x, east.width - 1, "the dungeon door must sit on the plains_east east edge")
-	assert_true(east.is_walkable(door_tile), "dungeon door tile %s must be walkable" % str(door_tile))
-	assert_gt(east.find_path(east.entry, door_tile).size(), 0, "the dungeon door must be reachable from the entry")
-	assert_eq(str(door["to_zone"]), "test_arena", "the door target stays unchanged until B3 replaces it")
-	assert_eq(door["to_tile"], Vector2i(3, 2), "the door target tile stays unchanged until B3 replaces it")
+
+	assert_eq(str(to_center["kind"]), "gate")
+	assert_eq(str(to_center["from_chunk"]), EAST_CHUNK)
+	assert_eq(str(to_center["to_chunk"]), CENTER_CHUNK)
+	var gate_tile: Vector2i = to_center["from_tile"]
+	assert_eq(gate_tile.x, east.width - 1, "the center gate must sit on the plains_east east edge")
+	assert_true(east.is_walkable(gate_tile), "center gate tile %s must be walkable" % str(gate_tile))
+	assert_gt(east.find_path(east.entry, gate_tile).size(), 0, "the center gate must be reachable from the entry")
+
+	assert_eq(str(to_east["kind"]), "gate")
+	assert_eq(str(to_east["from_chunk"]), CENTER_CHUNK)
+	assert_eq(str(to_east["to_chunk"]), EAST_CHUNK)
+	assert_eq(to_east["from_tile"], to_center["to_tile"], "both directions must use the same center edge tile")
+	assert_eq(to_east["to_tile"], gate_tile, "the return gate ends on the same plains_east edge tile")
 
 
 func test_all_world_transition_tiles_are_walkable() -> void:
