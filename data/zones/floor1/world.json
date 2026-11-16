@@ -5,7 +5,7 @@
     {
       "id": "floor1_town",
       "grid": [0, 0],
-      "zone": "floor1",
+      "zone": "city",
       "kind": "city"
     },
     {
