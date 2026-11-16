@@ -24,6 +24,10 @@ var xp: int = 0
 var stats: Stats = null
 var zone: String = ""
 var position: Array = [0.0, 0.0]
+# Chunk id the character is in, or "" for a classic single-zone save.
+# When set, `position` holds chunk-local tile coordinates and `zone` stays
+# the floor/world id.
+var chunk: String = ""
 
 
 func to_dict() -> Dictionary:
@@ -46,6 +50,7 @@ func to_dict() -> Dictionary:
 		"stats": stats_dict,
 		"zone": zone,
 		"position": pos_arr,
+		"chunk": chunk,
 	}
 
 
@@ -131,6 +136,14 @@ static func from_dict(dict: Dictionary, arg1: Variant = null, arg2: Variant = nu
 	if not (dict["zone"] is String):
 		return _fail("Invalid 'zone' field (expected String)", out_error)
 
+	# Optional for backward compatibility: saves written before chunking have
+	# no 'chunk' field and survive as classic single-zone saves.
+	var chunk_value := ""
+	if dict.has("chunk"):
+		if not (dict["chunk"] is String):
+			return _fail("Invalid 'chunk' field (expected String)", out_error)
+		chunk_value = str(dict["chunk"])
+
 	if not dict.has("position"):
 		return _fail("Missing 'position' field", out_error)
 	if not (dict["position"] is Array) or dict["position"].size() != 2:
@@ -151,6 +164,7 @@ static func from_dict(dict: Dictionary, arg1: Variant = null, arg2: Variant = nu
 	cs.stats = Stats.from_dict(stats_dict)
 	cs.zone = str(dict["zone"])
 	cs.position = [float(px), float(py)]
+	cs.chunk = chunk_value
 
 	return cs
 
@@ -160,7 +174,7 @@ func equals(other: CharacterState) -> bool:
 		return false
 	if version != other.version or id != other.id or status != other.status or name != other.name:
 		return false
-	if appearance != other.appearance or level != other.level or xp != other.xp or zone != other.zone:
+	if appearance != other.appearance or level != other.level or xp != other.xp or zone != other.zone or chunk != other.chunk:
 		return false
 	if position != other.position:
 		return false
