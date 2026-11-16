@@ -29,9 +29,9 @@ Original 2D action RPG inspired by Sword Art Online: Godot 4.7.2 (pinned), typed
 - Test requirement: every logic change ships with a GUT test in `test/unit/` (name `test_*.gd`).
 - Class cache: new `class_name` scripts need a re-import (`tools/godot --headless --import`) before tests see them.
 
-## Originality & Art Credit
+## Originality & Art
 - Originality: inspired mechanics only; no Sword Art Online names, characters, logos, or copied text/art; original names and designs.
-- Art credit: every third-party asset (e.g. LPC) must be listed in `assets/CREDITS.md` with author, license, and source in the same change.
+- Art: all art is original, created by the team; no third-party assets (no LPC, no downloaded packs or icons), so there is no credits file.
 
 ## Saves & Design Pointers
 - The save is the world.
