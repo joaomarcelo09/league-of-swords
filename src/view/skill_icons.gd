@@ -3,8 +3,8 @@ extends RefCounted
 
 ## View-side lookup of HUD skill icons. A skill's `icon` id (data/skills.json) maps to an
 ## entry in data/icons.json: {"path": "res://...", "color": [r, g, b, a] (optional)}.
-## The art is fetched by tools/fetch_art.sh and may be missing; callers then draw a
-## coloured letter fallback, so the game runs with no fetched art.
+## The art file may be missing; callers then draw a
+## coloured letter fallback, so the game runs without icon art.
 
 const ICONS_TABLE: String = "icons"
 const SKILLS_TABLE: String = "skills"
