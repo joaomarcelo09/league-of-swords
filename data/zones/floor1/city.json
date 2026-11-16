@@ -1,0 +1,57 @@
+{
+  "legend": {
+    "#": {
+      "type": "wall",
+      "walkable": false
+    },
+    "T": {
+      "type": "town_floor",
+      "walkable": true,
+      "safe": true
+    },
+    "H": {
+      "type": "wall",
+      "walkable": false,
+      "decor": "house"
+    },
+    "F": {
+      "type": "town_floor",
+      "walkable": false,
+      "decor": "fountain"
+    },
+    "t": {
+      "type": "wall",
+      "walkable": false,
+      "decor": "torch"
+    },
+    "B": {
+      "type": "town_floor",
+      "walkable": false,
+      "safe": true,
+      "decor": "barrel"
+    },
+    "K": {
+      "type": "town_floor",
+      "walkable": false,
+      "safe": true,
+      "decor": "crate"
+    }
+  },
+  "entry": [
+    16,
+    19
+  ],
+  "npcs": [
+    {
+      "id": "floor1_city_merchant",
+      "kind": "merchant",
+      "name": "Merchant Tavi",
+      "tile": [
+        13,
+        15
+      ]
+    }
+  ],
+  "spawns": [],
+  "exits": []
+}
