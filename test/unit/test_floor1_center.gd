@@ -203,6 +203,53 @@ func test_dungeon_door_target_is_a_walkable_dungeon_start() -> void:
 	assert_gt(dungeon.find_path(dungeon.entry, target).size(), 0, "the dungeon start must be reachable from the floor 1 town")
 
 
+func test_dungeon_door_walk_enters_the_dungeon_and_returns_to_the_center() -> void:
+	var chunked := ChunkedWorld.load_file(WORLD_PATH, ZONES_DIR, CENTER_CHUNK)
+	assert_true(chunked.is_valid(), "chunked floor errors: %s" % str(chunked.errors))
+	var registry := DataRegistry.new()
+	registry.load_dir("res://data")
+	var chunked_zone := ChunkedZone.new(chunked)
+	var session := GameSession.new(chunked_zone, registry, null, null, null, "floor1")
+	session.zone_loader = func(stem: String) -> Zone: return _load_zone(stem)
+	assert_not_null(session.spawn_player(), "the player must spawn at the center entry")
+
+	var door := _transition(DUNGEON_DOOR)
+	assert_false(door.is_empty(), "world.json must define '%s'" % DUNGEON_DOOR)
+	if door.is_empty():
+		return
+	var door_world: Vector2i = chunked.map.chunk_to_world(CENTER_CHUNK, door["from_tile"])
+	session.player.pos = WorldSim.tile_center(door_world)
+
+	var enter := session.check_world_travel(session.player.id)
+
+	assert_true(enter["ok"], str(enter))
+	assert_true(enter["zone_changed"])
+	assert_eq(session.player.tile(), door["to_tile"], "the player enters the dungeon at the door target")
+
+	session.player.pos = WorldSim.tile_center(door["return_tile"])
+	var leave := session.check_world_travel(session.player.id)
+
+	assert_true(leave["ok"], str(leave))
+	assert_true(session.in_chunked_world(), "the return link brings the session back to the chunks")
+	assert_eq(session.player.tile(), chunked.map.chunk_to_world(CENTER_CHUNK, door["return_to_tile"]))
+
+
+func test_dungeon_door_has_a_walkable_return_link_to_the_center_chunk() -> void:
+	var door := _transition(DUNGEON_DOOR)
+	assert_false(door.is_empty(), "world.json must define '%s'" % DUNGEON_DOOR)
+	if door.is_empty():
+		return
+
+	assert_eq(str(door["return_chunk"]), CENTER_CHUNK, "the dungeon door must return to the center chunk")
+	var return_tile: Vector2i = door["return_tile"]
+	assert_true(dungeon.is_walkable(return_tile), "dungeon return tile %s must be walkable" % str(return_tile))
+	assert_ne(return_tile, door["to_tile"], "the return tile must not be the entry tile")
+
+	var return_to_tile: Vector2i = door["return_to_tile"]
+	assert_true(center.is_walkable(return_to_tile), "center return tile %s must be walkable" % str(return_to_tile))
+	assert_gt(center.find_path(center.entry, return_to_tile).size(), 0, "the return tile must be reachable from the entry")
+
+
 func test_the_dungeon_door_is_the_only_door_in_the_world() -> void:
 	assert_true(world.is_valid(), "world.json errors: %s" % str(world.errors))
 	var doors := 0

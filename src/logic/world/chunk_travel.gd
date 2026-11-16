@@ -22,9 +22,10 @@ func _init(world_map: WorldMap, loader: ChunkLoader = null) -> void:
 # Resolves the transition at local_tile inside chunk_id.
 # Returns:
 #   {ok: false, reason: "none"}
-#   {ok: false, reason: "locked", boss}
+#   {ok: false, reason: "locked", boss, id, label}
 #   {ok: true, kind, id, label, to_chunk, to_local, to_world, loaded, unloaded}
-#   {ok: true, kind: "door", id, label, to_zone, to_tile}
+#   {ok: true, kind: "door", id, label, to_zone, to_tile,
+#    return_tile, return_chunk, return_to_tile}
 # Failure reasons also include "no_map", "invalid_world", "unknown_chunk",
 # "unknown_zone" and "no_loader"; they never crash and never load anything.
 func travel(chunk_id: String, local_tile: Vector2i, defeated_bosses: Array = []) -> Dictionary:
@@ -42,13 +43,19 @@ func travel(chunk_id: String, local_tile: Vector2i, defeated_bosses: Array = [])
 	if transition.is_empty():
 		return {"ok": false, "reason": "none"}
 
-	var boss := str(transition.get("requires_boss", ""))
-	if not boss.is_empty() and not defeated_bosses.has(boss):
-		return {"ok": false, "reason": "locked", "boss": boss}
-
 	var kind := str(transition.get("kind", ""))
 	var transition_id := str(transition.get("id", ""))
 	var label := str(transition.get("label", ""))
+	var boss := str(transition.get("requires_boss", ""))
+	if not boss.is_empty() and not defeated_bosses.has(boss):
+		return {
+			"ok": false,
+			"reason": "locked",
+			"boss": boss,
+			"id": transition_id,
+			"label": label,
+		}
+
 	var to_tile: Vector2i = transition.get("to_tile", Vector2i(-1, -1))
 	var to_zone := str(transition.get("to_zone", ""))
 	if not to_zone.is_empty():
@@ -59,6 +66,9 @@ func travel(chunk_id: String, local_tile: Vector2i, defeated_bosses: Array = [])
 			"label": label,
 			"to_zone": to_zone,
 			"to_tile": to_tile,
+			"return_tile": transition.get("return_tile", Vector2i(-1, -1)),
+			"return_chunk": str(transition.get("return_chunk", "")),
+			"return_to_tile": transition.get("return_to_tile", Vector2i(-1, -1)),
 		}
 
 	var to_chunk := str(transition.get("to_chunk", ""))

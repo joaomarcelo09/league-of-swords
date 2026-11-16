@@ -22,13 +22,15 @@ func _gate(transition_id: String, from_chunk: String, from_tile: Array, to_chunk
 	return transition
 
 
-func _door_to_zone(transition_id: String, from_chunk: String, from_tile: Array, zone_name: String, to_tile: Array) -> Dictionary:
-	return {
+func _door_to_zone(transition_id: String, from_chunk: String, from_tile: Array, zone_name: String, to_tile: Array, extra: Dictionary = {}) -> Dictionary:
+	var transition := {
 		"id": transition_id,
 		"kind": "door",
 		"from": {"chunk": from_chunk, "tile": from_tile},
 		"to": {"zone": zone_name, "tile": to_tile},
 	}
+	transition.merge(extra, true)
+	return transition
 
 
 func _make_world(load_radius: int = 1) -> WorldMap:
@@ -141,7 +143,46 @@ func test_only_destination_neighbourhood_is_loaded_and_unloaded() -> void:
 	_assert_ids(_calls, ["c_0", "c_1", "c_2", "c_3", "c_4"], "each chunk is loaded once")
 
 
-func test_locked_boss_gate_does_not_load() -> void:
+func test_door_travel_reports_the_return_link() -> void:
+	var chunks: Array = []
+	for x in range(5):
+		chunks.append({"id": "c_%d" % x, "grid": [x, 0], "zone": "test_small", "kind": "plains"})
+	var world := WorldMap.load_from_dict({
+		"chunk_size": [CHUNK_SIZE, CHUNK_SIZE],
+		"load_radius": 1,
+		"chunks": chunks,
+		"transitions": [
+			_gate("east_0", "c_0", [31, 5], "c_1", [0, 5]),
+			_door_to_zone("dungeon_door", "c_2", [10, 10], "test_arena", [3, 2], {
+				"return": {"tile": [3, 3], "chunk": "c_2", "to_tile": [9, 10]},
+			}),
+		],
+	})
+	assert_true(world.is_valid(), "world with a door return link must be valid: %s" % str(world.errors))
+	var travel := _make_travel(world)
+
+	var result := travel.travel("c_2", Vector2i(10, 10), [])
+
+	assert_true(result["ok"], str(result))
+	assert_eq(result["kind"], "door")
+	assert_eq(result["to_zone"], "test_arena")
+	assert_eq(result["return_tile"], Vector2i(3, 3))
+	assert_eq(result["return_chunk"], "c_2")
+	assert_eq(result["return_to_tile"], Vector2i(9, 10))
+
+
+func test_door_without_a_return_link_reports_empty_return_fields() -> void:
+	var travel := _make_travel(_make_world())
+
+	var result := travel.travel("c_2", Vector2i(10, 10), [])
+
+	assert_true(result["ok"], str(result))
+	assert_eq(result["return_tile"], Vector2i(-1, -1))
+	assert_eq(result["return_chunk"], "")
+	assert_eq(result["return_to_tile"], Vector2i(-1, -1))
+
+
+func test_locked_gate_does_not_load() -> void:
 	var travel := _make_travel(_make_world())
 
 	var result := travel.travel("c_4", Vector2i(10, 5), [])
