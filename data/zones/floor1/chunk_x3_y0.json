@@ -27,17 +27,6 @@
   },
   "entry": [16, 16],
   "npcs": [],
-  "spawns": [
-    {
-      "enemy": "cinder_bat",
-      "tile": [8, 10],
-      "respawn_s": 30
-    },
-    {
-      "enemy": "cinder_bat",
-      "tile": [11, 17],
-      "respawn_s": 30
-    }
-  ],
+  "spawns": [],
   "exits": []
 }

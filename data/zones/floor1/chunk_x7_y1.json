@@ -15,17 +15,17 @@
   "spawns": [
     {
       "enemy": "cinder_bat",
-      "tile": [5, 5],
+      "tile": [15, 8],
+      "respawn_s": 30
+    },
+    {
+      "enemy": "bog_slime",
+      "tile": [5, 11],
       "respawn_s": 30
     },
     {
       "enemy": "ash_stalker",
-      "tile": [22, 13],
-      "respawn_s": 30
-    },
-    {
-      "enemy": "ash_stalker",
-      "tile": [28, 21],
+      "tile": [26, 17],
       "respawn_s": 30
     }
   ],

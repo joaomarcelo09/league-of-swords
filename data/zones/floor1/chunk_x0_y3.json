@@ -19,17 +19,17 @@
   "spawns": [
     {
       "enemy": "cinder_bat",
-      "tile": [26, 3],
+      "tile": [21, 5],
       "respawn_s": 30
     },
     {
       "enemy": "cinder_bat",
-      "tile": [25, 19],
+      "tile": [23, 14],
       "respawn_s": 30
     },
     {
-      "enemy": "ash_stalker",
-      "tile": [17, 22],
+      "enemy": "cinder_bat",
+      "tile": [12, 19],
       "respawn_s": 30
     }
   ],

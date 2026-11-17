@@ -12,6 +12,11 @@
     ".": {
       "type": "grass",
       "walkable": true
+    },
+    "T": {
+      "type": "town_floor",
+      "walkable": true,
+      "safe": true
     }
   },
   "entry": [16, 16],
@@ -19,17 +24,12 @@
   "spawns": [
     {
       "enemy": "bog_slime",
-      "tile": [16, 11],
+      "tile": [18, 8],
       "respawn_s": 30
     },
     {
-      "enemy": "cinder_bat",
-      "tile": [15, 16],
-      "respawn_s": 30
-    },
-    {
-      "enemy": "cinder_bat",
-      "tile": [26, 23],
+      "enemy": "ash_stalker",
+      "tile": [11, 13],
       "respawn_s": 30
     }
   ],

@@ -12,26 +12,21 @@
     ".": {
       "type": "grass",
       "walkable": true
+    },
+    "T": {
+      "type": "town_floor",
+      "walkable": true,
+      "safe": true
+    },
+    "t": {
+      "type": "town_floor",
+      "walkable": false,
+      "safe": true,
+      "decor": "torch"
     }
   },
   "entry": [16, 16],
   "npcs": [],
-  "spawns": [
-    {
-      "enemy": "bog_slime",
-      "tile": [20, 8],
-      "respawn_s": 30
-    },
-    {
-      "enemy": "cinder_bat",
-      "tile": [10, 12],
-      "respawn_s": 30
-    },
-    {
-      "enemy": "cinder_bat",
-      "tile": [10, 26],
-      "respawn_s": 30
-    }
-  ],
+  "spawns": [],
   "exits": []
 }

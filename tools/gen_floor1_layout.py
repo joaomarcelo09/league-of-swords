@@ -8,8 +8,9 @@ pair (<stem>.map + <stem>.json) per chunk.
 Layout (see .team/plans/floor1-layout-sketch.md):
   - 9x4 chunks of 32x32 tiles = 288x128 tiles.
   - Outer boundary of the whole map is wall, with slightly rounded corners.
-  - City (safe zone, town_floor) = ellipse centred at x=96 / 48% y,
-    79x65 tiles, spanning the central chunks.
+  - City (safe zone, town_floor) = circle centred at (96, 64), outer radius
+    61 tiles (diameter ~122), ringed by a 3 tile thick wall with an 8 tile
+    wide gate on its west and east side.
   - Everything else is open plains (grass) with enemy spawns, including the
     three plains chunk columns east of the city (x6..x8).
 Chunks are joined seamlessly: neighbouring chunks share open edges, so the
@@ -35,14 +36,21 @@ GRID_H = 4
 WIDTH = GRID_W * CHUNK  # 288
 HEIGHT = GRID_H * CHUNK  # 128
 
-# City ellipse (tile units, measured on tile centres).
-# Pinned to the city's original absolute position: the east plains columns
-# (JGT-132) grow the map but must not move the fountain, houses, merchant,
-# torches or the floor1_x2_y1 start chunk. Do not derive this from WIDTH.
+# City circle (tile units, measured on tile centres). Centred at (96, 64),
+# outer radius 61 tiles (diameter ~122), ringed by a 3 tile thick wall. Pinned
+# to the city's original absolute position: the east plains columns (JGT-132)
+# grow the map but must not move the fountain, houses, merchant, torches or the
+# floor1_x2_y1 start chunk. Do not derive this from WIDTH.
 CITY_CX = 96.0
-CITY_CY = HEIGHT * 0.48  # 61.44
-CITY_RX = 79 / 2.0
-CITY_RY = 65 / 2.0
+CITY_CY = HEIGHT / 2.0  # 64
+CITY_RADIUS = 61.0  # outer edge of the city wall ring
+CITY_FLOOR_RADIUS = 58.0  # inner edge of the wall ring (town floor is inside)
+GATE_ROW_MIN = 60  # west/east gate openings: rows 60..67, centred on y = 64
+GATE_ROW_MAX = 67
+HOUSE_ANCHOR = (96, 61)  # keeps every house on its original absolute tile
+HOUSE_MAX_CITY_DIST = 50.0  # houses stay at least 8 tiles inside the floor edge
+RIM_TORCH_RADIUS = 54.0  # torch ring just inside the wall
+RIM_TORCH_GATE_CLEARANCE = 6  # keep rim torches this far (in y) off the gate rows
 
 # Rounded corners of the outer wall (radius in tiles).
 CORNER_RADIUS = 6
@@ -98,7 +106,7 @@ GATE_RETURN_DY = 2  # return lands this many tiles north of the gate row
 ENEMIES = ["ash_stalker", "bog_slime", "cinder_bat"]
 SPAWNS_PER_FULL_CHUNK = 3
 RESPAWN_S = 30
-SPAWN_MIN_CITY_NORM = 1.3  # keep spawns clear of the city edge
+SPAWN_MIN_CITY_DIST = CITY_RADIUS + 3.0  # keep spawns off the city wall
 SPAWN_MIN_SPACING = 6
 
 LEGEND = {
@@ -126,15 +134,24 @@ for _variant, _parts in HOUSE_PART_CHARS.items():
 WALKABLE = {ch for ch, entry in LEGEND.items() if entry["walkable"]}
 
 
-def city_norm(x: int, y: int) -> float:
-    """Normalised ellipse distance of a tile centre (<= 1 inside the city)."""
-    dx = (x + 0.5 - CITY_CX) / CITY_RX
-    dy = (y + 0.5 - CITY_CY) / CITY_RY
-    return dx * dx + dy * dy
+def city_dist(x: int, y: int) -> float:
+    """Distance in tiles of a tile centre from the city centre."""
+    return math.hypot(x + 0.5 - CITY_CX, y + 0.5 - CITY_CY)
 
 
 def in_city(x: int, y: int) -> bool:
-    return city_norm(x, y) <= 1.0
+    """True inside the city wall (town floor plus the wall ring)."""
+    return city_dist(x, y) <= CITY_RADIUS
+
+
+def on_city_floor(x: int, y: int) -> bool:
+    """True on the town floor inside the city wall."""
+    return city_dist(x, y) <= CITY_FLOOR_RADIUS
+
+
+def on_city_wall(x: int, y: int) -> bool:
+    """True on the 3 tile thick wall that rings the city floor."""
+    return CITY_FLOOR_RADIUS < city_dist(x, y) <= CITY_RADIUS
 
 
 def is_outer_wall(x: int, y: int) -> bool:
@@ -159,14 +176,19 @@ def is_outer_wall(x: int, y: int) -> bool:
 
 
 def rim_torches() -> list[tuple[int, int]]:
-    """Torch posts around the city rim, just inside the ellipse."""
+    """Torch posts in a ring just inside the city wall, clear of the gate approaches."""
     tiles = []
     for k in range(RIM_TORCH_COUNT):
         angle = 2.0 * math.pi * k / RIM_TORCH_COUNT
-        tx = int(math.floor(CITY_CX + math.cos(angle) * (CITY_RX - 2.0)))
-        ty = int(math.floor(CITY_CY + math.sin(angle) * (CITY_RY - 2.0)))
-        if in_city(tx, ty):
-            tiles.append((tx, ty))
+        tx = int(math.floor(CITY_CX + math.cos(angle) * RIM_TORCH_RADIUS))
+        ty = int(math.floor(CITY_CY + math.sin(angle) * RIM_TORCH_RADIUS))
+        if not in_city(tx, ty):
+            continue
+        near_gate_rows = GATE_ROW_MIN - RIM_TORCH_GATE_CLEARANCE <= ty <= GATE_ROW_MAX + RIM_TORCH_GATE_CLEARANCE
+        on_gate_side = tx < CITY_CX or tx > CITY_CX
+        if on_gate_side and near_gate_rows:
+            continue
+        tiles.append((tx, ty))
     return tiles
 
 
@@ -219,26 +241,41 @@ def house_part_char(house: dict, i: int, j: int) -> str:
     return parts["wall"]
 
 
+def carve_city_gates(grid: list[list[str]]) -> None:
+    """Cut the west and east gate openings through the wall, then post their jambs."""
+    for y in range(GATE_ROW_MIN, GATE_ROW_MAX + 1):
+        for x in range(WIDTH):
+            if on_city_wall(x, y):
+                grid[y][x] = "T"
+    for y in (GATE_ROW_MIN - 1, GATE_ROW_MAX + 1):
+        for x in range(WIDTH):
+            if on_city_wall(x, y):
+                grid[y][x] = "P"
+
+
 def build_world(rng: random.Random) -> list[list[str]]:
     grid = [["." for _ in range(WIDTH)] for _ in range(HEIGHT)]
     for y in range(HEIGHT):
         for x in range(WIDTH):
             if is_outer_wall(x, y):
                 grid[y][x] = "#"
-            elif in_city(x, y):
+            elif on_city_floor(x, y):
                 grid[y][x] = "T"
+            elif on_city_wall(x, y):
+                grid[y][x] = "#"
             elif rng.random() < 0.05:
                 grid[y][x] = ","
+    carve_city_gates(grid)
 
     # Houses (JGT-123): bigger footprints assembled from roof/wall/window/door parts.
-    icx, icy = int(CITY_CX), int(CITY_CY)
+    icx, icy = HOUSE_ANCHOR
     reserved = reserved_tiles()
     houses = []
     for layout in house_layouts():
         hx, hy = icx + layout["dx"], icy + layout["dy"]
         w, h = layout["w"], layout["h"]
         cells = [(hx + i, hy + j) for j in range(h) for i in range(w)]
-        assert all(city_norm(cx, cy) <= 0.8 for cx, cy in cells), "house %s outside the city core" % str(layout)
+        assert all(city_dist(cx, cy) <= HOUSE_MAX_CITY_DIST for cx, cy in cells), "house %s outside the city core" % str(layout)
         houses.append(dict(layout, x=hx, y=hy, cells=cells))
 
     house_cells: set[tuple[int, int]] = set()
@@ -251,7 +288,7 @@ def build_world(rng: random.Random) -> list[list[str]]:
         approach = (house["x"] + house["door_i"], house["y"] + house["h"])
         assert approach not in house_cells, "house %s door faces another house" % str(house)
         assert approach not in reserved, "house %s door faces a plaza prop" % str(house)
-        assert in_city(approach[0], approach[1]), "house %s door faces open town floor" % str(house)
+        assert on_city_floor(approach[0], approach[1]), "house %s door faces open town floor" % str(house)
         for j in range(house["h"]):
             for i in range(house["w"]):
                 grid[house["y"] + j][house["x"] + i] = house_part_char(house, i, j)
@@ -265,7 +302,7 @@ def build_world(rng: random.Random) -> list[list[str]]:
     for tx, ty in PLAZA_TORCHES:
         grid[ty][tx] = "t"
 
-    # Torch posts around the city rim, just inside the ellipse.
+    # Torch posts in a ring just inside the city wall.
     for tx, ty in rim_torches():
         grid[ty][tx] = "t"
 
@@ -296,7 +333,7 @@ def chunk_spawns(grid: list[list[str]], cx: int, cy: int, rng: random.Random) ->
                 continue  # never spawn an enemy on top of the chunk entry
             if grid[y][x] not in WALKABLE or in_city(x, y):
                 continue
-            if city_norm(x, y) < SPAWN_MIN_CITY_NORM ** 2:
+            if city_dist(x, y) < SPAWN_MIN_CITY_DIST:
                 continue
             # Keep spawns three tiles off the outer wall.
             if any(

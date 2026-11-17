@@ -119,7 +119,7 @@ func test_real_floor_path_crosses_city_and_plains_chunks() -> void:
 	var chunked := ChunkedZone.new(world)
 
 	# From the city entry west across the chunk seam (x = 64) out onto the plains.
-	var target := Vector2i(45, 58)
+	var target := Vector2i(33, 58)
 	assert_true(chunked.is_walkable(Vector2i(63, 58)), "city tile west of the seam")
 	assert_true(chunked.is_walkable(Vector2i(64, 58)), "city tile east of the seam")
 	assert_false(chunked.is_safe(target), "the target is on the plains")

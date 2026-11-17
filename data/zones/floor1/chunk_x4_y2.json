@@ -1,5 +1,9 @@
 {
   "legend": {
+    "#": {
+      "type": "wall",
+      "walkable": false
+    },
     ",": {
       "type": "grass",
       "walkable": true,
@@ -8,6 +12,10 @@
     ".": {
       "type": "grass",
       "walkable": true
+    },
+    "P": {
+      "type": "gate_post",
+      "walkable": false
     },
     "T": {
       "type": "town_floor",
@@ -23,17 +31,6 @@
   },
   "entry": [16, 16],
   "npcs": [],
-  "spawns": [
-    {
-      "enemy": "bog_slime",
-      "tile": [21, 9],
-      "respawn_s": 30
-    },
-    {
-      "enemy": "bog_slime",
-      "tile": [17, 20],
-      "respawn_s": 30
-    }
-  ],
+  "spawns": [],
   "exits": []
 }

@@ -12,26 +12,21 @@
     ".": {
       "type": "grass",
       "walkable": true
+    },
+    "T": {
+      "type": "town_floor",
+      "walkable": true,
+      "safe": true
+    },
+    "t": {
+      "type": "town_floor",
+      "walkable": false,
+      "safe": true,
+      "decor": "torch"
     }
   },
   "entry": [16, 16],
   "npcs": [],
-  "spawns": [
-    {
-      "enemy": "bog_slime",
-      "tile": [13, 7],
-      "respawn_s": 30
-    },
-    {
-      "enemy": "ash_stalker",
-      "tile": [20, 17],
-      "respawn_s": 30
-    },
-    {
-      "enemy": "ash_stalker",
-      "tile": [14, 20],
-      "respawn_s": 30
-    }
-  ],
+  "spawns": [],
   "exits": []
 }
