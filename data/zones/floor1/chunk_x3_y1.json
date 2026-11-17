@@ -9,22 +9,124 @@
       "type": "grass",
       "walkable": true
     },
+    "1": {
+      "type": "town_floor",
+      "walkable": false,
+      "safe": true,
+      "decor": "house_a_ridge_l"
+    },
+    "2": {
+      "type": "town_floor",
+      "walkable": false,
+      "safe": true,
+      "decor": "house_a_ridge_m"
+    },
+    "3": {
+      "type": "town_floor",
+      "walkable": false,
+      "safe": true,
+      "decor": "house_a_ridge_r"
+    },
+    "4": {
+      "type": "town_floor",
+      "walkable": false,
+      "safe": true,
+      "decor": "house_a_roof_l"
+    },
+    "5": {
+      "type": "town_floor",
+      "walkable": false,
+      "safe": true,
+      "decor": "house_a_roof_m"
+    },
+    "6": {
+      "type": "town_floor",
+      "walkable": false,
+      "safe": true,
+      "decor": "house_a_roof_r"
+    },
+    "7": {
+      "type": "town_floor",
+      "walkable": false,
+      "safe": true,
+      "decor": "house_a_wall"
+    },
+    "8": {
+      "type": "town_floor",
+      "walkable": false,
+      "safe": true,
+      "decor": "house_a_window"
+    },
+    "9": {
+      "type": "town_floor",
+      "walkable": true,
+      "safe": true,
+      "decor": "house_a_door"
+    },
     "F": {
       "type": "town_floor",
       "walkable": false,
       "safe": true,
       "decor": "fountain"
     },
-    "H": {
-      "type": "town_floor",
-      "walkable": false,
-      "safe": true,
-      "decor": "house"
-    },
     "T": {
       "type": "town_floor",
       "walkable": true,
       "safe": true
+    },
+    "a": {
+      "type": "town_floor",
+      "walkable": false,
+      "safe": true,
+      "decor": "house_b_ridge_l"
+    },
+    "b": {
+      "type": "town_floor",
+      "walkable": false,
+      "safe": true,
+      "decor": "house_b_ridge_m"
+    },
+    "c": {
+      "type": "town_floor",
+      "walkable": false,
+      "safe": true,
+      "decor": "house_b_ridge_r"
+    },
+    "d": {
+      "type": "town_floor",
+      "walkable": false,
+      "safe": true,
+      "decor": "house_b_roof_l"
+    },
+    "e": {
+      "type": "town_floor",
+      "walkable": false,
+      "safe": true,
+      "decor": "house_b_roof_m"
+    },
+    "f": {
+      "type": "town_floor",
+      "walkable": false,
+      "safe": true,
+      "decor": "house_b_roof_r"
+    },
+    "g": {
+      "type": "town_floor",
+      "walkable": false,
+      "safe": true,
+      "decor": "house_b_wall"
+    },
+    "h": {
+      "type": "town_floor",
+      "walkable": false,
+      "safe": true,
+      "decor": "house_b_window"
+    },
+    "i": {
+      "type": "town_floor",
+      "walkable": true,
+      "safe": true,
+      "decor": "house_b_door"
     },
     "t": {
       "type": "town_floor",
@@ -33,7 +135,7 @@
       "decor": "torch"
     }
   },
-  "entry": [16, 16],
+  "entry": [15, 16],
   "npcs": [],
   "spawns": [],
   "exits": []

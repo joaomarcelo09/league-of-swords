@@ -268,7 +268,12 @@ func test_city_keeps_fountain_houses_and_torches() -> void:
 				assert_true(_in_ellipse(t), "%s decor at %s sits inside the city" % [name, str(t)])
 				decor[name] = int(decor.get(name, 0)) + 1
 	assert_eq(int(decor.get("fountain", 0)), 4, "a 2x2 fountain")
-	assert_gt(int(decor.get("house", 0)), 0, "houses")
+	var house_parts := 0
+	for name: String in decor.keys():
+		if name.begins_with("house_"):
+			house_parts += int(decor[name])
+	assert_gt(house_parts, 0, "multi-tile house parts")
+	assert_gt(int(decor.get("house_a_door", 0)) + int(decor.get("house_b_door", 0)), 0, "walkable house doors")
 	assert_gt(int(decor.get("torch", 0)), 0, "torches")
 
 

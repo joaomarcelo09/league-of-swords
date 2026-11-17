@@ -27,6 +27,24 @@
     "barrel": [6, 2],
     "rubble": [7, 2],
     "tree": [6, 1],
-    "rock": [7, 1]
+    "rock": [7, 1],
+    "house_a_ridge_l": [0, 4],
+    "house_a_ridge_m": [1, 4],
+    "house_a_ridge_r": [2, 4],
+    "house_a_roof_l": [3, 4],
+    "house_a_roof_m": [4, 4],
+    "house_a_roof_r": [5, 4],
+    "house_a_wall": [6, 4],
+    "house_a_window": [7, 4],
+    "house_a_door": [0, 5],
+    "house_b_ridge_l": [1, 5],
+    "house_b_ridge_m": [2, 5],
+    "house_b_ridge_r": [3, 5],
+    "house_b_roof_l": [4, 5],
+    "house_b_roof_m": [5, 5],
+    "house_b_roof_r": [6, 5],
+    "house_b_wall": [7, 5],
+    "house_b_window": [0, 6],
+    "house_b_door": [1, 6]
   }
 }

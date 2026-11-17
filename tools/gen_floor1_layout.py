@@ -56,13 +56,31 @@ CRATE = (89, 62)
 PLAZA_TORCHES = [(92, 56), (99, 56), (92, 65), (99, 65)]
 RIM_TORCH_COUNT = 12
 
-# House blocks (3x2, top-left offsets from the city centre).
-HOUSE_W, HOUSE_H = 3, 2
-HOUSE_OFFSETS = [
-    (dx, dy)
-    for dy in (-24, -16, 10, 18)
-    for dx in (-30, -22, -14, 10, 18, 26)
+# Houses (JGT-123): multi-tile footprints (5x4 and 4x3) assembled from roof,
+# wall, window and door parts. Offsets are top-left tiles from the city centre;
+# doors always face south onto open town floor.
+HOUSE_SIZES = [(5, 4), (4, 3)]
+HOUSE_ROWS = [
+    (-24, [-20, -12, -4, 4, 11]),
+    (-16, [-27, -19, -11, -3, 5, 13, 20]),
+    (10, [-27, -19, -11, -3, 5, 13, 20]),
+    (18, [-20, -12, -4, 4, 11]),
 ]
+
+# Legend chars per house part. Variant "a" is warm red roof / cream wall,
+# variant "b" cool slate roof / sage wall.
+HOUSE_PART_CHARS = {
+    "a": {
+        "ridge_l": "1", "ridge_m": "2", "ridge_r": "3",
+        "roof_l": "4", "roof_m": "5", "roof_r": "6",
+        "wall": "7", "window": "8", "door": "9",
+    },
+    "b": {
+        "ridge_l": "a", "ridge_m": "b", "ridge_r": "c",
+        "roof_l": "d", "roof_m": "e", "roof_r": "f",
+        "wall": "g", "window": "h", "door": "i",
+    },
+}
 
 # Boss gate: an opening in the south outer wall at ~87% x, the only floor exit.
 GATE_X0 = 162  # first open gate tile (global x)
@@ -92,6 +110,15 @@ LEGEND = {
     "G": {"type": "gate", "walkable": True},
     "P": {"type": "gate_post", "walkable": False},
 }
+# House parts are decor cells on town floor; only the door cell is walkable.
+for _variant, _parts in HOUSE_PART_CHARS.items():
+    for _part, _char in _parts.items():
+        LEGEND[_char] = {
+            "type": "town_floor",
+            "walkable": _part == "door",
+            "safe": True,
+            "decor": "house_%s_%s" % (_variant, _part),
+        }
 WALKABLE = {ch for ch, entry in LEGEND.items() if entry["walkable"]}
 
 
@@ -127,6 +154,67 @@ def is_outer_wall(x: int, y: int) -> bool:
     return math.hypot(x + 0.5 - cx, y + 0.5 - cy) > r
 
 
+def rim_torches() -> list[tuple[int, int]]:
+    """Torch posts around the city rim, just inside the ellipse."""
+    tiles = []
+    for k in range(RIM_TORCH_COUNT):
+        angle = 2.0 * math.pi * k / RIM_TORCH_COUNT
+        tx = int(math.floor(CITY_CX + math.cos(angle) * (CITY_RX - 2.0)))
+        ty = int(math.floor(CITY_CY + math.sin(angle) * (CITY_RY - 2.0)))
+        if in_city(tx, ty):
+            tiles.append((tx, ty))
+    return tiles
+
+
+def reserved_tiles() -> set[tuple[int, int]]:
+    """Plaza props and torch posts that a house must never cover."""
+    reserved = {ENTRY, MERCHANT_TILE, BARREL, CRATE}
+    for j in range(2):
+        for i in range(2):
+            reserved.add((FOUNTAIN[0] + i, FOUNTAIN[1] + j))
+    reserved.update(PLAZA_TORCHES)
+    reserved.update(rim_torches())
+    return reserved
+
+
+def house_layouts() -> list[dict]:
+    """Deterministic house placements: size and palette vary row by row."""
+    layouts = []
+    for row_idx, (dy, xs) in enumerate(HOUSE_ROWS):
+        for col_idx, dx in enumerate(xs):
+            w, h = HOUSE_SIZES[(row_idx + col_idx) % 2]
+            slot = row_idx * 2 + col_idx
+            door_i = 1 + slot % (w - 2)
+            layouts.append({
+                "dx": dx,
+                "dy": dy,
+                "w": w,
+                "h": h,
+                "variant": "a" if (row_idx + col_idx // 2) % 2 == 0 else "b",
+                "door_i": door_i,
+                "window_i": 1 + door_i % (w - 2),
+                "window_row": h - 2 if h > 3 else h - 1,
+            })
+    return layouts
+
+
+def house_part_char(house: dict, i: int, j: int) -> str:
+    """Legend char for column i / row j of a house footprint."""
+    parts = HOUSE_PART_CHARS[house["variant"]]
+    w, h = house["w"], house["h"]
+    if j == 0:
+        edge = "l" if i == 0 else "r" if i == w - 1 else "m"
+        return parts["ridge_" + edge]
+    if j == 1:
+        edge = "l" if i == 0 else "r" if i == w - 1 else "m"
+        return parts["roof_" + edge]
+    if j == h - 1 and i == house["door_i"]:
+        return parts["door"]
+    if j == house["window_row"] and i == house["window_i"]:
+        return parts["window"]
+    return parts["wall"]
+
+
 def build_world(rng: random.Random) -> list[list[str]]:
     grid = [["." for _ in range(WIDTH)] for _ in range(HEIGHT)]
     for y in range(HEIGHT):
@@ -138,14 +226,31 @@ def build_world(rng: random.Random) -> list[list[str]]:
             elif rng.random() < 0.05:
                 grid[y][x] = ","
 
-    # Houses: 3x2 blocks well inside the city.
+    # Houses (JGT-123): bigger footprints assembled from roof/wall/window/door parts.
     icx, icy = int(CITY_CX), int(CITY_CY)
-    for dx, dy in HOUSE_OFFSETS:
-        hx, hy = icx + dx, icy + dy
-        cells = [(hx + i, hy + j) for j in range(HOUSE_H) for i in range(HOUSE_W)]
-        if all(city_norm(cx, cy) <= 0.8 for cx, cy in cells):
-            for cx, cy in cells:
-                grid[cy][cx] = "H"
+    reserved = reserved_tiles()
+    houses = []
+    for layout in house_layouts():
+        hx, hy = icx + layout["dx"], icy + layout["dy"]
+        w, h = layout["w"], layout["h"]
+        cells = [(hx + i, hy + j) for j in range(h) for i in range(w)]
+        assert all(city_norm(cx, cy) <= 0.8 for cx, cy in cells), "house %s outside the city core" % str(layout)
+        houses.append(dict(layout, x=hx, y=hy, cells=cells))
+
+    house_cells: set[tuple[int, int]] = set()
+    for house in houses:
+        assert house_cells.isdisjoint(house["cells"]), "house %s overlaps another house" % str(house)
+        assert reserved.isdisjoint(house["cells"]), "house %s covers a plaza prop" % str(house)
+        house_cells.update(house["cells"])
+
+    for house in houses:
+        approach = (house["x"] + house["door_i"], house["y"] + house["h"])
+        assert approach not in house_cells, "house %s door faces another house" % str(house)
+        assert approach not in reserved, "house %s door faces a plaza prop" % str(house)
+        assert in_city(approach[0], approach[1]), "house %s door faces open town floor" % str(house)
+        for j in range(house["h"]):
+            for i in range(house["w"]):
+                grid[house["y"] + j][house["x"] + i] = house_part_char(house, i, j)
 
     fx, fy = FOUNTAIN
     for j in range(2):
@@ -157,12 +262,8 @@ def build_world(rng: random.Random) -> list[list[str]]:
         grid[ty][tx] = "t"
 
     # Torch posts around the city rim, just inside the ellipse.
-    for k in range(RIM_TORCH_COUNT):
-        angle = 2.0 * math.pi * k / RIM_TORCH_COUNT
-        tx = int(math.floor(CITY_CX + math.cos(angle) * (CITY_RX - 2.0)))
-        ty = int(math.floor(CITY_CY + math.sin(angle) * (CITY_RY - 2.0)))
-        if in_city(tx, ty):
-            grid[ty][tx] = "t"
+    for tx, ty in rim_torches():
+        grid[ty][tx] = "t"
 
     for x in range(GATE_X0 - 1, GATE_X0 + GATE_W + 1):
         grid[GATE_Y][x] = "P" if x in (GATE_X0 - 1, GATE_X0 + GATE_W) else "G"

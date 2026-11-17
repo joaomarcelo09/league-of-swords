@@ -7,7 +7,7 @@ const TILESET_PATH: String = "res://data/tilesets/floor1.json"
 const ATLAS_PATH: String = "res://assets/tiles/world_tiles.png"
 const TILE_PX: int = 32
 const ATLAS_COLS: int = 8
-const ATLAS_ROWS: int = 4
+const ATLAS_ROWS: int = 7
 
 
 func _tileset() -> TilesetData:
@@ -57,8 +57,8 @@ func test_atlas_file_loads_with_expected_grid() -> void:
 	assert_not_null(img)
 	if img == null:
 		return
-	assert_eq(img.get_width(), ATLAS_COLS * TILE_PX, "atlas keeps the 8x4 grid")
-	assert_eq(img.get_height(), ATLAS_ROWS * TILE_PX, "atlas keeps the 8x4 grid")
+	assert_eq(img.get_width(), ATLAS_COLS * TILE_PX, "atlas keeps the 8x7 grid")
+	assert_eq(img.get_height(), ATLAS_ROWS * TILE_PX, "atlas keeps the 8x7 grid")
 
 
 func test_every_referenced_coord_is_inside_atlas() -> void:
@@ -116,6 +116,19 @@ func test_city_and_plains_additions_exist() -> void:
 	assert_true(ts.variants.has("path"), "dirt path tile variants are defined")
 	var path_coords: Array = ts.variants["path"]
 	assert_true(path_coords.has(Vector2i(5, 1)), "dirt path uses the new atlas cell")
+
+
+func test_house_parts_are_defined() -> void:
+	var ts := _tileset()
+	assert_true(ts.has_decor("house"), "the old single-tile house decor stays valid")
+	assert_eq(ts.decor_coords("house"), Vector2i(1, 2))
+	for decor_id: String in ["house_a_ridge_l", "house_a_roof_m", "house_a_wall", "house_a_window", "house_a_door"]:
+		assert_true(ts.has_decor(decor_id), "%s decor is defined" % decor_id)
+	for decor_id: String in ["house_b_ridge_r", "house_b_roof_m", "house_b_wall", "house_b_window", "house_b_door"]:
+		assert_true(ts.has_decor(decor_id), "%s decor is defined" % decor_id)
+	assert_eq(ts.decor_coords("house_a_ridge_l"), Vector2i(0, 4))
+	assert_eq(ts.decor_coords("house_a_door"), Vector2i(0, 5))
+	assert_eq(ts.decor_coords("house_b_door"), Vector2i(1, 6))
 
 
 func test_ground_and_decor_cells_do_not_overlap() -> void:
