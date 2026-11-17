@@ -63,10 +63,10 @@
     }
   },
   "thornback_warden": {
-    "name": "Thornback Warden",
+    "name": "Gorvak the Ashen Warden",
     "view_scale": 1.5,
-    "appearance": "ash_stalker",
-    "layout": "default",
+    "appearance": "thornback_warden",
+    "layout": "thornback_warden",
     "max_hp": 600.0,
     "atk": 12.0,
     "defense": 5.0,

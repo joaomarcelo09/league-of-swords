@@ -52,7 +52,7 @@ func test_visible_with_name_and_hp_ratio_when_aggroed() -> void:
 	boss.hp = boss.stats.max_hp * 0.25
 	bar.update_from_world(_world, _registry)
 	assert_true(bar.visible, "aggroed boss shows the bar")
-	assert_eq(bar.get_boss_name(), "Thornback Warden", "name comes from enemies.json")
+	assert_eq(bar.get_boss_name(), "Gorvak the Ashen Warden", "name comes from enemies.json")
 	assert_almost_eq(bar.get_ratio(), 0.25, 1e-4)
 	assert_eq(bar.boss_entity_id, boss.id)
 

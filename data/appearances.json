@@ -22,5 +22,11 @@
     "layers": {
       "body": "res://assets/characters/cinder_bat/body.png"
     }
+  },
+  "thornback_warden": {
+    "layers": {
+      "body": "res://assets/characters/thornback_warden/body.png",
+      "weapon": "res://assets/characters/thornback_warden/weapon.png"
+    }
   }
 }
