@@ -10,8 +10,17 @@
   },
   "ash_stalker": {
     "layers": {
-      "body": "res://assets/characters/placeholder/body.png",
-      "armor": "res://assets/characters/placeholder/armor.png"
+      "body": "res://assets/characters/ash_stalker/body.png"
+    }
+  },
+  "bog_slime": {
+    "layers": {
+      "body": "res://assets/characters/bog_slime/body.png"
+    }
+  },
+  "cinder_bat": {
+    "layers": {
+      "body": "res://assets/characters/cinder_bat/body.png"
     }
   }
 }

@@ -22,8 +22,8 @@
   },
   "bog_slime": {
     "name": "Bog Slime",
-    "appearance": "ash_stalker",
-    "layout": "default",
+    "appearance": "bog_slime",
+    "layout": "bog_slime",
     "max_hp": 180.0,
     "atk": 3.0,
     "defense": 3.0,
@@ -43,8 +43,8 @@
   },
   "cinder_bat": {
     "name": "Cinder Bat",
-    "appearance": "ash_stalker",
-    "layout": "default",
+    "appearance": "cinder_bat",
+    "layout": "cinder_bat",
     "max_hp": 45.0,
     "atk": 6.0,
     "defense": 0.0,

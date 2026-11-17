@@ -63,7 +63,7 @@ func _new_view(session: GameSession, enemy: Entity) -> EntityView:
 
 # --- data ---------------------------------------------------------------------------
 
-func test_enemy_appearance_uses_own_placeholder_sheets() -> void:
+func test_enemy_appearance_uses_own_sheets() -> void:
 	var enemy := _registry.get_entry("enemies", ENEMY_ID)
 	var appearance_id := str(enemy.get("appearance", ""))
 	assert_eq(appearance_id, ENEMY_ID, "ash_stalker must name its appearance")
@@ -74,7 +74,7 @@ func test_enemy_appearance_uses_own_placeholder_sheets() -> void:
 	assert_true(layers.has("body"), "enemy needs a body layer")
 	for layer_name: Variant in layers.keys():
 		var path := str(layers[layer_name])
-		assert_true(path.begins_with("res://assets/characters/placeholder/"), "%s uses an own sheet: %s" % [layer_name, path])
+		assert_true(path.begins_with("res://assets/characters/ash_stalker/"), "%s uses the stalker sheet: %s" % [layer_name, path])
 		assert_true(CharacterAppearance.file_exists(path), "sheet exists: " + path)
 
 
