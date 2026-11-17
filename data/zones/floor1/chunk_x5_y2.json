@@ -1,9 +1,5 @@
 {
   "legend": {
-    "#": {
-      "type": "wall",
-      "walkable": false
-    },
     ",": {
       "type": "grass",
       "walkable": true,
@@ -18,18 +14,18 @@
   "npcs": [],
   "spawns": [
     {
-      "enemy": "bog_slime",
-      "tile": [8, 4],
-      "respawn_s": 30
-    },
-    {
-      "enemy": "bog_slime",
-      "tile": [13, 5],
+      "enemy": "cinder_bat",
+      "tile": [6, 5],
       "respawn_s": 30
     },
     {
       "enemy": "ash_stalker",
-      "tile": [21, 7],
+      "tile": [22, 13],
+      "respawn_s": 30
+    },
+    {
+      "enemy": "ash_stalker",
+      "tile": [16, 17],
       "respawn_s": 30
     }
   ],

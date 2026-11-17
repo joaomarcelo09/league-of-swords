@@ -1,12 +1,14 @@
 extends GutTest
-## JGT-122: the Floor 1 boss gate, a ~10 tile opening in the south outer wall at
-## ~87% x. It is the only transition out of the floor and a door to the dungeon.
+## JGT-122: the Floor 1 boss gate, a 10 tile opening in the south outer wall.
+## JGT-132 pinned it at its original absolute x=162 (chunk x5) while the map
+## grew east, so its share of the width is no longer 87%. It stays the only
+## transition out of the floor and a door to the dungeon.
 
 const WORLD_PATH := "res://data/zones/floor1/world.json"
 const ZONES_DIR := "res://data/zones/floor1"
 const GATE_CHUNK := "floor1_x5_y3"
 const CHUNK := 32
-const WIDTH := 192
+const GATE_X0 := 162
 
 var _chunked: ChunkedWorld = null
 var _map: WorldMap = null
@@ -23,7 +25,7 @@ func _gate_transitions() -> Array[Dictionary]:
 	return _map.transitions_of(GATE_CHUNK)
 
 
-func test_gate_is_ten_wide_in_the_south_wall_at_87_percent() -> void:
+func test_gate_is_ten_wide_in_the_south_wall_at_its_pinned_x() -> void:
 	var gates := _gate_transitions()
 	assert_eq(gates.size(), 10, "gate is 10 tiles wide")
 	var xs: Array[int] = []
@@ -35,8 +37,10 @@ func test_gate_is_ten_wide_in_the_south_wall_at_87_percent() -> void:
 	for i in range(1, xs.size()):
 		assert_eq(xs[i], xs[i - 1] + 1, "gate tiles are contiguous")
 	var cell := _map.grid_cell(GATE_CHUNK)
-	var center_world: float = float(cell.x * CHUNK) + float(xs[0] + xs[xs.size() - 1]) / 2.0 + 0.5
-	assert_almost_eq(center_world / WIDTH, 0.87, 0.02, "gate centred at ~87% of the width")
+	var first_world: int = cell.x * CHUNK + xs[0]
+	var center_world: float = float(first_world) + float(xs[xs.size() - 1] - xs[0]) / 2.0 + 0.5
+	assert_eq(first_world, GATE_X0, "gate keeps its original absolute x=162")
+	assert_almost_eq(center_world, float(GATE_X0) + 5.0, 0.01, "gate centred on x=166.5")
 
 
 func test_gate_tiles_are_open_and_flanked_by_posts() -> void:
