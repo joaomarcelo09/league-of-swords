@@ -131,6 +131,19 @@ func test_plains_are_reached_only_through_the_two_gates() -> void:
 		assert_true(_in_circle(t), "both gates blocked must seal the city, leaked at %s" % str(t))
 
 
+func test_the_hub_walks_east_to_every_boss_gate_tile() -> void:
+	var seen := _reachable(_start_entry())
+	var gate_count := 0
+	for transition: Dictionary in world.transitions_of("floor1_x5_y3"):
+		var local_tile: Vector2i = transition["from_tile"]
+		var gate_tile := world.chunk_to_world("floor1_x5_y3", local_tile)
+		assert_true(_walkable(gate_tile), "boss gate tile %s is walkable" % str(gate_tile))
+		assert_eq(_tile_type(gate_tile), "gate", "boss gate tile %s uses the gate art" % str(gate_tile))
+		assert_true(seen.has(gate_tile), "the player walks from the hub east to boss gate tile %s" % str(gate_tile))
+		gate_count += 1
+	assert_eq(gate_count, 10, "all ten boss gate tiles are checked")
+
+
 func test_city_wall_ring_is_solid_and_at_least_three_tiles_thick() -> void:
 	for y in range(MAP_H):
 		for x in range(MAP_W):

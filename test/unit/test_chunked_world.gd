@@ -175,3 +175,60 @@ func test_zone_file_loader_reads_the_real_floor1_chunks() -> void:
 	assert_true(world.is_walkable(Vector2i(63, 58)), "city floor on the west side of the seam")
 	assert_true(world.is_walkable(Vector2i(64, 58)), "city floor on the east side of the seam")
 	assert_false(world.is_world_tile_loaded(Vector2i(180, 110)), "the far south-east chunk is outside the load radius")
+
+
+func test_streaming_covers_the_whole_9x4_grid_without_missing_or_duplicate_chunks() -> void:
+	var world := ChunkedWorld.load_file(
+		"res://data/zones/floor1/world.json",
+		"res://data/zones/floor1",
+		"floor1_x2_y1"
+	)
+	assert_true(world.is_valid(), "chunked floor 1 must load: %s" % str(world.errors))
+	var map := world.map
+	var chunk_ids := map.chunk_ids()
+	assert_eq(chunk_ids.size(), 36, "the floor is a 9x4 grid of chunks")
+	assert_eq(world.world_width(), 288, "9 chunks of 32 tiles")
+	assert_eq(world.world_height(), 128, "4 chunks of 32 tiles")
+
+	var seen_ids: Dictionary = {}
+	var seen_cells: Dictionary = {}
+	for chunk_id: String in chunk_ids:
+		assert_false(seen_ids.has(chunk_id), "chunk id %s is listed once" % chunk_id)
+		seen_ids[chunk_id] = true
+		var cell := map.grid_cell(chunk_id)
+		assert_false(seen_cells.has(cell), "grid cell %s is listed once" % str(cell))
+		seen_cells[cell] = true
+
+	var half := Vector2i(floori(map.chunk_size.x / 2.0), floori(map.chunk_size.y / 2.0))
+	for chunk_id: String in chunk_ids:
+		var center := map.chunk_to_world(chunk_id, half)
+		var changes := world.update(center)
+		var expected := map.chunks_near(map.grid_cell(chunk_id), map.load_radius)
+		var loaded := world.loaded_ids()
+
+		assert_eq(loaded, expected, "chunk %s keeps exactly its load_radius neighbourhood loaded" % chunk_id)
+		assert_eq(world.errors, [], "streaming chunk %s reports no errors" % chunk_id)
+		assert_eq(map.world_to_chunk(center).get("chunk_id", ""), chunk_id, "the centre tile maps back to its chunk")
+
+		var seen_loaded: Dictionary = {}
+		for loaded_id: String in loaded:
+			assert_false(seen_loaded.has(loaded_id), "chunk %s is loaded only once" % loaded_id)
+			seen_loaded[loaded_id] = true
+			var zone := world.zone_for(loaded_id)
+			assert_not_null(zone, "loaded chunk %s has a zone" % loaded_id)
+			if zone != null:
+				assert_true(zone.is_valid(), "loaded chunk %s is valid: %s" % [loaded_id, str(zone.errors)])
+
+		var loaded_changes: Array = changes["loaded"]
+		var unloaded_changes: Array = changes["unloaded"]
+		assert_eq(loaded_changes.size(), _unique_count(loaded_changes), "no duplicate loaded ids at %s" % chunk_id)
+		assert_eq(unloaded_changes.size(), _unique_count(unloaded_changes), "no duplicate unloaded ids at %s" % chunk_id)
+		for loaded_id: Variant in loaded_changes:
+			assert_false(unloaded_changes.has(loaded_id), "chunk %s is not loaded and unloaded in one step" % str(loaded_id))
+
+
+func _unique_count(values: Array) -> int:
+	var unique: Dictionary = {}
+	for value: Variant in values:
+		unique[value] = true
+	return unique.size()
