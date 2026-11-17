@@ -48,6 +48,15 @@
     "house_b_roof_r": [6, 5],
     "house_b_wall": [7, 5],
     "house_b_window": [0, 6],
-    "house_b_door": [1, 6]
+    "house_b_door": [1, 6],
+    "shop_parapet_l": [5, 3],
+    "shop_parapet_m": [6, 3],
+    "shop_parapet_r": [7, 3],
+    "shop_awning_l": [2, 6],
+    "shop_awning_m": [3, 6],
+    "shop_awning_r": [4, 6],
+    "shop_wall": [5, 6],
+    "shop_window": [6, 6],
+    "shop_door": [7, 6]
   }
 }

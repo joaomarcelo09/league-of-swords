@@ -8,7 +8,8 @@ Generates the original city/plains tile atlas used by data/tilesets/floor1.json
 The atlas layout is part of the data contract: keep the coordinates in floor1.json
 in sync when moving cells. Ground tiles are fully opaque, decor cells have a
 transparent background so they can be drawn on the ZoneView decor layer. Rows 4-6
-hold the multi-tile house parts (JGT-123); existing cells never move.
+hold the multi-tile house parts (JGT-123); the shop parts (JGT-136) use the free
+cells in rows 3 and 6. Existing cells never move.
 
 Uses the Python standard library only (struct, zlib, argparse, math, os, random).
 Output is deterministic: every tile is drawn with its own seeded random.Random.
@@ -740,6 +741,160 @@ def draw_house_door(cv: Canvas, ox: int, oy: int, rng: random.Random, palette: d
     _house_clear_corners(cv, ox, oy)
 
 
+# ---------------------------------------------------------------------------
+# Shop parts (JGT-136): 32 px cells assembled into 8x5 / 7x5 shops. The style
+# is a flat parapet with a hanging sign band, a striped market awning, a wide
+# display window with a counter and a warm honey-timber wall, deliberately
+# unlike the red/cream and slate/sage houses. Every cell keeps its four corner
+# pixels transparent (atlas contract).
+# ---------------------------------------------------------------------------
+
+SHOP_PALETTES = {
+    "m": {
+        "parapet": rgba(148, 100, 58),
+        "parapet_light": rgba(190, 142, 86),
+        "wall": rgba(206, 164, 104),
+        "wall_shadow": rgba(172, 130, 78),
+        "timber": rgba(106, 66, 36),
+        "timber_dark": rgba(68, 42, 22),
+        "awning_a": rgba(208, 118, 46),
+        "awning_b": rgba(234, 208, 150),
+        "sign_board": rgba(76, 46, 28),
+        "sign_ink": rgba(244, 220, 150),
+    },
+}
+
+
+def _shop_clear_corners(cv: Canvas, ox: int, oy: int) -> None:
+    """Decor cells must keep their four corner pixels transparent."""
+    _house_clear_corners(cv, ox, oy)
+
+
+def _shop_wall_base(cv: Canvas, ox: int, oy: int, pal: dict, rng: random.Random) -> None:
+    """Warm timber-and-daub wall with plank bands; used by wall, window and door."""
+    wall = pal["wall"]
+    cv.rect(ox, oy, TILE_PX, TILE_PX, wall)
+    for row in range(0, 28, 7):
+        cv.rect(ox, oy + row, TILE_PX, 1, shade(wall, -20))
+        cv.rect(ox, oy + row + 1, TILE_PX, 1, shade(wall, 12))
+    for _ in range(7):
+        cv.set(
+            ox + 4 + rng.randrange(24),
+            oy + 5 + rng.randrange(21),
+            shade(wall, rng.choice([-12, -6, 8, 14])),
+        )
+    cv.rect(ox, oy, 3, TILE_PX, pal["timber"])
+    cv.rect(ox, oy, 1, TILE_PX, shade(pal["timber"], 24))
+    cv.rect(ox + 29, oy, 3, TILE_PX, pal["timber_dark"])
+    cv.rect(ox, oy, TILE_PX, 3, pal["timber"])
+    cv.rect(ox, oy + 2, TILE_PX, 1, pal["timber_dark"])
+    cv.rect(ox, oy + 27, TILE_PX, 2, pal["wall_shadow"])
+    cv.rect(ox, oy + 29, TILE_PX, 3, pal["timber_dark"])
+    cv.rect(ox, oy + 29, TILE_PX, 1, shade(pal["timber"], -6))
+
+
+def draw_shop_parapet(cv: Canvas, ox: int, oy: int, rng: random.Random, palette: dict, edge: str) -> None:
+    """Flat parapet row with a continuous hanging sign band across the shop top."""
+    pal = palette
+    body = pal["parapet"]
+    cv.rect(ox, oy + 6, TILE_PX, 26, body)
+    for x in range(0, TILE_PX, 8):
+        cv.rect(ox + x, oy + 9, 1, 23, shade(body, -16))
+        cv.rect(ox + x + 1, oy + 9, 1, 23, shade(body, 8))
+    # Flat cap along the top of the shop.
+    cv.rect(ox, oy + 6, TILE_PX, 5, pal["parapet_light"])
+    cv.rect(ox, oy + 6, TILE_PX, 1, shade(pal["parapet_light"], 26))
+    cv.rect(ox, oy + 10, TILE_PX, 2, pal["timber_dark"])
+    # Hanging sign board with a lit middle plaque on the centre cell.
+    cv.rect(ox, oy + 13, TILE_PX, 12, pal["sign_board"])
+    cv.rect(ox, oy + 13, TILE_PX, 1, shade(pal["sign_board"], 28))
+    cv.rect(ox, oy + 24, TILE_PX, 1, shade(pal["sign_board"], -20))
+    if edge == "m":
+        cv.rect(ox + 11, oy + 15, 10, 8, pal["sign_ink"])
+        cv.rect(ox + 13, oy + 17, 2, 4, pal["sign_board"])
+        cv.rect(ox + 17, oy + 17, 2, 4, pal["sign_board"])
+        cv.set(ox + 12, oy + 14, pal["timber_dark"])
+        cv.set(ox + 19, oy + 14, pal["timber_dark"])
+    elif edge == "l":
+        cv.rect(ox, oy + 13, 3, 12, pal["timber"])
+        cv.rect(ox, oy + 13, 1, 12, shade(pal["timber"], 20))
+        cv.set(ox + 5, oy + 15, shade(pal["sign_ink"], -20))
+    else:
+        cv.rect(ox + 29, oy + 13, 3, 12, pal["timber_dark"])
+        cv.rect(ox + 29, oy + 13, 1, 12, shade(pal["timber"], 8))
+        cv.set(ox + 26, oy + 15, shade(pal["sign_ink"], -20))
+    cv.rect(ox, oy + 27, TILE_PX, 5, rgba(44, 30, 20, 130))
+    _shop_clear_corners(cv, ox, oy)
+
+
+def draw_shop_awning(cv: Canvas, ox: int, oy: int, rng: random.Random, palette: dict, edge: str) -> None:
+    """Striped market awning with a scalloped hem and timber end poles."""
+    pal = palette
+    for x in range(TILE_PX):
+        depth = 24 - abs(4 - (x % 8))  # scalloped hem, alternating 21..25 px
+        stripe = pal["awning_a"] if (x // 4) % 2 == 0 else pal["awning_b"]
+        cv.rect(ox + x, oy, 1, depth, stripe)
+        cv.set(ox + x, oy + depth - 1, shade(stripe, -30))
+        cv.rect(ox + x, oy + depth, 1, TILE_PX - depth, rgba(42, 28, 18, 120))
+    cv.rect(ox, oy, TILE_PX, 3, pal["timber_dark"])
+    cv.rect(ox, oy + 1, TILE_PX, 1, pal["timber"])
+    if edge == "l":
+        cv.rect(ox, oy, 3, TILE_PX, pal["timber"])
+        cv.rect(ox, oy, 1, TILE_PX, shade(pal["timber"], 22))
+    elif edge == "r":
+        cv.rect(ox + 29, oy, 3, TILE_PX, pal["timber_dark"])
+        cv.rect(ox + 29, oy, 1, TILE_PX, shade(pal["timber"], 10))
+    _shop_clear_corners(cv, ox, oy)
+
+
+def draw_shop_wall(cv: Canvas, ox: int, oy: int, rng: random.Random, palette: dict) -> None:
+    _shop_wall_base(cv, ox, oy, palette, rng)
+    _shop_clear_corners(cv, ox, oy)
+
+
+def draw_shop_window(cv: Canvas, ox: int, oy: int, rng: random.Random, palette: dict) -> None:
+    """Wide display window over a timber counter with market goods."""
+    pal = palette
+    _shop_wall_base(cv, ox, oy, pal, rng)
+    frame = pal["timber_dark"]
+    cv.rect(ox + 4, oy + 5, 24, 18, frame)
+    cv.rect(ox + 5, oy + 6, 22, 16, HOUSE_GLASS)
+    cv.rect(ox + 5, oy + 6, 22, 5, HOUSE_GLASS_LIGHT)
+    cv.rect(ox + 12, oy + 6, 2, 16, frame)
+    cv.rect(ox + 20, oy + 6, 2, 16, frame)
+    cv.line(ox + 7, oy + 18, ox + 10, oy + 8, rgba(255, 250, 222, 150))
+    # Counter slab in front of the glass.
+    cv.rect(ox + 2, oy + 23, 28, 4, pal["timber"])
+    cv.rect(ox + 2, oy + 23, 28, 1, shade(pal["timber"], 26))
+    cv.rect(ox + 2, oy + 26, 28, 1, pal["timber_dark"])
+    goods = [rgba(224, 122, 48), rgba(126, 160, 68), rgba(206, 70, 64)]
+    for i, col in enumerate(goods):
+        cv.circle(ox + 8 + i * 7, oy + 21, 2, col)
+        cv.set(ox + 7 + i * 7, oy + 20, shade(col, 30))
+    _shop_clear_corners(cv, ox, oy)
+
+
+def draw_shop_door(cv: Canvas, ox: int, oy: int, rng: random.Random, palette: dict) -> None:
+    """Open shop doorway with a lit transom and a stone threshold (walkable)."""
+    pal = palette
+    _shop_wall_base(cv, ox, oy, pal, rng)
+    frame = pal["timber_dark"]
+    # Transom window above the door.
+    cv.rect(ox + 10, oy + 3, 14, 4, frame)
+    cv.rect(ox + 11, oy + 4, 12, 2, HOUSE_GLASS_LIGHT)
+    # Doorway with the leaf swung to the left.
+    cv.rect(ox + 10, oy + 7, 14, 23, frame)
+    cv.rect(ox + 11, oy + 8, 12, 22, HOUSE_GLOW)
+    cv.rect(ox + 11, oy + 8, 12, 4, HOUSE_GLASS_LIGHT)
+    cv.rect(ox + 11, oy + 8, 4, 22, rgba(126, 82, 44))
+    cv.rect(ox + 14, oy + 8, 1, 22, rgba(92, 56, 30))
+    cv.rect(ox + 17, oy + 8, 1, 22, rgba(92, 56, 30))
+    cv.set(ox + 20, oy + 19, rgba(236, 198, 92))
+    cv.rect(ox + 8, oy + 29, 18, 3, rgba(150, 144, 132))
+    cv.rect(ox + 8, oy + 29, 18, 1, rgba(182, 176, 162))
+    _shop_clear_corners(cv, ox, oy)
+
+
 def draw_decor_fountain(cv: Canvas, ox: int, oy: int, rng: random.Random) -> None:
     cx, cy = ox + 16, oy + 16
     cv.ellipse(cx + 1, cy + 2, 14, 13, rgba(60, 60, 68, 90), blended=True)
@@ -1068,6 +1223,16 @@ TILE_DRAWERS = {
     (2, 3): draw_hub_floor,
     (3, 3): draw_road,
     (4, 3): draw_decor_tower,
+    # Shop parts (JGT-136), layout mirrored in data/tilesets/floor1.json.
+    (5, 3): partial(draw_shop_parapet, palette=SHOP_PALETTES["m"], edge="l"),
+    (6, 3): partial(draw_shop_parapet, palette=SHOP_PALETTES["m"], edge="m"),
+    (7, 3): partial(draw_shop_parapet, palette=SHOP_PALETTES["m"], edge="r"),
+    (2, 6): partial(draw_shop_awning, palette=SHOP_PALETTES["m"], edge="l"),
+    (3, 6): partial(draw_shop_awning, palette=SHOP_PALETTES["m"], edge="m"),
+    (4, 6): partial(draw_shop_awning, palette=SHOP_PALETTES["m"], edge="r"),
+    (5, 6): partial(draw_shop_wall, palette=SHOP_PALETTES["m"]),
+    (6, 6): partial(draw_shop_window, palette=SHOP_PALETTES["m"]),
+    (7, 6): partial(draw_shop_door, palette=SHOP_PALETTES["m"]),
     # House parts (JGT-123), layout mirrored in data/tilesets/floor1.json.
     (0, 4): partial(draw_house_ridge, palette=HOUSE_PALETTES["a"], edge="l"),
     (1, 4): partial(draw_house_ridge, palette=HOUSE_PALETTES["a"], edge="m"),

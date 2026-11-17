@@ -105,6 +105,19 @@ HOUSE_PART_CHARS = {
     },
 }
 
+# Shop parts (JGT-136): flat parapet with a hanging sign band, striped market
+# awning, wide display window and a warm honey-timber wall. Footprints are 8x5
+# or 7x5; only the door cell is walkable and the door faces south onto a road
+# or open town floor.
+SHOP_SIZES = [(8, 5), (7, 5)]
+SHOP_PART_CHARS = {
+    "m": {
+        "parapet_l": "j", "parapet_m": "k", "parapet_r": "l",
+        "awning_l": "m", "awning_m": "n", "awning_r": "p",
+        "wall": "q", "window": "r", "door": "s",
+    },
+}
+
 # Boss gate: an opening in the south outer wall at ~87% x, the only floor exit.
 GATE_X0 = 162  # first open gate tile (global x)
 GATE_W = 10
@@ -145,6 +158,15 @@ for _variant, _parts in HOUSE_PART_CHARS.items():
             "walkable": _part == "door",
             "safe": True,
             "decor": "house_%s_%s" % (_variant, _part),
+        }
+# Shop parts are decor cells on town floor too; only the door cell is walkable.
+for _variant, _parts in SHOP_PART_CHARS.items():
+    for _part, _char in _parts.items():
+        LEGEND[_char] = {
+            "type": "town_floor",
+            "walkable": _part == "door",
+            "safe": True,
+            "decor": "shop_%s" % _part,
         }
 WALKABLE = {ch for ch, entry in LEGEND.items() if entry["walkable"]}
 
@@ -288,6 +310,70 @@ def house_part_char(house: dict, i: int, j: int) -> str:
     if j == house.get("window_row2") and i == house.get("window_i2"):
         return parts["window"]
     return parts["wall"]
+
+
+def shop_part_char(shop: dict, i: int, j: int) -> str:
+    """Legend char for column i / row j of a shop footprint.
+
+    Row 0 is the flat parapet with the hanging sign band (the middle cell),
+    row 1 the striped awning, the row above the door holds the display window
+    and the bottom row holds the wall with the shop door.
+    """
+    parts = SHOP_PART_CHARS[shop["variant"]]
+    w, h = shop["w"], shop["h"]
+    window_i = shop.get("window_i", 1 + shop["door_i"] % (w - 2))
+    if j == 0:
+        edge = "l" if i == 0 else "r" if i == w - 1 else "m"
+        return parts["parapet_" + edge]
+    if j == 1:
+        edge = "l" if i == 0 else "r" if i == w - 1 else "m"
+        return parts["awning_" + edge]
+    if j == h - 1 and i == shop["door_i"]:
+        return parts["door"]
+    if j == h - 2 and i == window_i:
+        return parts["window"]
+    return parts["wall"]
+
+
+def place_shop(
+    grid: list[list[str]],
+    x: int,
+    y: int,
+    w: int,
+    h: int,
+    door_i: int,
+    variant: str,
+) -> dict:
+    """Stamp a shop footprint with its door facing south onto a walkable tile.
+
+    The footprint must sit on open city town floor and the tile just below the
+    door must be town floor, road or hub floor (T/R/o). Returns the layout dict.
+    """
+    assert variant in SHOP_PART_CHARS, "unknown shop variant %s" % variant
+    assert (w, h) in SHOP_SIZES, "shop size %dx%d is not supported" % (w, h)
+    assert 1 <= door_i <= w - 2, "shop door must sit between the corners"
+    shop = {
+        "x": x,
+        "y": y,
+        "w": w,
+        "h": h,
+        "door_i": door_i,
+        "variant": variant,
+        "window_i": 1 + door_i % (w - 2),
+    }
+    for j in range(h):
+        for i in range(w):
+            cx, cy = x + i, y + j
+            assert 0 <= cx < WIDTH and 0 <= cy < HEIGHT, "shop %s is outside the map" % str(shop)
+            assert on_city_floor(cx, cy), "shop %s must sit inside the city floor" % str(shop)
+            assert grid[cy][cx] == "T", "shop %s overlaps a non-town-floor tile" % str(shop)
+    ax, ay = x + door_i, y + h
+    assert 0 <= ax < WIDTH and 0 <= ay < HEIGHT, "shop %s door approach is outside the map" % str(shop)
+    assert grid[ay][ax] in ("T", "R", "o"), "shop %s door must face a walkable tile" % str(shop)
+    for j in range(h):
+        for i in range(w):
+            grid[y + j][x + i] = shop_part_char(shop, i, j)
+    return shop
 
 
 def carve_city_gates(grid: list[list[str]]) -> None:
