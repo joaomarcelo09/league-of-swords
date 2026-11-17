@@ -1,10 +1,10 @@
 extends GutTest
 
-## JGT-136: Floor 1 shops are a distinct 8x5 / 7x5 decor set (flat parapet with
-## a hanging sign band, striped awning, display window, warm timber wall and a
-## door). Shops are not placed in the generated floor yet, so these tests drive
-## the generator's place_shop() on a scratch grid and guard the tileset/legend
-## contract used by the later placement task.
+## JGT-136/JGT-137: Floor 1 shops are a distinct 8x5 / 7x5 decor set (flat
+## parapet with a hanging sign band, striped awning, display window, warm timber
+## wall and a door). These tests drive the generator's place_shop() on a scratch
+## grid and guard the tileset/legend contract; test_floor1_houses.gd checks the
+## shops placed in the generated city.
 
 const TILESET_PATH := "res://data/tilesets/floor1.json"
 const ATLAS_PATH := "res://assets/tiles/world_tiles.png"

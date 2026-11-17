@@ -54,6 +54,18 @@
       "safe": true,
       "decor": "house_a_door"
     },
+    "B": {
+      "type": "town_floor",
+      "walkable": false,
+      "safe": true,
+      "decor": "barrel"
+    },
+    "K": {
+      "type": "town_floor",
+      "walkable": false,
+      "safe": true,
+      "decor": "crate"
+    },
     "R": {
       "type": "road",
       "walkable": true,
@@ -112,22 +124,64 @@
       "safe": true,
       "decor": "house_b_wall"
     },
-    "h": {
+    "j": {
       "type": "town_floor",
       "walkable": false,
       "safe": true,
-      "decor": "house_b_window"
+      "decor": "shop_parapet_l"
     },
-    "i": {
+    "k": {
       "type": "town_floor",
-      "walkable": true,
+      "walkable": false,
       "safe": true,
-      "decor": "house_b_door"
+      "decor": "shop_parapet_m"
+    },
+    "l": {
+      "type": "town_floor",
+      "walkable": false,
+      "safe": true,
+      "decor": "shop_parapet_r"
+    },
+    "m": {
+      "type": "town_floor",
+      "walkable": false,
+      "safe": true,
+      "decor": "shop_awning_l"
+    },
+    "n": {
+      "type": "town_floor",
+      "walkable": false,
+      "safe": true,
+      "decor": "shop_awning_m"
     },
     "o": {
       "type": "hub_floor",
       "walkable": true,
       "safe": true
+    },
+    "p": {
+      "type": "town_floor",
+      "walkable": false,
+      "safe": true,
+      "decor": "shop_awning_r"
+    },
+    "q": {
+      "type": "town_floor",
+      "walkable": false,
+      "safe": true,
+      "decor": "shop_wall"
+    },
+    "r": {
+      "type": "town_floor",
+      "walkable": false,
+      "safe": true,
+      "decor": "shop_window"
+    },
+    "s": {
+      "type": "town_floor",
+      "walkable": true,
+      "safe": true,
+      "decor": "shop_door"
     },
     "u": {
       "type": "hub_floor",
@@ -136,7 +190,7 @@
       "decor": "torch"
     }
   },
-  "entry": [16, 14],
+  "entry": [18, 16],
   "npcs": [],
   "spawns": [],
   "exits": []
