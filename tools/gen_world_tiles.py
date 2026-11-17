@@ -3,11 +3,12 @@
 tools/gen_world_tiles.py
 
 Generates the original city/plains tile atlas used by data/tilesets/floor1.json
-(assets/tiles/world_tiles.png, 8x3 cells of 32 px = 256x96).
+(assets/tiles/world_tiles.png, 8x7 cells of 32 px = 256x224).
 
 The atlas layout is part of the data contract: keep the coordinates in floor1.json
 in sync when moving cells. Ground tiles are fully opaque, decor cells have a
-transparent background so they can be drawn on the ZoneView decor layer.
+transparent background so they can be drawn on the ZoneView decor layer. Rows 4-6
+hold the multi-tile house parts (JGT-123); existing cells never move.
 
 Uses the Python standard library only (struct, zlib, argparse, math, os, random).
 Output is deterministic: every tile is drawn with its own seeded random.Random.
@@ -21,10 +22,11 @@ import os
 import random
 import struct
 import zlib
+from functools import partial
 
 TILE_PX = 32
 ATLAS_COLS = 8
-ATLAS_ROWS = 4
+ATLAS_ROWS = 7
 DEFAULT_SEED = 20261116
 DEFAULT_OUT = os.path.join("assets", "tiles", "world_tiles.png")
 
@@ -539,6 +541,163 @@ def draw_decor_house(cv: Canvas, ox: int, oy: int, rng: random.Random) -> None:
     cv.rect(ox + 12, oy + 30, 11, 1, rgba(146, 140, 128))
 
 
+# ---------------------------------------------------------------------------
+# House parts (JGT-123): 32 px cells assembled into 5x4 / 4x3 houses.
+# Two palettes: "a" warm red roof with cream plaster, "b" slate roof with sage
+# plaster. Every cell keeps its four corner pixels transparent (atlas contract).
+# ---------------------------------------------------------------------------
+
+HOUSE_PALETTES = {
+    "a": {
+        "roof_dark": rgba(92, 38, 32),
+        "roof_mid": rgba(142, 62, 48),
+        "roof_light": rgba(184, 92, 70),
+        "ridge": rgba(206, 120, 84),
+        "wall": rgba(228, 210, 172),
+        "wall_shadow": rgba(198, 178, 142),
+        "timber": rgba(106, 70, 40),
+        "timber_dark": rgba(72, 46, 26),
+    },
+    "b": {
+        "roof_dark": rgba(38, 50, 72),
+        "roof_mid": rgba(62, 82, 112),
+        "roof_light": rgba(98, 124, 158),
+        "ridge": rgba(128, 150, 182),
+        "wall": rgba(212, 212, 196),
+        "wall_shadow": rgba(180, 180, 164),
+        "timber": rgba(94, 76, 54),
+        "timber_dark": rgba(62, 48, 34),
+    },
+}
+
+HOUSE_GLASS = rgba(250, 216, 128)
+HOUSE_GLASS_LIGHT = rgba(255, 240, 186)
+HOUSE_GLOW = rgba(238, 180, 94)
+
+
+def _house_clear_corners(cv: Canvas, ox: int, oy: int) -> None:
+    """Decor cells must keep their four corner pixels transparent."""
+    for cx, cy in ((0, 0), (TILE_PX - 1, 0), (0, TILE_PX - 1), (TILE_PX - 1, TILE_PX - 1)):
+        cv.set(ox + cx, oy + cy, rgba(0, 0, 0, 0))
+
+
+def _house_bargeboard(cv: Canvas, ox: int, oy: int, pal: dict, edge: str, top: int, height: int) -> None:
+    """Timber board along the left/right end of a roof row."""
+    if edge == "l":
+        cv.rect(ox, oy + top, 3, height, pal["timber"])
+        cv.rect(ox, oy + top, 1, height, shade(pal["timber"], 26))
+        cv.rect(ox + 3, oy + top, 1, height, pal["timber_dark"])
+    elif edge == "r":
+        cv.rect(ox + 29, oy + top, 3, height, pal["timber"])
+        cv.rect(ox + 29, oy + top, 1, height, shade(pal["timber"], 18))
+        cv.rect(ox + 31, oy + top, 1, height, pal["timber_dark"])
+
+
+def _house_wall_base(cv: Canvas, ox: int, oy: int, pal: dict, rng: random.Random) -> None:
+    """Plaster wall with a timber frame; used by the wall, window and door cells."""
+    wall = pal["wall"]
+    cv.rect(ox, oy, TILE_PX, TILE_PX, wall)
+    cv.rect(ox, oy + 28, TILE_PX, 4, pal["wall_shadow"])
+    for _ in range(6):
+        cv.set(
+            ox + 3 + rng.randrange(26),
+            oy + 6 + rng.randrange(19),
+            shade(wall, rng.choice([-10, -6, 8, 12])),
+        )
+    cv.rect(ox, oy, 2, TILE_PX, pal["timber"])
+    cv.rect(ox, oy, 1, TILE_PX, shade(pal["timber"], 22))
+    cv.rect(ox + 30, oy, 2, TILE_PX, pal["timber_dark"])
+    cv.rect(ox, oy, TILE_PX, 2, pal["timber"])
+    cv.rect(ox, oy + 2, TILE_PX, 1, pal["timber_dark"])
+    cv.rect(ox, oy + 29, TILE_PX, 3, pal["timber_dark"])
+    cv.rect(ox, oy + 29, TILE_PX, 1, shade(pal["timber"], -8))
+
+
+def draw_house_ridge(cv: Canvas, ox: int, oy: int, rng: random.Random, palette: dict, edge: str) -> None:
+    """Top roof row: ridge cap, staggered shingles and a bargeboard at the ends."""
+    pal = palette
+    roof = pal["roof_mid"]
+    cv.rect(ox, oy + 8, TILE_PX, 24, roof)
+    cv.rect(ox, oy + 8, TILE_PX, 3, pal["ridge"])
+    cv.rect(ox, oy + 8, TILE_PX, 1, shade(pal["ridge"], 30))
+    cv.rect(ox, oy + 11, TILE_PX, 1, shade(pal["ridge"], -28))
+    for row in range(4):
+        y = oy + 13 + row * 4
+        col = roof if row % 2 == 0 else shade(roof, -8)
+        cv.rect(ox, y, TILE_PX, 4, col)
+        cv.rect(ox, y, TILE_PX, 1, shade(col, 10))
+        offset = 4 if row % 2 else 0
+        for x in range(offset, TILE_PX, 8):
+            cv.rect(ox + x, y + 1, 1, 3, pal["roof_dark"])
+    cv.rect(ox, oy + 29, TILE_PX, 1, pal["roof_dark"])
+    _house_bargeboard(cv, ox, oy, pal, edge, 8, 24)
+    _house_clear_corners(cv, ox, oy)
+
+
+def draw_house_roof(cv: Canvas, ox: int, oy: int, rng: random.Random, palette: dict, edge: str) -> None:
+    """Lower roof row: shingles running into the eave board and its wall shadow."""
+    pal = palette
+    roof = pal["roof_mid"]
+    cv.rect(ox, oy, TILE_PX, 22, roof)
+    for row in range(6):
+        y = oy + row * 4
+        col = roof if row % 2 == 0 else shade(roof, -8)
+        cv.rect(ox, y, TILE_PX, 4, col)
+        cv.rect(ox, y, TILE_PX, 1, shade(col, 10))
+        offset = 4 if row % 2 else 0
+        for x in range(offset, TILE_PX, 8):
+            cv.rect(ox + x, y + 1, 1, 3, pal["roof_dark"])
+    cv.rect(ox, oy + 20, TILE_PX, 3, pal["roof_light"])
+    cv.rect(ox, oy + 20, TILE_PX, 1, shade(pal["roof_light"], 26))
+    cv.rect(ox, oy + 23, TILE_PX, 2, pal["roof_dark"])
+    cv.rect(ox, oy + 25, TILE_PX, 7, rgba(52, 38, 30, 120))
+    _house_bargeboard(cv, ox, oy, pal, edge, 0, 25)
+    _house_clear_corners(cv, ox, oy)
+
+
+def draw_house_wall(cv: Canvas, ox: int, oy: int, rng: random.Random, palette: dict) -> None:
+    _house_wall_base(cv, ox, oy, palette, rng)
+    _house_clear_corners(cv, ox, oy)
+
+
+def draw_house_window(cv: Canvas, ox: int, oy: int, rng: random.Random, palette: dict) -> None:
+    """Lit window with a cross frame and a flower box under the sill."""
+    pal = palette
+    _house_wall_base(cv, ox, oy, pal, rng)
+    frame = pal["timber_dark"]
+    cv.rect(ox + 8, oy + 7, 17, 17, frame)
+    cv.rect(ox + 9, oy + 8, 15, 15, HOUSE_GLASS)
+    cv.rect(ox + 9, oy + 8, 15, 5, HOUSE_GLASS_LIGHT)
+    cv.rect(ox + 15, oy + 8, 2, 15, frame)
+    cv.rect(ox + 9, oy + 15, 15, 2, frame)
+    cv.rect(ox + 7, oy + 23, 19, 2, pal["timber"])
+    cv.rect(ox + 7, oy + 25, 19, 1, pal["timber_dark"])
+    cv.rect(ox + 8, oy + 25, 17, 2, rgba(112, 70, 40))
+    for i in range(5):
+        fx = ox + 10 + i * 3
+        cv.set(fx, oy + 24, rgba(84, 144, 66))
+        cv.set(fx, oy + 23, rng.choice([rgba(230, 92, 92), rgba(244, 204, 88), rgba(232, 150, 196)]))
+    _house_clear_corners(cv, ox, oy)
+
+
+def draw_house_door(cv: Canvas, ox: int, oy: int, rng: random.Random, palette: dict) -> None:
+    """Open doorway with a warm-lit interior and a stone threshold (walkable)."""
+    pal = palette
+    _house_wall_base(cv, ox, oy, pal, rng)
+    frame = pal["timber_dark"]
+    cv.rect(ox + 9, oy + 6, 14, 25, frame)
+    cv.rect(ox + 10, oy + 7, 12, 24, HOUSE_GLOW)
+    cv.rect(ox + 10, oy + 7, 12, 5, HOUSE_GLASS_LIGHT)
+    # Door leaf swung to the left, planks and knob.
+    cv.rect(ox + 10, oy + 7, 3, 24, rgba(120, 76, 40))
+    cv.rect(ox + 12, oy + 7, 1, 24, rgba(88, 54, 30))
+    cv.rect(ox + 15, oy + 7, 1, 24, rgba(88, 54, 30))
+    cv.set(ox + 18, oy + 18, rgba(232, 190, 82))
+    cv.rect(ox + 7, oy + 29, 19, 3, rgba(148, 142, 130))
+    cv.rect(ox + 7, oy + 29, 19, 1, rgba(180, 174, 160))
+    _house_clear_corners(cv, ox, oy)
+
+
 def draw_decor_fountain(cv: Canvas, ox: int, oy: int, rng: random.Random) -> None:
     cx, cy = ox + 16, oy + 16
     cv.ellipse(cx + 1, cy + 2, 14, 13, rgba(60, 60, 68, 90), blended=True)
@@ -840,6 +999,25 @@ TILE_DRAWERS = {
     (7, 2): draw_decor_rubble,
     (0, 3): draw_gate_floor,
     (1, 3): draw_gate_post,
+    # House parts (JGT-123), layout mirrored in data/tilesets/floor1.json.
+    (0, 4): partial(draw_house_ridge, palette=HOUSE_PALETTES["a"], edge="l"),
+    (1, 4): partial(draw_house_ridge, palette=HOUSE_PALETTES["a"], edge="m"),
+    (2, 4): partial(draw_house_ridge, palette=HOUSE_PALETTES["a"], edge="r"),
+    (3, 4): partial(draw_house_roof, palette=HOUSE_PALETTES["a"], edge="l"),
+    (4, 4): partial(draw_house_roof, palette=HOUSE_PALETTES["a"], edge="m"),
+    (5, 4): partial(draw_house_roof, palette=HOUSE_PALETTES["a"], edge="r"),
+    (6, 4): partial(draw_house_wall, palette=HOUSE_PALETTES["a"]),
+    (7, 4): partial(draw_house_window, palette=HOUSE_PALETTES["a"]),
+    (0, 5): partial(draw_house_door, palette=HOUSE_PALETTES["a"]),
+    (1, 5): partial(draw_house_ridge, palette=HOUSE_PALETTES["b"], edge="l"),
+    (2, 5): partial(draw_house_ridge, palette=HOUSE_PALETTES["b"], edge="m"),
+    (3, 5): partial(draw_house_ridge, palette=HOUSE_PALETTES["b"], edge="r"),
+    (4, 5): partial(draw_house_roof, palette=HOUSE_PALETTES["b"], edge="l"),
+    (5, 5): partial(draw_house_roof, palette=HOUSE_PALETTES["b"], edge="m"),
+    (6, 5): partial(draw_house_roof, palette=HOUSE_PALETTES["b"], edge="r"),
+    (7, 5): partial(draw_house_wall, palette=HOUSE_PALETTES["b"]),
+    (0, 6): partial(draw_house_window, palette=HOUSE_PALETTES["b"]),
+    (1, 6): partial(draw_house_door, palette=HOUSE_PALETTES["b"]),
 }
 
 
