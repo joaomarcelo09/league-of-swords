@@ -792,7 +792,9 @@ def main() -> None:
 
     world = {
         "chunk_size": [CHUNK, CHUNK],
-        "load_radius": 1,
+        # Keep the whole 9x4 grid loaded: the Chebyshev radius that reaches
+        # every cell from any other cell is max(GRID_W, GRID_H) - 1.
+        "load_radius": max(GRID_W, GRID_H) - 1,
         "chunks": chunks,
         "transitions": transitions,
     }

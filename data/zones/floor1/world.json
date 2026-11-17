@@ -1,6 +1,6 @@
 {
   "chunk_size": [32, 32],
-  "load_radius": 1,
+  "load_radius": 8,
   "chunks": [
     {
       "id": "floor1_x0_y0",

@@ -164,7 +164,7 @@ func test_zone_file_loader_reads_the_real_floor1_chunks() -> void:
 	)
 
 	assert_true(world.is_valid(), "chunked floor 1 must load: %s" % str(world.errors))
-	assert_eq(world.loaded_ids().size(), 9, "the city start chunk plus its 8 neighbours")
+	assert_eq(world.loaded_ids().size(), 36, "the whole 9x4 floor loads at once")
 	assert_true(world.loaded_ids().has("floor1_x1_y0"))
 	assert_true(world.loaded_ids().has("floor1_x3_y2"))
 	assert_true(world.zone_for("floor1_x2_y1").is_valid())
@@ -174,7 +174,7 @@ func test_zone_file_loader_reads_the_real_floor1_chunks() -> void:
 	assert_eq(world.start_entry(), Vector2i(93, 58), "city entry in world tiles")
 	assert_true(world.is_walkable(Vector2i(63, 58)), "city floor on the west side of the seam")
 	assert_true(world.is_walkable(Vector2i(64, 58)), "city floor on the east side of the seam")
-	assert_false(world.is_world_tile_loaded(Vector2i(180, 110)), "the far south-east chunk is outside the load radius")
+	assert_true(world.is_world_tile_loaded(Vector2i(180, 110)), "the far south-east chunk is inside the load radius")
 
 
 func test_streaming_covers_the_whole_9x4_grid_without_missing_or_duplicate_chunks() -> void:
@@ -225,6 +225,76 @@ func test_streaming_covers_the_whole_9x4_grid_without_missing_or_duplicate_chunk
 		assert_eq(unloaded_changes.size(), _unique_count(unloaded_changes), "no duplicate unloaded ids at %s" % chunk_id)
 		for loaded_id: Variant in loaded_changes:
 			assert_false(unloaded_changes.has(loaded_id), "chunk %s is not loaded and unloaded in one step" % str(loaded_id))
+
+
+func _load_real_floor() -> ChunkedWorld:
+	var world := ChunkedWorld.load_file(
+		"res://data/zones/floor1/world.json",
+		"res://data/zones/floor1",
+		"floor1_x2_y1"
+	)
+	assert_true(world.is_valid(), "chunked floor 1 must load: %s" % str(world.errors))
+	return world
+
+
+func _grid_size(map: WorldMap) -> Vector2i:
+	var size := Vector2i.ZERO
+	for chunk_id: String in map.chunk_ids():
+		var cell := map.grid_cell(chunk_id)
+		size = Vector2i(maxi(size.x, cell.x + 1), maxi(size.y, cell.y + 1))
+	return size
+
+
+func test_real_floor1_load_radius_covers_the_whole_grid() -> void:
+	var world := _load_real_floor()
+	var grid := _grid_size(world.map)
+
+	assert_eq(grid, Vector2i(9, 4), "the floor is a 9x4 chunk grid")
+	assert_gte(world.map.load_radius, maxi(grid.x, grid.y) - 1, "the Chebyshev radius must reach every cell")
+
+
+func test_real_floor1_loads_all_36_chunks_from_any_chunk_centre() -> void:
+	var world := _load_real_floor()
+	var map := world.map
+	var half := Vector2i(floori(map.chunk_size.x / 2.0), floori(map.chunk_size.y / 2.0))
+	var probes: Array[String] = [
+		"floor1_x0_y0",  # north-west corner
+		"floor1_x8_y0",  # north-east corner
+		"floor1_x0_y3",  # south-west corner
+		"floor1_x8_y3",  # south-east corner
+		"floor1_x4_y2",  # centre
+		"floor1_x2_y1",  # city entry
+		"floor1_x5_y3",  # boss gate
+	]
+
+	for chunk_id: String in probes:
+		var center := map.chunk_to_world(chunk_id, half)
+		world.update(center)
+		assert_eq(world.loaded_ids(), map.chunk_ids(), "every chunk is loaded at %s" % chunk_id)
+		assert_eq(world.errors, [], "loading the whole floor reports no errors")
+
+
+func test_real_floor1_stays_loaded_while_crossing_the_map() -> void:
+	var world := _load_real_floor()
+	var map := world.map
+	var grid := _grid_size(map)
+	var half := Vector2i(floori(map.chunk_size.x / 2.0), floori(map.chunk_size.y / 2.0))
+
+	# Walk the top row west to east, then down the east column to the far
+	# south-east corner: a corner-to-corner tour in chunk steps.
+	var path: Array[Vector2i] = []
+	for cx in range(grid.x):
+		path.append(Vector2i(cx, 0))
+	for cy in range(1, grid.y):
+		path.append(Vector2i(grid.x - 1, cy))
+
+	assert_eq(path.size(), grid.x + grid.y - 1, "the tour visits every chunk on its two edges")
+	for cell: Vector2i in path:
+		var chunk_id := map.chunk_at_cell(cell)
+		var changes := world.update(map.chunk_to_world(chunk_id, half))
+		assert_eq(changes["unloaded"], [], "crossing %s unloads nothing" % chunk_id)
+		assert_eq(changes["loaded"], [], "crossing %s loads nothing new" % chunk_id)
+		assert_eq(world.loaded_ids().size(), 36, "all 36 chunks stay loaded at %s" % chunk_id)
 
 
 func _unique_count(values: Array) -> int:

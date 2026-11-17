@@ -129,7 +129,7 @@ func test_real_floor_path_crosses_city_and_plains_chunks() -> void:
 		assert_eq(path[path.size() - 1], target)
 
 
-func test_entry_stays_the_town_entry_when_the_town_unloads() -> void:
+func test_entry_stays_the_town_entry_across_the_whole_map() -> void:
 	var world := ChunkedWorld.load_file(
 		"res://data/zones/floor1/world.json",
 		"res://data/zones/floor1",
@@ -141,14 +141,14 @@ func test_entry_stays_the_town_entry_when_the_town_unloads() -> void:
 	assert_eq(town_entry, Vector2i(93, 58), "the start spawn is the city entry")
 
 	world.update(Vector2i(180, 110))
-	assert_false(world.is_loaded("floor1_x2_y1"), "moving to the far south-east plains unloads the city start chunk")
+	assert_true(world.is_loaded("floor1_x2_y1"), "the whole floor stays loaded, the city included")
 	chunked.refresh()
 	assert_eq(chunked.entry, town_entry, "entry must not depend on the loaded chunks")
 
 	world.update(Vector2i(64, 32))
 	chunked.refresh()
-	assert_true(world.is_loaded("floor1_x2_y1"), "the city start chunk reloads")
-	assert_eq(chunked.entry, town_entry, "reloading the town keeps the same entry")
+	assert_true(world.is_loaded("floor1_x2_y1"), "the city start chunk stays loaded")
+	assert_eq(chunked.entry, town_entry, "moving back keeps the same entry")
 	assert_true(chunked.is_walkable(chunked.entry), "the town entry is walkable with the town loaded")
 
 

@@ -143,7 +143,7 @@ func test_dungeon_door_save_resumes_on_the_chunked_floor() -> void:
 
 	assert_true(result.get("ok", false), str(result))
 	assert_eq(result.get("world_tile"), expected_world_tile, "loading resumes at the door's return tile")
-	assert_true(result.get("loaded", []).has("floor1_x4_y3"), "the return chunk is streamed back in")
+	assert_true(chunked.is_loaded("floor1_x4_y3"), "the return chunk is loaded after resume")
 	assert_true(chunked.is_walkable(expected_world_tile), "the door's return tile is walkable")
 
 
