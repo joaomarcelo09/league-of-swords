@@ -69,7 +69,16 @@
     "layout": "thornback_warden",
     "phase2": {
       "hp_ratio_below": 0.35,
-      "weapon_layer": "weapon_phase2"
+      "weapon_layer": "weapon_phase2",
+      "attack": {
+        "shape": "cone",
+        "range": 3.5,
+        "angle_deg": 220.0,
+        "damage_mult": 2.4
+      },
+      "windup_s": 0.9,
+      "active_s": 0.3,
+      "recovery_s": 1.0
     },
     "max_hp": 600.0,
     "atk": 12.0,

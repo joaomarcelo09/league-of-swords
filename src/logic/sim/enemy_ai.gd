@@ -37,29 +37,105 @@ static func validate_config(dict: Dictionary) -> Array[String]:
 	if not dict.has("attack") or not (dict["attack"] is Dictionary) or (dict["attack"] as Dictionary).is_empty():
 		errors.append("missing or invalid 'attack' (must be non-empty Dictionary)")
 	else:
-		var attack: Dictionary = dict["attack"]
-		var shape: String = str(attack.get("shape", ""))
-		if not shape in ["line", "cone", "circle"]:
-			errors.append("attack missing or invalid 'shape' (must be 'line', 'cone', or 'circle')")
+		errors.append_array(_validate_attack(dict["attack"], "attack"))
 
-		if not attack.has("range") or not (attack["range"] is int or attack["range"] is float) or float(attack["range"]) <= 0.0:
-			errors.append("attack missing or invalid 'range' (must be number > 0.0)")
-
-		match shape:
-			"line":
-				if not attack.has("width") or not (attack["width"] is int or attack["width"] is float) or float(attack["width"]) <= 0.0:
-					errors.append("attack shape 'line' requires 'width' > 0.0")
-			"cone":
-				if not attack.has("angle_deg") or not (attack["angle_deg"] is int or attack["angle_deg"] is float) or float(attack["angle_deg"]) <= 0.0 or float(attack["angle_deg"]) > 360.0:
-					errors.append("attack shape 'cone' requires 'angle_deg' > 0.0 and <= 360.0")
-			"circle":
-				if not attack.has("radius") or not (attack["radius"] is int or attack["radius"] is float) or float(attack["radius"]) <= 0.0:
-					errors.append("attack shape 'circle' requires 'radius' > 0.0")
-
-		if attack.has("damage_mult") and (not (attack["damage_mult"] is int or attack["damage_mult"] is float) or float(attack["damage_mult"]) < 0.0):
-			errors.append("attack has invalid 'damage_mult' (must be number >= 0.0)")
+	if dict.has("phase2"):
+		if not (dict["phase2"] is Dictionary):
+			errors.append("invalid 'phase2' (must be Dictionary)")
+		else:
+			errors.append_array(_validate_phase2(dict["phase2"]))
 
 	return errors
+
+
+## Shared attack validation, used by the base attack and by phase2.attack.
+## `label` names the block in the error messages ("attack", "phase2.attack").
+static func _validate_attack(attack: Dictionary, label: String) -> Array[String]:
+	var errors: Array[String] = []
+	var shape: String = str(attack.get("shape", ""))
+	if not shape in ["line", "cone", "circle"]:
+		errors.append("%s missing or invalid 'shape' (must be 'line', 'cone', or 'circle')" % label)
+
+	if not attack.has("range") or not (attack["range"] is int or attack["range"] is float) or float(attack["range"]) <= 0.0:
+		errors.append("%s missing or invalid 'range' (must be number > 0.0)" % label)
+
+	match shape:
+		"line":
+			if not attack.has("width") or not (attack["width"] is int or attack["width"] is float) or float(attack["width"]) <= 0.0:
+				errors.append("%s shape 'line' requires 'width' > 0.0" % label)
+		"cone":
+			if not attack.has("angle_deg") or not (attack["angle_deg"] is int or attack["angle_deg"] is float) or float(attack["angle_deg"]) <= 0.0 or float(attack["angle_deg"]) > 360.0:
+				errors.append("%s shape 'cone' requires 'angle_deg' > 0.0 and <= 360.0" % label)
+		"circle":
+			if not attack.has("radius") or not (attack["radius"] is int or attack["radius"] is float) or float(attack["radius"]) <= 0.0:
+				errors.append("%s shape 'circle' requires 'radius' > 0.0" % label)
+
+	if attack.has("damage_mult") and (not (attack["damage_mult"] is int or attack["damage_mult"] is float) or float(attack["damage_mult"]) < 0.0):
+		errors.append("%s has invalid 'damage_mult' (must be number >= 0.0)" % label)
+
+	return errors
+
+
+## Validates the optional phase2 block. Every key is optional except the HP
+## threshold; the view reads weapon_layer from the same block.
+static func _validate_phase2(phase2: Dictionary) -> Array[String]:
+	var errors: Array[String] = []
+	var threshold: Variant = phase2.get("hp_ratio_below", null)
+	if not (threshold is int or threshold is float) or float(threshold) <= 0.0 or float(threshold) >= 1.0:
+		errors.append("phase2 missing or invalid 'hp_ratio_below' (must be number in (0.0, 1.0))")
+
+	for key: String in ["windup_s", "active_s", "recovery_s"]:
+		if phase2.has(key) and (not (phase2[key] is int or phase2[key] is float) or float(phase2[key]) < 0.0):
+			errors.append("phase2 has invalid '%s' (must be number >= 0.0)" % key)
+
+	if phase2.has("attack"):
+		if not (phase2["attack"] is Dictionary) or (phase2["attack"] as Dictionary).is_empty():
+			errors.append("phase2 has invalid 'attack' (must be non-empty Dictionary)")
+		else:
+			errors.append_array(_validate_attack(phase2["attack"], "phase2.attack"))
+
+	return errors
+
+
+## True while the entity is strictly below its config's phase 2 HP threshold.
+## False when the enemy has no valid phase2 block.
+static func is_phase2(entity: Entity, enemy_cfg: Dictionary) -> bool:
+	if entity == null or entity.stats == null or entity.stats.max_hp <= 0.0:
+		return false
+	var block: Variant = enemy_cfg.get("phase2", null)
+	if not (block is Dictionary):
+		return false
+	var threshold: Variant = (block as Dictionary).get("hp_ratio_below", null)
+	if not (threshold is int or threshold is float):
+		return false
+	var ratio := float(threshold)
+	if ratio <= 0.0 or ratio >= 1.0:
+		return false
+	return entity.hp / entity.stats.max_hp < ratio
+
+
+## Effective attack pattern for this tick: the base values, overridden by the
+## enemy's phase2 block while phase 2 is active.
+static func _resolve_combat(entity: Entity, enemy_cfg: Dictionary) -> Dictionary:
+	var combat: Dictionary = {
+		"windup_s": float(enemy_cfg["windup_s"]),
+		"active_s": float(enemy_cfg["active_s"]),
+		"recovery_s": float(enemy_cfg["recovery_s"]),
+		"attack": enemy_cfg["attack"],
+		"phase": 1,
+	}
+	if not is_phase2(entity, enemy_cfg):
+		return combat
+
+	var phase2: Dictionary = enemy_cfg["phase2"]
+	combat["phase"] = 2
+	for key: String in ["windup_s", "active_s", "recovery_s"]:
+		if phase2.has(key):
+			combat[key] = float(phase2[key])
+	var phase2_attack: Variant = phase2.get("attack", null)
+	if phase2_attack is Dictionary and not (phase2_attack as Dictionary).is_empty():
+		combat["attack"] = phase2_attack
+	return combat
 
 
 static func update(sim: WorldSim, entity: Entity) -> void:
@@ -78,22 +154,8 @@ static func update(sim: WorldSim, entity: Entity) -> void:
 
 	var aggro_radius: float = float(enemy_cfg["aggro_radius"])
 	var leash_radius: float = float(enemy_cfg["leash_radius"])
-	var windup_s: float = float(enemy_cfg["windup_s"])
-	var active_s: float = float(enemy_cfg["active_s"])
-	var recovery_s: float = float(enemy_cfg["recovery_s"])
-	var attack: Dictionary = enemy_cfg["attack"]
-
-	var windup_ticks: int = int(round(windup_s / sim.tick_length))
-	if windup_ticks < 1 and windup_s > 0.0:
-		windup_ticks = 1
-
-	var active_ticks: int = int(round(active_s / sim.tick_length))
-	if active_ticks < 1 and active_s > 0.0:
-		active_ticks = 1
-
-	var recovery_ticks: int = int(round(recovery_s / sim.tick_length))
-	if recovery_ticks < 1 and recovery_s > 0.0:
-		recovery_ticks = 1
+	var combat := _resolve_combat(entity, enemy_cfg)
+	var windup_ticks := _duration_ticks(float(combat["windup_s"]), sim.tick_length)
 
 	match entity.state:
 		"idle":
@@ -101,29 +163,33 @@ static func update(sim: WorldSim, entity: Entity) -> void:
 			if target != null:
 				entity.target_id = target.id
 				entity.state = "chase"
-				_process_chase(sim, entity, enemy_cfg, attack, aggro_radius, leash_radius, windup_s, windup_ticks)
+				_process_chase(sim, entity, combat, aggro_radius, leash_radius, windup_ticks)
 			else:
 				var spawn_tile := Vector2i(int(floor(entity.spawn_pos.x)), int(floor(entity.spawn_pos.y)))
 				if entity.tile() != spawn_tile:
 					_step_toward_spawn(sim, entity)
 
 		"chase":
-			_process_chase(sim, entity, enemy_cfg, attack, aggro_radius, leash_radius, windup_s, windup_ticks)
+			_process_chase(sim, entity, combat, aggro_radius, leash_radius, windup_ticks)
 
 		"windup":
 			if sim.tick_count >= entity.state_end_tick:
+				var pattern := _locked_pattern(entity, combat)
+				var locked_attack: Dictionary = pattern["attack"]
 				entity.state = "active"
-				entity.state_end_tick = sim.tick_count + active_ticks
-				_perform_attack(sim, entity, enemy_cfg, attack)
+				entity.state_end_tick = sim.tick_count + _duration_ticks(float(pattern["active_s"]), sim.tick_length)
+				_perform_attack(sim, entity, enemy_cfg, locked_attack)
 
 		"active":
 			if sim.tick_count >= entity.state_end_tick:
+				var pattern := _locked_pattern(entity, combat)
 				entity.state = "recovery"
-				entity.state_end_tick = sim.tick_count + recovery_ticks
+				entity.state_end_tick = sim.tick_count + _duration_ticks(float(pattern["recovery_s"]), sim.tick_length)
 
 		"recovery":
 			if sim.tick_count >= entity.state_end_tick:
 				entity.state = "chase"
+				entity.attack_pattern = {}
 
 		"reset":
 			_step_toward_spawn(sim, entity)
@@ -132,16 +198,36 @@ static func update(sim: WorldSim, entity: Entity) -> void:
 			entity.state = "idle"
 
 
+## The attack pattern stored when the windup started, so a phase change mid-swing
+## cannot alter its shape or timings. Falls back to this tick's effective values
+## when no pattern was stored (e.g. a windup started directly).
+static func _locked_pattern(entity: Entity, combat: Dictionary) -> Dictionary:
+	var pattern: Dictionary = entity.attack_pattern
+	var attack: Dictionary = pattern.get("attack", combat["attack"])
+	return {
+		"attack": attack,
+		"active_s": float(pattern.get("active_s", combat["active_s"])),
+		"recovery_s": float(pattern.get("recovery_s", combat["recovery_s"])),
+		"phase": int(pattern.get("phase", combat["phase"])),
+	}
+
+
+static func _duration_ticks(duration_s: float, tick_length: float) -> int:
+	var ticks: int = int(round(duration_s / tick_length))
+	if ticks < 1 and duration_s > 0.0:
+		ticks = 1
+	return ticks
+
+
 static func _process_chase(
 	sim: WorldSim,
 	entity: Entity,
-	enemy_cfg: Dictionary,
-	attack: Dictionary,
+	combat: Dictionary,
 	aggro_radius: float,
 	leash_radius: float,
-	windup_s: float,
 	windup_ticks: int
 ) -> void:
+	var attack: Dictionary = combat["attack"]
 	var target: Entity = null
 	if entity.target_id > 0:
 		target = sim.get_entity(entity.target_id)
@@ -168,7 +254,8 @@ static func _process_chase(
 	if dist <= attack_range + 1e-9:
 		entity.path.clear()
 		entity.path_index = 0
-		_start_windup(sim, entity, target, attack, windup_s, windup_ticks)
+		_start_windup(sim, entity, target, attack, float(combat["windup_s"]), windup_ticks,
+			float(combat["active_s"]), float(combat["recovery_s"]), int(combat["phase"]))
 		return
 
 	var target_tile := target.tile()
@@ -183,7 +270,8 @@ static func _process_chase(
 	if dist <= attack_range + 1e-9:
 		entity.path.clear()
 		entity.path_index = 0
-		_start_windup(sim, entity, target, attack, windup_s, windup_ticks)
+		_start_windup(sim, entity, target, attack, float(combat["windup_s"]), windup_ticks,
+			float(combat["active_s"]), float(combat["recovery_s"]), int(combat["phase"]))
 
 
 static func _start_windup(
@@ -192,7 +280,10 @@ static func _start_windup(
 	target: Entity,
 	attack: Dictionary,
 	windup_s: float,
-	windup_ticks: int
+	windup_ticks: int,
+	active_s: float = -1.0,
+	recovery_s: float = -1.0,
+	phase: int = 1
 ) -> void:
 	entity.state = "windup"
 	entity.state_end_tick = sim.tick_count + windup_ticks
@@ -202,6 +293,12 @@ static func _start_windup(
 		entity.locked_dir = Vector2.RIGHT
 	else:
 		entity.locked_dir = to_target.normalized()
+
+	entity.attack_pattern = {"attack": attack, "phase": phase}
+	if active_s >= 0.0:
+		entity.attack_pattern["active_s"] = active_s
+	if recovery_s >= 0.0:
+		entity.attack_pattern["recovery_s"] = recovery_s
 
 	var event: Dictionary = {
 		"type": "telegraph_start",
@@ -217,6 +314,8 @@ static func _start_windup(
 	for k in attack.keys():
 		if not event.has(k) and k != "damage_mult":
 			event[k] = attack[k]
+	if phase == 2:
+		event["phase"] = 2
 	sim.record_event(event)
 
 
