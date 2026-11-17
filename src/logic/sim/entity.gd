@@ -27,6 +27,9 @@ var state: String = "idle"
 var state_end_tick: int = 0
 var locked_origin: Vector2 = Vector2.ZERO
 var locked_dir: Vector2 = Vector2.ZERO
+## Attack pattern locked in when the current windup starts: its attack shape,
+## effective timings and phase. Empty while not attacking.
+var attack_pattern: Dictionary = {}
 var spawn_pos: Vector2 = Vector2.ZERO
 var enemy_type_id: String = ""
 var recovery_damage_mult: float = 1.0
