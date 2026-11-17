@@ -73,12 +73,16 @@ func test_milestone1_slice_end_to_end_flow() -> void:
 	assert_false(initial_char_id.is_empty(), "Character ID must be non-empty")
 	assert_false(initial_char_name.is_empty(), "Character name must be non-empty")
 
-	# Find real slice zone enemy (ash_stalker)
+	# Find a real slice zone enemy. Only ash_stalker has a loot table; the
+	# streamed city start chunks may not hold one, so spawn one on open town
+	# floor when needed.
 	var enemy: Entity = null
 	for ent: Entity in view.world.entities.values():
 		if ent.kind == "enemy" and ent.enemy_type_id == "ash_stalker":
 			enemy = ent
 			break
+	if enemy == null:
+		enemy = view.world.spawn_enemy("ash_stalker", Vector2i(view.zone.entry) + Vector2i(2, 0))
 	assert_not_null(enemy, "Real slice zone enemy (ash_stalker) must be present in the world")
 	assert_false(enemy.dead, "Enemy must initially be alive")
 	assert_gt(enemy.hp, 0.0, "Enemy must have positive HP")

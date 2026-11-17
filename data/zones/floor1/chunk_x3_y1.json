@@ -1,14 +1,5 @@
 {
   "legend": {
-    ",": {
-      "type": "grass",
-      "walkable": true,
-      "decor": "grass_tuft"
-    },
-    ".": {
-      "type": "grass",
-      "walkable": true
-    },
     "1": {
       "type": "town_floor",
       "walkable": false,
