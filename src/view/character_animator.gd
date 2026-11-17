@@ -14,6 +14,7 @@ const ANIM_IDLE: String = AnimState.ANIM_IDLE
 const ANIM_WALK: String = AnimState.ANIM_WALK
 const ANIM_SLASH: String = AnimState.ANIM_SLASH
 const ANIM_HURT: String = AnimState.ANIM_HURT
+const ANIM_SCREAM: String = AnimState.ANIM_SCREAM
 const ANIM_DEATH: String = AnimState.ANIM_DEATH
 
 var facing: String = AnimState.DIR_DOWN
@@ -103,8 +104,9 @@ func hurt_ticks_left(now_tick: int) -> int:
 ## attack_dir is a Vector2 toward the attack target when an attack started this frame
 ## (null otherwise), now_tick is the sim tick count (movement and hurt are judged per
 ## tick), slash_seconds is how long a new slash should last (0 = layout fps; see
-## slash_seconds_within for attack cycles, an enemy passes its windup).
-func update(sprite: LayeredSprite, pos: Vector2, dead: bool, attack_dir: Variant = null, now_tick: int = 0, slash_seconds: float = 0.0) -> void:
+## slash_seconds_within for attack cycles, an enemy passes its windup), and
+## is_screaming plays the layout's "scream" row (layouts without it fall back to idle).
+func update(sprite: LayeredSprite, pos: Vector2, dead: bool, attack_dir: Variant = null, now_tick: int = 0, slash_seconds: float = 0.0, is_screaming: bool = false) -> void:
 	if sprite == null:
 		return
 	var prev_pos := _last_pos if _has_last_pos else pos
@@ -122,7 +124,7 @@ func update(sprite: LayeredSprite, pos: Vector2, dead: bool, attack_dir: Variant
 	var aim: Vector2 = attack_dir as Vector2 if new_attack else Vector2.ZERO
 
 	var octant_dirs := AnimState.octant_dirs_from_layout(sprite.layout)
-	var state := AnimState.state_for(move, new_attack or finishing_slash, hurt_ticks_left(now_tick), dead, aim, facing, octant_dirs)
+	var state := AnimState.state_for(move, new_attack or finishing_slash, hurt_ticks_left(now_tick), dead, aim, facing, octant_dirs, is_screaming)
 	var anim: String = state["anim"]
 	# While a slash finishes, keep facing the swing direction.
 	if not (anim == ANIM_SLASH and not new_attack):
@@ -131,6 +133,11 @@ func update(sprite: LayeredSprite, pos: Vector2, dead: bool, attack_dir: Variant
 	_hurt_restart = false
 
 	if not sprite.has_animation(anim):
+		# Only the boss layout has a "scream" row; other art must not freeze on its
+		# last animation, so it falls back to idle for the duration of the scream.
+		if anim == ANIM_SCREAM and sprite.has_animation(ANIM_IDLE):
+			if sprite.current_anim != ANIM_IDLE or not sprite.is_playing:
+				sprite.play(ANIM_IDLE, facing)
 		return
 	if anim == ANIM_SLASH:
 		if new_attack:

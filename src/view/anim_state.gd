@@ -9,6 +9,7 @@ const ANIM_IDLE: String = "idle"
 const ANIM_WALK: String = "walk"
 const ANIM_SLASH: String = "slash"
 const ANIM_HURT: String = "hurt"
+const ANIM_SCREAM: String = "scream"
 const ANIM_DEATH: String = "death"
 
 const DIR_UP: String = "up"
@@ -54,25 +55,30 @@ static func facing_from_vector(v: Vector2, p_fallback: String = DIR_DOWN) -> Str
 
 
 ## Returns {"anim": String, "dir": String}.
-## Priority: death > hurt (hurt_ticks > 0) > slash (is_attacking) > walk (pos moved) > idle.
+## Priority: death > scream > hurt (hurt_ticks > 0) > slash (is_attacking) >
+## walk (pos moved) > idle.
 ## dir comes from aim while attacking, else from movement, else prev_dir is kept.
-static func anim_for(prev_pos: Vector2, pos: Vector2, is_attacking: bool, hurt_ticks: int, is_dead: bool, aim: Vector2 = Vector2.ZERO, prev_dir: String = DIR_DOWN, octant_dirs: Array = DEFAULT_OCTANT_DIRS) -> Dictionary:
-	return state_for(pos - prev_pos, is_attacking, hurt_ticks, is_dead, aim, prev_dir, octant_dirs)
+## A screaming entity is rooted and keeps its facing until the scream ends.
+static func anim_for(prev_pos: Vector2, pos: Vector2, is_attacking: bool, hurt_ticks: int, is_dead: bool, aim: Vector2 = Vector2.ZERO, prev_dir: String = DIR_DOWN, octant_dirs: Array = DEFAULT_OCTANT_DIRS, is_screaming: bool = false) -> Dictionary:
+	return state_for(pos - prev_pos, is_attacking, hurt_ticks, is_dead, aim, prev_dir, octant_dirs, is_screaming)
 
 
 ## Same as anim_for but from the movement vector of this step (zero = standing still).
-static func state_for(move: Vector2, is_attacking: bool, hurt_ticks: int, is_dead: bool, aim: Vector2 = Vector2.ZERO, prev_dir: String = DIR_DOWN, octant_dirs: Array = DEFAULT_OCTANT_DIRS) -> Dictionary:
+static func state_for(move: Vector2, is_attacking: bool, hurt_ticks: int, is_dead: bool, aim: Vector2 = Vector2.ZERO, prev_dir: String = DIR_DOWN, octant_dirs: Array = DEFAULT_OCTANT_DIRS, is_screaming: bool = false) -> Dictionary:
 	var moving := not move.is_zero_approx()
 
 	var dir := prev_dir
-	if is_attacking and not aim.is_zero_approx():
-		dir = dir_for_vector(aim, prev_dir, octant_dirs)
-	elif moving:
-		dir = dir_for_vector(move, prev_dir, octant_dirs)
+	if not is_screaming:
+		if is_attacking and not aim.is_zero_approx():
+			dir = dir_for_vector(aim, prev_dir, octant_dirs)
+		elif moving:
+			dir = dir_for_vector(move, prev_dir, octant_dirs)
 
 	var anim := ANIM_IDLE
 	if is_dead:
 		anim = ANIM_DEATH
+	elif is_screaming:
+		anim = ANIM_SCREAM
 	elif hurt_ticks > 0:
 		anim = ANIM_HURT
 	elif is_attacking:

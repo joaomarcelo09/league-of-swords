@@ -299,6 +299,8 @@ func _init_game() -> void:
 		add_child(camera)
 	camera.enabled = true
 	camera.setup(registry)
+	if entity_layer != null:
+		entity_layer.camera = camera
 	_update_camera_bounds()
 
 	# 9. Setup PlayerInput

@@ -4,6 +4,10 @@ extends Node2D
 const DEFAULT_TELEGRAPH_COLOR := Color(1.0, 0.15, 0.15, 0.35)
 const DEFAULT_TELEGRAPH_FILL_COLOR := Color(1.0, 0.1, 0.1, 0.7)
 const DEFAULT_TELEGRAPH_LINE_COLOR := Color(1.0, 0.2, 0.2, 0.9)
+const DEFAULT_TRANSITION_TELEGRAPH_COLOR := Color(1.0, 0.55, 0.12, 0.3)
+const DEFAULT_TRANSITION_TELEGRAPH_FILL_COLOR := Color(1.0, 0.62, 0.15, 0.8)
+const DEFAULT_TRANSITION_TELEGRAPH_LINE_COLOR := Color(1.0, 0.88, 0.45, 1.0)
+const DEFAULT_TRANSITION_LINE_WIDTH: float = 3.0
 
 var progress: float = 0.0
 var elapsed: float = 0.0
@@ -17,10 +21,14 @@ var width_val: float = 0.0
 var angle_deg: float = 0.0
 var radius_val: float = 0.0
 var tile_px: int = 32
+## Phase 2 scream charge: a circle charged at the caster, drawn in the stronger
+## transition tint from balance.json.
+var transition: bool = false
 
 var telegraph_color: Color = DEFAULT_TELEGRAPH_COLOR
 var telegraph_fill_color: Color = DEFAULT_TELEGRAPH_FILL_COLOR
 var telegraph_line_color: Color = DEFAULT_TELEGRAPH_LINE_COLOR
+var telegraph_line_width: float = 2.0
 
 
 func setup(event: Dictionary, p_tile_px: int, registry: DataRegistry = null) -> void:
@@ -29,6 +37,7 @@ func setup(event: Dictionary, p_tile_px: int, registry: DataRegistry = null) -> 
 	dir = event.get("dir", Vector2.RIGHT)
 	shape_type = str(event.get("shape", ""))
 	duration_s = float(event.get("duration_s", event.get("duration", 1.0)))
+	transition = bool(event.get("transition", false))
 
 	range_val = float(event.get("range", 0.0))
 	width_val = float(event.get("width", 0.0))
@@ -63,6 +72,35 @@ func _load_balance_config(registry: DataRegistry) -> void:
 		telegraph_line_color = EntityView.parse_color(line_val, DEFAULT_TELEGRAPH_LINE_COLOR)
 	else:
 		push_warning("TelegraphView: missing balance key 'view.telegraph_line_color'")
+
+	if not transition:
+		return
+	# Transition charges are the boss's biggest tell: brighter, thicker and warmer
+	# than a normal attack telegraph, all from balance.json.
+	var t_color: Variant = registry.get_balance("view.transition_telegraph_color")
+	if t_color != null:
+		telegraph_color = EntityView.parse_color(t_color, DEFAULT_TRANSITION_TELEGRAPH_COLOR)
+	else:
+		push_warning("TelegraphView: missing balance key 'view.transition_telegraph_color'")
+
+	var t_fill: Variant = registry.get_balance("view.transition_telegraph_fill_color")
+	if t_fill != null:
+		telegraph_fill_color = EntityView.parse_color(t_fill, DEFAULT_TRANSITION_TELEGRAPH_FILL_COLOR)
+	else:
+		push_warning("TelegraphView: missing balance key 'view.transition_telegraph_fill_color'")
+
+	var t_line: Variant = registry.get_balance("view.transition_telegraph_line_color")
+	if t_line != null:
+		telegraph_line_color = EntityView.parse_color(t_line, DEFAULT_TRANSITION_TELEGRAPH_LINE_COLOR)
+	else:
+		push_warning("TelegraphView: missing balance key 'view.transition_telegraph_line_color'")
+
+	var width_key: Variant = registry.get_balance("view.transition_telegraph_line_width")
+	if width_key != null and float(width_key) > 0.0:
+		telegraph_line_width = float(width_key)
+	else:
+		telegraph_line_width = DEFAULT_TRANSITION_LINE_WIDTH
+		push_warning("TelegraphView: missing balance key 'view.transition_telegraph_line_width'")
 
 
 func advance(dt: float) -> void:
@@ -164,6 +202,8 @@ func _draw_line() -> void:
 
 
 func get_circle_center_px() -> Vector2:
+	if transition:
+		return Vector2.ZERO  # the scream charges on the caster's origin, never offset
 	if range_val <= 0.0:
 		return Vector2.ZERO
 	var offset: Vector2 = dir
@@ -172,17 +212,30 @@ func get_circle_center_px() -> Vector2:
 	return offset * float(tile_px)
 
 
+## Full radius of the circle in pixels (the telegraph grows to this by duration_s).
+func circle_radius_px() -> float:
+	return radius_val * float(tile_px)
+
+
+## Radius currently filled in pixels (0 at the start, circle_radius_px at impact).
+func current_circle_radius_px() -> float:
+	return circle_radius_px() * progress
+
+
 func _draw_circle() -> void:
-	var radius_px := radius_val * float(tile_px)
+	var radius_px := circle_radius_px()
 	if radius_px <= 0.0:
 		return
 
 	var center := get_circle_center_px()
 
-	# Full background circle
+	# Full background circle with an outline at the final radius, so the player can
+	# read the whole danger zone while the fill grows from the centre.
 	draw_circle(center, radius_px, telegraph_color)
-	draw_arc(center, radius_px, 0.0, TAU, 32, telegraph_line_color, 2.0)
+	draw_arc(center, radius_px, 0.0, TAU, 48, telegraph_line_color, telegraph_line_width)
 
 	# Filling progress circle
 	if progress > 0.0:
-		draw_circle(center, radius_px * progress, telegraph_fill_color)
+		draw_circle(center, current_circle_radius_px(), telegraph_fill_color)
+		if transition and progress < 1.0:
+			draw_arc(center, current_circle_radius_px(), 0.0, TAU, 48, telegraph_line_color, maxf(1.0, telegraph_line_width - 1.0))

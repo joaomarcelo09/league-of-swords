@@ -94,6 +94,36 @@ static func _validate_phase2(phase2: Dictionary) -> Array[String]:
 		else:
 			errors.append_array(_validate_attack(phase2["attack"], "phase2.attack"))
 
+	if phase2.has("transition"):
+		if not (phase2["transition"] is Dictionary) or (phase2["transition"] as Dictionary).is_empty():
+			errors.append("phase2 has invalid 'transition' (must be non-empty Dictionary)")
+		else:
+			errors.append_array(_validate_phase2_transition(phase2["transition"], "phase2.transition"))
+
+	return errors
+
+
+## Validates the optional one-shot phase 2 transition block. Its attack must be a
+## circle: the scream charges a circular AoE around the entity.
+static func _validate_phase2_transition(transition: Dictionary, label: String) -> Array[String]:
+	var errors: Array[String] = []
+	var charge: Variant = transition.get("charge_s", null)
+	if not (charge is int or charge is float) or float(charge) <= 0.0:
+		errors.append("%s missing or invalid 'charge_s' (must be number > 0.0)" % label)
+
+	var recovery: Variant = transition.get("recovery_s", null)
+	if not (recovery is int or recovery is float) or float(recovery) < 0.0:
+		errors.append("%s missing or invalid 'recovery_s' (must be number >= 0.0)" % label)
+
+	var attack: Variant = transition.get("attack", null)
+	if not (attack is Dictionary) or (attack as Dictionary).is_empty():
+		errors.append("%s missing or invalid 'attack' (must be non-empty Dictionary)" % label)
+		return errors
+
+	var attack_dict: Dictionary = attack
+	errors.append_array(_validate_attack(attack_dict, label + ".attack"))
+	if str(attack_dict.get("shape", "")) != "circle":
+		errors.append("%s.attack 'shape' must be 'circle'" % label)
 	return errors
 
 
@@ -163,14 +193,18 @@ static func update(sim: WorldSim, entity: Entity) -> void:
 			if target != null:
 				entity.target_id = target.id
 				entity.state = "chase"
-				_process_chase(sim, entity, combat, aggro_radius, leash_radius, windup_ticks)
+				_process_chase(sim, entity, enemy_cfg, combat, aggro_radius, leash_radius, windup_ticks)
 			else:
 				var spawn_tile := Vector2i(int(floor(entity.spawn_pos.x)), int(floor(entity.spawn_pos.y)))
 				if entity.tile() != spawn_tile:
 					_step_toward_spawn(sim, entity)
 
 		"chase":
-			_process_chase(sim, entity, combat, aggro_radius, leash_radius, windup_ticks)
+			_process_chase(sim, entity, enemy_cfg, combat, aggro_radius, leash_radius, windup_ticks)
+
+		"scream":
+			if sim.tick_count >= entity.state_end_tick:
+				_impact_scream(sim, entity, enemy_cfg)
 
 		"windup":
 			if sim.tick_count >= entity.state_end_tick:
@@ -222,6 +256,7 @@ static func _duration_ticks(duration_s: float, tick_length: float) -> int:
 static func _process_chase(
 	sim: WorldSim,
 	entity: Entity,
+	enemy_cfg: Dictionary,
 	combat: Dictionary,
 	aggro_radius: float,
 	leash_radius: float,
@@ -247,6 +282,10 @@ static func _process_chase(
 
 	if not target_valid:
 		_drop_to_reset(sim, entity)
+		return
+
+	if _can_start_scream(entity, enemy_cfg):
+		_start_scream(sim, entity, enemy_cfg)
 		return
 
 	var attack_range: float = float(attack["range"])
@@ -317,6 +356,88 @@ static func _start_windup(
 	if phase == 2:
 		event["phase"] = 2
 	sim.record_event(event)
+
+
+## The optional one-shot phase 2 transition block, or an empty Dictionary when
+## the enemy has none.
+static func _phase2_transition(enemy_cfg: Dictionary) -> Dictionary:
+	var phase2: Variant = enemy_cfg.get("phase2", null)
+	if not (phase2 is Dictionary):
+		return {}
+	var transition: Variant = (phase2 as Dictionary).get("transition", null)
+	if not (transition is Dictionary) or (transition as Dictionary).is_empty():
+		return {}
+	return transition
+
+
+## True when the entity should start its phase 2 transition scream this tick:
+## it has not done it yet, is in phase 2 and its config has a transition block.
+static func _can_start_scream(entity: Entity, enemy_cfg: Dictionary) -> bool:
+	if entity.phase2_transition_done or not is_phase2(entity, enemy_cfg):
+		return false
+	var transition := _phase2_transition(enemy_cfg)
+	return not transition.is_empty() and (transition.get("attack") is Dictionary)
+
+
+## Starts the one-shot scream: the entity stops and a circular AoE charges for
+## charge_s around the locked origin. The impact happens when the state ends.
+static func _start_scream(sim: WorldSim, entity: Entity, enemy_cfg: Dictionary) -> void:
+	var transition := _phase2_transition(enemy_cfg)
+	var attack: Dictionary = transition["attack"]
+	var charge_s := float(transition["charge_s"])
+	var charge_ticks := _duration_ticks(charge_s, sim.tick_length)
+
+	entity.state = "scream"
+	entity.state_end_tick = sim.tick_count + charge_ticks
+	entity.locked_origin = entity.pos
+	# A zero direction keeps the circle centred on the locked origin.
+	entity.locked_dir = Vector2.ZERO
+	entity.path.clear()
+	entity.path_index = 0
+	entity.attack_pattern = {}
+	entity.phase2_transition_done = true
+
+	var event: Dictionary = {
+		"type": "telegraph_start",
+		"tick": sim.tick_count,
+		"source": entity.id,
+		"shape": attack.get("shape", ""),
+		"duration": charge_s,
+		"duration_s": charge_s,
+		"duration_ticks": charge_ticks,
+		"origin": entity.locked_origin,
+		"dir": entity.locked_dir,
+		"phase": 2,
+		"transition": true,
+	}
+	for k in attack.keys():
+		if not event.has(k) and k != "damage_mult":
+			event[k] = attack[k]
+	sim.record_event(event)
+	sim.record_event({
+		"type": "phase_transition_start",
+		"tick": sim.tick_count,
+		"source": entity.id,
+		"duration_s": charge_s,
+	})
+
+
+## Applies the charged circle at the locked origin, records the impact event and
+## hands the entity over to a normal recovery.
+static func _impact_scream(sim: WorldSim, entity: Entity, enemy_cfg: Dictionary) -> void:
+	var transition := _phase2_transition(enemy_cfg)
+	var attack: Dictionary = transition["attack"]
+	var mult: float = float(attack.get("damage_mult", 1.0))
+	sim.apply_attack_shape_damage(entity, attack, entity.locked_origin, Vector2.ZERO, mult, "player")
+	sim.record_event({
+		"type": "phase_transition_impact",
+		"tick": sim.tick_count,
+		"source": entity.id,
+		"origin": entity.locked_origin,
+		"radius": float(attack.get("radius", 0.0)),
+	})
+	entity.state = "recovery"
+	entity.state_end_tick = sim.tick_count + _duration_ticks(float(transition["recovery_s"]), sim.tick_length)
 
 
 static func _perform_attack(

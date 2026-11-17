@@ -177,3 +177,38 @@ func test_animator_slash_finishes_before_walk() -> void:
 	anim.update(sprite, P + Vector2(0.2, 0), false, null, 3)
 	assert_eq(sprite.current_anim, "walk")
 	assert_eq(sprite.current_dir, "right")
+
+
+# --- phase 2 scream -----------------------------------------------------------------------
+
+const BOSS_LAYOUT_PATH := "res://data/sprites/layout_thornback_warden.json"
+
+
+func test_scream_wins_over_hurt_and_walk_and_keeps_facing() -> void:
+	var r := AnimState.state_for(Vector2(1, 0), false, 5, false, Vector2.RIGHT, "left", AnimState.DEFAULT_OCTANT_DIRS, true)
+	assert_eq(r["anim"], AnimState.ANIM_SCREAM, "scream beats hurt and movement")
+	assert_eq(r["dir"], "left", "a rooted scream keeps its facing")
+	assert_eq(AnimState.state_for(Vector2.ZERO, false, 0, true, Vector2.ZERO, "up", AnimState.DEFAULT_OCTANT_DIRS, true)["anim"], AnimState.ANIM_DEATH, "death beats scream")
+
+
+func test_animator_plays_boss_scream_and_returns_to_idle() -> void:
+	var sprite: LayeredSprite = autofree(LayeredSprite.new(BOSS_LAYOUT_PATH))
+	var anim := CharacterAnimator.new()
+	anim.reset(P)
+	anim.update(sprite, P, false, null, 0, 0.0, true)
+	assert_eq(sprite.current_anim, AnimState.ANIM_SCREAM)
+	assert_eq(sprite.current_dir, AnimState.DIR_DOWN)
+	sprite.advance(2.5)
+	assert_eq(sprite.current_anim, AnimState.ANIM_SCREAM)
+	assert_true(sprite.is_playing, "the scream loops while the charge lasts")
+	anim.update(sprite, P, false, null, 1, 0.0, false)
+	assert_eq(sprite.current_anim, AnimState.ANIM_IDLE, "idle again after the scream")
+
+
+func test_animator_scream_without_the_anim_falls_back_to_idle() -> void:
+	var sprite: LayeredSprite = autofree(LayeredSprite.new(LAYOUT_PATH))
+	var anim := CharacterAnimator.new()
+	anim.reset(P)
+	assert_false(sprite.has_animation(AnimState.ANIM_SCREAM), "the shared layout has no scream")
+	anim.update(sprite, P, false, null, 0, 0.0, true)
+	assert_eq(sprite.current_anim, AnimState.ANIM_IDLE, "no scream row -> idle, not a frozen sprite")

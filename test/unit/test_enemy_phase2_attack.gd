@@ -31,6 +31,9 @@ func _spawn_boss_with_players() -> Dictionary:
 	var sim := WorldSim.new(_zone, _registry)
 	var boss := sim.spawn_enemy(BOSS_ID, BOSS_TILE)
 	assert_not_null(boss, "boss spawns")
+	# These tests cover the phase 2 cleaver; JGT-130's one-shot transition is
+	# consumed here so it cannot delay the sweep they assert on.
+	boss.phase2_transition_done = true
 	var near := sim.spawn("player", NEAR_TILE, 0.0, 100.0)
 	var wide := sim.spawn("player", WIDE_TILE, 0.0, 100.0)
 	return {"sim": sim, "boss": boss, "near": near, "wide": wide}

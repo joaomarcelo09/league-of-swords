@@ -78,7 +78,17 @@
       },
       "windup_s": 0.9,
       "active_s": 0.3,
-      "recovery_s": 1.0
+      "recovery_s": 1.0,
+      "transition": {
+        "charge_s": 2.0,
+        "recovery_s": 0.8,
+        "attack": {
+          "shape": "circle",
+          "range": 4.0,
+          "radius": 4.0,
+          "damage_mult": 3.0
+        }
+      }
     },
     "max_hp": 600.0,
     "atk": 12.0,

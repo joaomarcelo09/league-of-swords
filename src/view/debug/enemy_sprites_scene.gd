@@ -1,9 +1,9 @@
 extends Node2D
 ## Debug showcase for tools/screenshot.sh: the three Floor 1 enemies plus the boss
 ## Gorvak side by side on the test arena floor, one column per layout animation (idle
-## fallback, walk, slash, hurt, death), frozen on a representative frame. A fifth row
-## repeats the boss with its phase 2 weapon layer (cleaver, targe gone) so both phases
-## show in one shot.
+## fallback, walk, slash, scream, hurt, death), frozen on a representative frame. A
+## fifth row repeats the boss with its phase 2 weapon layer (cleaver, targe gone) so
+## both phases show in one shot; only the boss has the scream rows.
 ##
 ##   tools/screenshot.sh --scene=res://scenes/debug/enemy_sprites.tscn \
 ##       --frames=30 --out=.screenshots/enemy_sprites.png
@@ -24,10 +24,10 @@ const ENEMY_IDS: Array[String] = ["ash_stalker", "bog_slime", "cinder_bat", "tho
 const ROW_WEAPON_LAYERS: Array[String] = ["", "", "", "", "weapon_phase2"]
 const ROW_LABEL_SUFFIXES: Array[String] = ["", "", "", "", "  (phase 2)"]
 const ROW_TILES: Array[float] = [5.5, 9.0, 12.5, 16.0, 19.5]
-const COLUMN_TILES: Array[float] = [3.5, 7.0, 10.5, 14.0, 17.5]
-const COLUMN_ANIMS: Array[String] = ["idle", "walk", "slash", "hurt", "death"]
+const COLUMN_TILES: Array[float] = [3.0, 6.2, 9.4, 12.6, 15.8, 19.0]
+const COLUMN_ANIMS: Array[String] = ["idle", "walk", "slash", "scream", "hurt", "death"]
 ## Representative frame of each column (death holds its last frame).
-const COLUMN_FRAMES: Array[int] = [0, 4, 3, 3, 5]
+const COLUMN_FRAMES: Array[int] = [0, 4, 3, 3, 3, 5]
 ## The cleaver is longer than the war pick, so strike frame 3 pushes a few tip pixels
 ## past the 96px cell; frame 2 is the same strike with the whole blade in frame.
 const CLEAVER_SLASH_FRAME: int = 2
@@ -86,6 +86,10 @@ func _build_row(appearances: Dictionary, row_idx: int) -> void:
 		if sprite.layout.is_empty():
 			sprite.free()
 			continue
+		if not sprite.has_animation(anim):
+			# Only the boss has the phase 2 scream rows; leave the other cells empty.
+			sprite.free()
+			continue
 		var built := CharacterAppearance.build_textures(appearance, sprite.layout)
 		var textures: Dictionary = built.get("layers", {})
 		if not weapon_layer.is_empty() and textures.has(weapon_layer):
@@ -115,7 +119,7 @@ func _add_labels() -> void:
 	var layer := CanvasLayer.new()
 	layer.name = "Labels"
 	add_child(layer)
-	_add_label(layer, "Floor 1 enemy sprites  -  Gorvak phase 1 and phase 2  -  idle / walk / slash / hurt / death", Vector2(280, 8), 20)
+	_add_label(layer, "Floor 1 enemy sprites  -  Gorvak phase 1 and phase 2  -  idle / walk / slash / scream / hurt / death", Vector2(220, 8), 20)
 	for col_idx in COLUMN_ANIMS.size():
 		_add_label(layer, COLUMN_ANIMS[col_idx], Vector2(_column_screen_x(col_idx) - 26, 40), 18)
 	for row_idx in ENEMY_IDS.size():

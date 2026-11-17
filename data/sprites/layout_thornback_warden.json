@@ -1,5 +1,5 @@
 {
-  "_comment": "Stacked boss sheet layout for Gorvak the Ashen Warden (data/enemies.json thornback_warden). Same rows and animations as the shared layout, but 96px frames so the top-heavy beast has room for its war pick and targe. sprite_offset [0, -41] puts the feet on the tile centre (ground line at frame y=89); view_scale 1.5 in enemies.json then draws it about twice the player's height. Both held items sit on the weapon layer: weapon.png (pick + targe) for phase 1 and weapon_phase2.png (cleaver, targe dropped) for phase 2, so the body art is shared by both phases.",
+  "_comment": "Stacked boss sheet layout for Gorvak the Ashen Warden (data/enemies.json thornback_warden). Same rows and animations as the shared layout plus the phase 2 scream rows 16-19, but 96px frames so the top-heavy beast has room for its war pick and targe. sprite_offset [0, -41] puts the feet on the tile centre (ground line at frame y=89); view_scale 1.5 in enemies.json then draws it about twice the player's height. Both held items sit on the weapon layer: weapon.png (pick + targe) for phase 1 and weapon_phase2.png (cleaver, targe dropped) for phase 2, so the body art is shared by both phases.",
   "frame_width": 96,
   "frame_height": 96,
   "frame_size": [
@@ -56,6 +56,17 @@
         "left": 13,
         "down": 14,
         "right": 15
+      }
+    },
+    "scream": {
+      "frame_count": 6,
+      "fps": 6.0,
+      "loop": true,
+      "rows": {
+        "up": 16,
+        "left": 17,
+        "down": 18,
+        "right": 19
       }
     },
     "hurt": {

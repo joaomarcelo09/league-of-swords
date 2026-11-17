@@ -133,6 +133,26 @@ func test_damage_in_cast_tick_aims_the_effect() -> void:
 	assert_almost_eq((fx.params["dir"] as Vector2).y, 1.0, 0.001)
 
 
+func test_phase_transition_impact_spawns_an_expanding_ring() -> void:
+	var world := _world()
+	var enemy := world.spawn("enemy", Vector2i(4, 2), 1.0, 10.0)
+	var layer := _layer(world)
+	layer.handle_event({
+		"type": "phase_transition_impact",
+		"source": enemy.id,
+		"origin": enemy.pos,
+		"radius": 4.0,
+		"tick": 1,
+	})
+	var effects := layer.get_effects()
+	assert_eq(effects.size(), 1, "the impact draws one ring")
+	assert_eq(effects[0].kind, VfxLayer.KIND_CIRCLE)
+	assert_almost_eq(float(effects[0].params["radius"]), 4.0, 0.001, "ring radius follows the event (tiles -> px)")
+	assert_almost_eq(effects[0].duration_s, float(VfxLayer.transition_impact_params(_registry)["duration_s"]), 0.001)
+	layer.handle_event({"type": "phase_transition_impact", "origin": "bad", "radius": 4.0})
+	assert_eq(layer.get_effects().size(), 1, "malformed impacts draw nothing")
+
+
 func test_dash_event_spawns_trail() -> void:
 	var world := _world()
 	var player := world.spawn("player", Vector2i(2, 2), 4.0, 100.0)
