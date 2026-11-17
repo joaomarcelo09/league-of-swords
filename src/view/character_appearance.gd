@@ -5,6 +5,8 @@ extends RefCounted
 ##
 ## An appearance entry is {"layers": {layer_name: "res://path/to/sheet.png"}}: one stacked
 ## sheet per layer (body, clothes, armor, hair, weapon), all using the same layout rows.
+## Alternate sheets (e.g. a phase 2 weapon) are just more layers; the view picks which
+## texture a drawn layer uses (see LayeredSprite.set_layer_texture).
 ## Animations with a "fallback" entry in the layout (e.g. idle -> walk frame 0) get their
 ## rows filled from the fallback frame when they lie outside a sheet, so sheets without
 ## idle rows still play idle.
