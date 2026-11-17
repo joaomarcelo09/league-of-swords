@@ -13,6 +13,11 @@
       "type": "grass",
       "walkable": true
     },
+    "R": {
+      "type": "road",
+      "walkable": true,
+      "safe": true
+    },
     "T": {
       "type": "town_floor",
       "walkable": true,

@@ -17,6 +17,11 @@
       "type": "gate_post",
       "walkable": false
     },
+    "R": {
+      "type": "road",
+      "walkable": true,
+      "safe": true
+    },
     "T": {
       "type": "town_floor",
       "walkable": true,

@@ -11,6 +11,8 @@ Layout (see .team/plans/floor1-layout-sketch.md):
   - City (safe zone, town_floor) = circle centred at (96, 64), outer radius
     61 tiles (diameter ~122), ringed by a 3 tile thick wall with an 8 tile
     wide gate on its west and east side.
+  - Central hub (hub_floor) plus four 8 tile wide roads (road) reaching the
+    wall, and a diamond tower at the exact centre (JGT-134).
   - Everything else is open plains (grass) with enemy spawns, including the
     three plains chunk columns east of the city (x6..x8).
 Chunks are joined seamlessly: neighbouring chunks share open edges, so the
@@ -52,6 +54,14 @@ HOUSE_MAX_CITY_DIST = 50.0  # houses stay at least 8 tiles inside the floor edge
 RIM_TORCH_RADIUS = 54.0  # torch ring just inside the wall
 RIM_TORCH_GATE_CLEARANCE = 6  # keep rim torches this far (in y) off the gate rows
 
+# Central hub, diamond tower and the four roads out to the city wall (JGT-134).
+# The hub diameter is 22% of the city diameter, so the radius ratio is the same.
+HUB_RADIUS = CITY_RADIUS * 0.22  # ~13.4 tiles
+ROAD_WIDTH = 8  # matches the 8 tile gates: E/W rows 60..67, N/S columns 92..99
+ROAD_X_MIN = int(CITY_CX - ROAD_WIDTH / 2)  # 92
+ROAD_Y_MIN = int(CITY_CY - ROAD_WIDTH / 2)  # 60
+TOWER_RADIUS = 3.0  # Manhattan diamond half-diagonal around the exact city centre
+
 # Rounded corners of the outer wall (radius in tiles).
 CORNER_RADIUS = 6
 
@@ -59,7 +69,7 @@ SEED = 20261116
 DEFAULT_OUT_DIR = os.path.join("data", "zones", "floor1")
 
 # Plaza, merchant and entry, as world tiles.
-FOUNTAIN = (95, 60)  # top-left of a 2x2 fountain
+FOUNTAIN = (93, 60)  # top-left of a 2x2 fountain, clear of the central tower
 ENTRY = (93, 58)
 MERCHANT_TILE = (90, 60)
 MERCHANT = {"id": "floor1_city_merchant", "kind": "merchant", "name": "Merchant Tavi"}
@@ -114,11 +124,15 @@ LEGEND = {
     ".": {"type": "grass", "walkable": True},
     ",": {"type": "grass", "walkable": True, "decor": "grass_tuft"},
     "T": {"type": "town_floor", "walkable": True, "safe": True},
+    "o": {"type": "hub_floor", "walkable": True, "safe": True},
+    "R": {"type": "road", "walkable": True, "safe": True},
+    "X": {"type": "hub_floor", "walkable": False, "safe": True, "decor": "tower"},
     "H": {"type": "town_floor", "walkable": False, "safe": True, "decor": "house"},
-    "F": {"type": "town_floor", "walkable": False, "safe": True, "decor": "fountain"},
+    "F": {"type": "hub_floor", "walkable": False, "safe": True, "decor": "fountain"},
     "t": {"type": "town_floor", "walkable": False, "safe": True, "decor": "torch"},
-    "B": {"type": "town_floor", "walkable": False, "safe": True, "decor": "barrel"},
-    "K": {"type": "town_floor", "walkable": False, "safe": True, "decor": "crate"},
+    "u": {"type": "hub_floor", "walkable": False, "safe": True, "decor": "torch"},
+    "B": {"type": "hub_floor", "walkable": False, "safe": True, "decor": "barrel"},
+    "K": {"type": "hub_floor", "walkable": False, "safe": True, "decor": "crate"},
     "G": {"type": "gate", "walkable": True},
     "P": {"type": "gate_post", "walkable": False},
 }
@@ -152,6 +166,31 @@ def on_city_floor(x: int, y: int) -> bool:
 def on_city_wall(x: int, y: int) -> bool:
     """True on the 3 tile thick wall that rings the city floor."""
     return CITY_FLOOR_RADIUS < city_dist(x, y) <= CITY_RADIUS
+
+
+def on_hub(x: int, y: int) -> bool:
+    """True on the circular central plaza."""
+    return city_dist(x, y) <= HUB_RADIUS
+
+
+def on_tower(x: int, y: int) -> bool:
+    """True on the diamond tower footprint, centred on the exact city centre."""
+    return abs(x + 0.5 - CITY_CX) + abs(y + 0.5 - CITY_CY) <= TOWER_RADIUS
+
+
+def on_road(x: int, y: int) -> bool:
+    """True on one of the four straight roads from the hub edge to the city wall.
+
+    The east/west roads run through the gate openings; the north/south roads
+    stop at the inner edge of the wall ring.
+    """
+    dx = x + 0.5 - CITY_CX
+    dy = y + 0.5 - CITY_CY
+    on_ew_row = ROAD_Y_MIN <= y < ROAD_Y_MIN + ROAD_WIDTH
+    on_ns_col = ROAD_X_MIN <= x < ROAD_X_MIN + ROAD_WIDTH
+    if on_ew_row and HUB_RADIUS < abs(dx) <= CITY_RADIUS:
+        return True
+    return on_ns_col and HUB_RADIUS < abs(dy) <= CITY_FLOOR_RADIUS
 
 
 def is_outer_wall(x: int, y: int) -> bool:
@@ -188,6 +227,8 @@ def rim_torches() -> list[tuple[int, int]]:
         on_gate_side = tx < CITY_CX or tx > CITY_CX
         if on_gate_side and near_gate_rows:
             continue
+        if on_road(tx, ty):
+            continue  # the N/S roads reach the rim torch ring
         tiles.append((tx, ty))
     return tiles
 
@@ -253,6 +294,20 @@ def carve_city_gates(grid: list[list[str]]) -> None:
                 grid[y][x] = "P"
 
 
+def paint_city_center(grid: list[list[str]]) -> None:
+    """Stamp the central hub, its four roads and the diamond tower."""
+    for y in range(HEIGHT):
+        for x in range(WIDTH):
+            if on_hub(x, y):
+                grid[y][x] = "o"
+            elif on_road(x, y):
+                grid[y][x] = "R"
+    for y in range(HEIGHT):
+        for x in range(WIDTH):
+            if on_tower(x, y):
+                grid[y][x] = "X"
+
+
 def build_world(rng: random.Random) -> list[list[str]]:
     grid = [["." for _ in range(WIDTH)] for _ in range(HEIGHT)]
     for y in range(HEIGHT):
@@ -266,6 +321,7 @@ def build_world(rng: random.Random) -> list[list[str]]:
             elif rng.random() < 0.05:
                 grid[y][x] = ","
     carve_city_gates(grid)
+    paint_city_center(grid)
 
     # Houses (JGT-123): bigger footprints assembled from roof/wall/window/door parts.
     icx, icy = HOUSE_ANCHOR
@@ -274,6 +330,13 @@ def build_world(rng: random.Random) -> list[list[str]]:
     for layout in house_layouts():
         hx, hy = icx + layout["dx"], icy + layout["dy"]
         w, h = layout["w"], layout["h"]
+        # Keep the hub and the roads clear (JGT-134 will rebuild these houses).
+        if any(
+            on_hub(hx + i, hy + j) or on_road(hx + i, hy + j)
+            for j in range(-1, h + 1)
+            for i in range(-1, w + 1)
+        ):
+            continue
         cells = [(hx + i, hy + j) for j in range(h) for i in range(w)]
         assert all(city_dist(cx, cy) <= HOUSE_MAX_CITY_DIST for cx, cy in cells), "house %s outside the city core" % str(layout)
         houses.append(dict(layout, x=hx, y=hy, cells=cells))
@@ -300,7 +363,7 @@ def build_world(rng: random.Random) -> list[list[str]]:
     grid[BARREL[1]][BARREL[0]] = "B"
     grid[CRATE[1]][CRATE[0]] = "K"
     for tx, ty in PLAZA_TORCHES:
-        grid[ty][tx] = "t"
+        grid[ty][tx] = "u"
 
     # Torch posts in a ring just inside the city wall.
     for tx, ty in rim_torches():
@@ -310,7 +373,7 @@ def build_world(rng: random.Random) -> list[list[str]]:
         grid[GATE_Y][x] = "P" if x in (GATE_X0 - 1, GATE_X0 + GATE_W) else "G"
 
     for x, y in (ENTRY, MERCHANT_TILE):
-        assert grid[y][x] == "T", "entry/merchant must be on open town floor"
+        assert grid[y][x] == "o", "entry/merchant must be on open hub floor"
     return grid
 
 

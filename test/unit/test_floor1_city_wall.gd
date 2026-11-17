@@ -184,7 +184,7 @@ func test_both_gates_are_walkable_and_eight_wide() -> void:
 		for t: Vector2i in openings:
 			var zone := _zone_at(t)
 			assert_true(zone.is_safe(_local(t)), "gate tile %s is safe floor" % str(t))
-			assert_eq(_tile_type(t), "town_floor", "gate tile %s is town floor" % str(t))
+			assert_true(_tile_type(t) in ["town_floor", "road"], "gate tile %s is paved floor" % str(t))
 			rows[t.y] = true
 			columns[t.x] = true
 		assert_eq(rows.size(), GATE_WIDTH, "the gate is %d tiles wide" % GATE_WIDTH)
