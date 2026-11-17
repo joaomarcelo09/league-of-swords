@@ -1,8 +1,9 @@
 extends GutTest
 
-## JGT-123: Floor 1 houses are multi-tile (5x4 and 4x3) compositions of roof,
-## wall, window and door decor parts. Every footprint is blocked except its
-## door cell, which faces open town floor and is reachable from the entry.
+## JGT-123/JGT-135: Floor 1 houses are multi-tile (8x6 and 7x5) compositions
+## of roof, wall, window and door decor parts. Every footprint is blocked
+## except its door cell, which faces open town floor and is reachable from the
+## entry.
 
 const ZONES_DIR := "res://data/zones/floor1"
 const WORLD_PATH := ZONES_DIR + "/world.json"
@@ -10,7 +11,7 @@ const TILESET_PATH := "res://data/tilesets/floor1.json"
 const ATLAS_PATH := "res://assets/tiles/world_tiles.png"
 const CHUNK := 32
 const TILE_PX := 32
-const HOUSE_SIZES := [Vector2i(5, 4), Vector2i(4, 3)]
+const HOUSE_SIZES := [Vector2i(8, 6), Vector2i(7, 5)]
 const MIN_HOUSES := 4
 
 ## Plaza layout from tools/gen_floor1_layout.py: houses must leave these alone.
@@ -117,7 +118,7 @@ func test_house_parts_exist_in_tileset_and_atlas() -> void:
 		assert_between(c.y, 0, rows - 1, "house part '%s' y inside the atlas" % decor)
 
 
-func test_every_house_is_a_solid_5x4_or_4x3_rectangle() -> void:
+func test_every_house_is_a_solid_8x6_or_7x5_rectangle() -> void:
 	var cells := _house_cells()
 	var comps := _components(cells)
 	assert_gte(comps.size(), MIN_HOUSES, "the city has several big houses")
@@ -133,10 +134,11 @@ func test_every_house_is_a_solid_5x4_or_4x3_rectangle() -> void:
 			max_t = Vector2i(maxi(max_t.x, t.x), maxi(max_t.y, t.y))
 		var size := max_t - min_t + Vector2i.ONE
 		assert_eq(comp.size(), size.x * size.y, "house at %s must be a solid rectangle" % str(min_t))
-		assert_true(HOUSE_SIZES.has(size), "house at %s is 5x4 or 4x3, got %s" % [str(min_t), str(size)])
+		assert_true(HOUSE_SIZES.has(size), "house at %s is 8x6 or 7x5, got %s" % [str(min_t), str(size)])
+		assert_true(size.x >= 7 and size.y >= 5, "house at %s is at least 7x5" % str(min_t))
 		size_counts[size] = int(size_counts.get(size, 0)) + 1
-	assert_true(size_counts.has(Vector2i(5, 4)), "5x4 houses exist")
-	assert_true(size_counts.has(Vector2i(4, 3)), "4x3 houses exist")
+	assert_true(size_counts.has(Vector2i(8, 6)), "8x6 houses exist")
+	assert_true(size_counts.has(Vector2i(7, 5)), "7x5 houses exist")
 	assert_true(variants.has("a") and variants.has("b"), "both house palettes are used")
 
 

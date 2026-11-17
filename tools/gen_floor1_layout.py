@@ -78,15 +78,16 @@ CRATE = (89, 62)
 PLAZA_TORCHES = [(92, 56), (99, 56), (92, 65), (99, 65)]
 RIM_TORCH_COUNT = 12
 
-# Houses (JGT-123): multi-tile footprints (5x4 and 4x3) assembled from roof,
+# Houses (JGT-123): multi-tile footprints (8x6 and 7x5) assembled from roof,
 # wall, window and door parts. Offsets are top-left tiles from the city centre;
-# doors always face south onto open town floor.
-HOUSE_SIZES = [(5, 4), (4, 3)]
+# doors always face south onto open town floor. Rows leave room for the wider
+# footprints and the one tile door approach between them.
+HOUSE_SIZES = [(8, 6), (7, 5)]
 HOUSE_ROWS = [
-    (-24, [-20, -12, -4, 4, 11]),
-    (-16, [-27, -19, -11, -3, 5, 13, 20]),
-    (10, [-27, -19, -11, -3, 5, 13, 20]),
-    (18, [-20, -12, -4, 4, 11]),
+    (-24, [-26, -17, -8, 3, 14, 25]),
+    (-16, [-28, -18, -8, 2, 12, 22]),
+    (10, [-29, -20, -9, 2, 13, 23]),
+    (18, [-29, -19, -8, 3, 12, 22]),
 ]
 
 # Legend chars per house part. Variant "a" is warm red roof / cream wall,
@@ -252,7 +253,7 @@ def house_layouts() -> list[dict]:
             w, h = HOUSE_SIZES[(row_idx + col_idx) % 2]
             slot = row_idx * 2 + col_idx
             door_i = 1 + slot % (w - 2)
-            layouts.append({
+            layout = {
                 "dx": dx,
                 "dy": dy,
                 "w": w,
@@ -260,8 +261,13 @@ def house_layouts() -> list[dict]:
                 "variant": "a" if (row_idx + col_idx // 2) % 2 == 0 else "b",
                 "door_i": door_i,
                 "window_i": 1 + door_i % (w - 2),
-                "window_row": h - 2 if h > 3 else h - 1,
-            })
+                "window_row": h - 2,
+            }
+            if w >= 7:
+                # Wider houses get a second window on another wall row.
+                layout["window_i2"] = 1 + (door_i + 3) % (w - 2)
+                layout["window_row2"] = h - 3
+            layouts.append(layout)
     return layouts
 
 
@@ -278,6 +284,8 @@ def house_part_char(house: dict, i: int, j: int) -> str:
     if j == h - 1 and i == house["door_i"]:
         return parts["door"]
     if j == house["window_row"] and i == house["window_i"]:
+        return parts["window"]
+    if j == house.get("window_row2") and i == house.get("window_i2"):
         return parts["window"]
     return parts["wall"]
 
