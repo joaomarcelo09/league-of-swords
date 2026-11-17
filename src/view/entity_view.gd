@@ -16,6 +16,11 @@ const LAYOUT_DIR: String = "res://data/sprites/"
 ## Enemy "layout" value that selects LayeredSprite.DEFAULT_LAYOUT_PATH.
 const DEFAULT_LAYOUT_ID: String = "default"
 const DEFAULT_VIEW_SCALE: float = 1.0
+## Layer name an enemy's held weapon is drawn on; the phase 2 block swaps its texture.
+const DEFAULT_WEAPON_LAYER: String = "weapon"
+## Enemy "phase2" view block keys (data/enemies.json).
+const PHASE2_HP_KEY: String = "hp_ratio_below"
+const PHASE2_LAYER_KEY: String = "weapon_layer"
 
 var entity_id: int = 0
 var entity: Entity = null
@@ -41,6 +46,12 @@ var sprite: LayeredSprite = null
 var sprite_source: String = CharacterAppearance.SOURCE_NONE
 ## Visual-only sprite scale from the enemy type's "view_scale" (logic hitbox unchanged).
 var view_scale: float = DEFAULT_VIEW_SCALE
+## Enemy "phase2" view block ({} = no phase swap), e.g.
+## {"hp_ratio_below": 0.35, "weapon_layer": "weapon_phase2"}.
+var phase2: Dictionary = {}
+## Weapon layer whose texture is currently drawn ("weapon" until the phase 2 threshold).
+var weapon_layer: String = DEFAULT_WEAPON_LAYER
+var _weapon_layer_textures: Dictionary = {}
 var animator: CharacterAnimator = CharacterAnimator.new()
 ## Sim clock, set by EntityLayer before each sync (drives the hurt reaction).
 var now_tick: int = 0
@@ -153,6 +164,7 @@ func sync(lerp_weight: float = 1.0) -> void:
 	hp = entity.hp
 	max_hp = _resolve_max_hp()
 	hp_ratio = clampf(hp / max_hp, 0.0, 1.0) if max_hp > 0.0 else 0.0
+	_update_weapon_phase()
 
 	if sprite != null:
 		var attack_dir: Variant = _pending_attack_dir
@@ -195,6 +207,20 @@ static func view_scale_from_entry(enemy_entry: Dictionary) -> float:
 	if (val is float or val is int) and float(val) > 0.0:
 		return float(val)
 	return DEFAULT_VIEW_SCALE
+
+
+## Pure: the weapon layer an enemy should draw at p_hp_ratio. A missing or invalid
+## "phase2" block (no layer name, threshold outside 0..1) keeps p_base_layer, so art
+## without a phase 2 sheet never breaks. View only: it reads state, never changes it.
+static func weapon_layer_for(p_hp_ratio: float, p_phase2: Dictionary, p_base_layer: String = DEFAULT_WEAPON_LAYER) -> String:
+	var layer := str(p_phase2.get(PHASE2_LAYER_KEY, "")).strip_edges()
+	var threshold: Variant = p_phase2.get(PHASE2_HP_KEY, null)
+	if layer.is_empty() or not (threshold is float or threshold is int):
+		return p_base_layer
+	var hp_below := float(threshold)
+	if hp_below <= 0.0 or hp_below >= 1.0:
+		return p_base_layer
+	return layer if p_hp_ratio < hp_below else p_base_layer
 
 
 ## True if this view draws a layered sprite (false = hexagon fallback).
@@ -255,6 +281,10 @@ func _build_sprite() -> void:
 	if textures.is_empty():
 		new_sprite.free()
 		return
+	var phase2_block: Variant = enemy_entry.get("phase2", {})
+	phase2 = phase2_block as Dictionary if phase2_block is Dictionary else {}
+	_weapon_layer_textures = textures
+	weapon_layer = DEFAULT_WEAPON_LAYER
 	sprite_source = str(built.get("source", CharacterAppearance.SOURCE_NONE))
 	new_sprite.name = "EnemySprite"
 	# Drawn behind this node's own _draw so the HP bar stays on top of the sprite.
@@ -274,6 +304,21 @@ func _build_sprite() -> void:
 
 func get_hp_ratio() -> float:
 	return hp_ratio
+
+
+## View-only: swaps the weapon layer texture when HP crosses the phase 2 threshold and
+## back again when healed or respawned. The decision itself is the pure weapon_layer_for.
+func _update_weapon_phase() -> void:
+	if sprite == null:
+		return
+	var wanted := weapon_layer_for(hp_ratio, phase2)
+	if wanted == weapon_layer:
+		return
+	var texture: Variant = _weapon_layer_textures.get(wanted, null)
+	if not (texture is Texture2D):
+		return
+	if sprite.set_layer_texture(DEFAULT_WEAPON_LAYER, texture as Texture2D):
+		weapon_layer = wanted
 
 
 func _resolve_max_hp() -> float:

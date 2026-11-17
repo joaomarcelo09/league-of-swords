@@ -150,6 +150,17 @@ func set_layer_textures(p_textures: Dictionary) -> void:
 	_finish_layers(draw_order)
 
 
+## Replaces one already-built layer's texture in place (e.g. a phase 2 weapon sheet).
+## Returns false when the layer was never built or the texture is null.
+func set_layer_texture(layer_name: String, texture: Texture2D) -> bool:
+	var sprite: Sprite2D = layer_sprites.get(layer_name, null)
+	if sprite == null or texture == null:
+		return false
+	sprite.texture = texture
+	sprite.visible = true
+	return true
+
+
 ## Returns true if the layout defines the animation.
 func has_animation(anim: String) -> bool:
 	var anims: Dictionary = layout.get("animations", {})

@@ -4,15 +4,17 @@ tools/gen_boss_sprites.py
 
 Procedurally draws the original sprite sheets for the Floor 1 boss, Gorvak the Ashen
 Warden (enemy id thornback_warden): a huge top-heavy beast that is part boar and part
-salamander. Phase 1 carries a stone war pick (right hand) and a round targe (left).
+salamander. Phase 1 carries a stone war pick (right hand) and a round targe (left);
+phase 2 drops the targe and grips a huge curved cleaver.
 
 The sheets use data/sprites/layout_thornback_warden.json (96px frames, walk rows 8-11,
 slash rows 12-15, hurt row 20) and are written to:
-  assets/characters/thornback_warden/body.png    - beast, clothing and targe
-  assets/characters/thornback_warden/weapon.png  - the held phase 1 weapon only
+  assets/characters/thornback_warden/body.png              - the beast and its clothing
+  assets/characters/thornback_warden/weapon.png            - phase 1: war pick + targe
+  assets/characters/thornback_warden/weapon_phase2.png     - phase 2: cleaver, no targe
 
-The weapon is a separate layer on purpose: the later phase 2 task swaps the war pick
-for the cleaver by regenerating only weapon.png (see WEAPON_SETS).
+Both held items live on the weapon layer so the targe can vanish in phase 2 (see
+WEAPON_SETS); the body is identical in both phases.
 Art is original pixel art drawn by this script; no third-party assets. Python standard
 library only - the PNG writer and Canvas come from the other generator tools.
 """
@@ -71,6 +73,15 @@ STONE_LIGHT = (166, 164, 158, 255)
 STONE_DARK = (92, 90, 88, 255)
 HAFT = (68, 44, 30, 255)
 HAFT_LIGHT = (98, 64, 42, 255)
+# Phase 2 cleaver: a bronze-grey blade with a near-black cutting edge, plain iron guard
+# and a cream-wrapped grip.
+CLEAVER_BLADE = (150, 138, 112, 255)
+CLEAVER_BLADE_LIGHT = (196, 182, 148, 255)
+CLEAVER_BLADE_DARK = (104, 94, 76, 255)
+CLEAVER_EDGE = (48, 44, 42, 255)
+CLEAVER_GUARD = (86, 82, 78, 255)
+CLEAVER_GRIP = (228, 212, 170, 255)
+CLEAVER_GRIP_DARK = (156, 132, 94, 255)
 EYE = (246, 172, 62, 255)
 EYE_DARK = (40, 24, 12, 255)
 CLAW = (218, 208, 186, 255)
@@ -397,6 +408,15 @@ def _draw_head(canvas: PixelCanvas, hx: int, hcy: int, direction: str, side: int
 # --- body: full frame -----------------------------------------------------------------
 
 
+def _fallen_weapon_points(cx: int, ground: int, frame: int) -> tuple:
+    """Pick hand, weapon angle and targe hand for the downed frames of the hurt row."""
+    if frame == 4:
+        # Sinking onto one knee, still holding pick and targe.
+        return (cx + 17, ground - 3), -88.0, (cx + 27, ground - 4)
+    # Collapsed: the pick lies flat beside the body and the targe has slipped away.
+    return (cx + 20, ground - 3), -8.0, (cx - 30, ground - 5)
+
+
 def draw_gorvak_frame(body: PixelCanvas, weapon: PixelCanvas, fx: int, fy: int, anim: str, direction: str, frame: int, weapon_drawer=None) -> None:
     if weapon_drawer is None:
         weapon_drawer = _draw_war_pick
@@ -407,7 +427,8 @@ def draw_gorvak_frame(body: PixelCanvas, weapon: PixelCanvas, fx: int, fy: int, 
 
     if pose["fallen"]:
         _draw_fallen(body, cx, ground, frame)
-        _draw_lost_pick(weapon, cx, ground, frame)
+        hand, angle, targe_hand = _fallen_weapon_points(cx, ground, frame)
+        weapon_drawer(weapon, hand, angle, pose, anim, frame, direction, targe_hand)
         return
 
     bob = pose["bob"]
@@ -523,9 +544,8 @@ def draw_gorvak_frame(body: PixelCanvas, weapon: PixelCanvas, fx: int, fy: int, 
         )
     _draw_hand(body, pick_hand)
     _draw_hand(body, targe_hand)
-    _draw_targe(body, targe_hand)
 
-    weapon_drawer(weapon, pick_hand, angle, pose, anim, frame)
+    weapon_drawer(weapon, pick_hand, angle, pose, anim, frame, direction, targe_hand)
 
 
 # --- body: hurt/death frames ----------------------------------------------------------
@@ -553,7 +573,6 @@ def _draw_fallen(canvas: PixelCanvas, cx: int, ground: int, frame: int) -> None:
     # One arm under the body and one flung out.
     _draw_arm(canvas, (cx - 6, ground - 12), (cx - 14, ground - 8), (cx - 18, ground - 4), SKIN_DARK, 6)
     _draw_arm(canvas, (cx + 10, ground - 13), (cx + 20, ground - 10), (cx + 26, ground - 6), SKIN_DARK, 5)
-    _draw_targe(canvas, (cx - 30, ground - 5))
     canvas.set_pixel(cx - 34, ground - 9, *CLAW)
     canvas.set_pixel(cx + 30, ground - 12, *CLAW)
 
@@ -586,17 +605,17 @@ def _draw_kneeling(canvas: PixelCanvas, cx: int, ground: int) -> None:
     _draw_hand(canvas, (cx - 19, ground - 2))
     _draw_arm(canvas, (cx + 10, head_cy + 8), (cx + 15, ground - 14), (cx + 17, ground - 3), SKIN_MID, 6)
     _draw_hand(canvas, (cx + 17, ground - 3))
-    _draw_targe(canvas, (cx + 27, ground - 4))
-    canvas.set_pixel(cx + 31, ground - 9, *CREAM)
 
 
 # --- weapon layer ---------------------------------------------------------------------
 
 
-def _draw_war_pick(canvas: PixelCanvas, hand: tuple, angle: float, pose: dict, anim: str, frame: int) -> None:
+def _draw_war_pick(canvas: PixelCanvas, hand: tuple, angle: float, pose: dict, anim: str, frame: int, direction: str, targe_hand: tuple) -> None:
+    """Phase 1 weapon layer: the war pick and the round targe it is paired with."""
     if pose["trail"]:
         _draw_slash_trail(canvas, hand, angle)
     _draw_pick_at(canvas, hand, angle)
+    _draw_targe(canvas, targe_hand)
 
 
 def _draw_pick_at(canvas: PixelCanvas, hand: tuple, angle: float) -> None:
@@ -652,19 +671,134 @@ def _draw_slash_trail(canvas: PixelCanvas, hand: tuple, angle: float) -> None:
             )
 
 
-def _draw_lost_pick(canvas: PixelCanvas, cx: int, ground: int, frame: int) -> None:
-    if frame == 4:
-        # Still gripped while the warden sinks onto one knee.
-        _draw_pick_at(canvas, (cx + 17, ground - 3), -88.0)
+# --- phase 2: the cleaver -------------------------------------------------------------
+
+# Blade length in frame pixels. Gorvak stands ~72px tall, so the cleaver is nearly as
+# long as he is; a few pixels of the strike-frame tip fall outside the 96px cell.
+CLEAVER_BLADE_LEN = 42.0
+CLEAVER_BLADE_WIDTH = 15.0
+# Resting angle per facing: the cleaver is held up and away from the body, clear of
+# Gorvak's head, so the whole blade reads inside the 96px cell. Slash frames keep the
+# shared swing angles.
+CLEAVER_REST_ANGLE = {
+    "right": -60.0,
+    "left": -120.0,
+    "down": -100.0,
+    "up": -60.0,
+}
+
+
+def _cleaver_angle(anim: str, direction: str, angle: float) -> float:
+    if anim == "slash":
+        return angle
+    return CLEAVER_REST_ANGLE.get(direction, angle)
+
+
+def _draw_cleaver(canvas: PixelCanvas, hand: tuple, angle: float, pose: dict, anim: str, frame: int, direction: str, targe_hand: tuple) -> None:
+    """Phase 2 weapon layer: the huge curved cleaver in the pick hand, targe dropped."""
+    if pose["fallen"]:
+        # On one knee it is still gripped; once collapsed it lies beside the body.
+        drop_hand = (hand[0] + 4, hand[1]) if frame >= 5 else hand
+        drop_angle = -66.0 if frame >= 5 else -88.0
+        _draw_cleaver_at(canvas, drop_hand, drop_angle)
         return
-    # Dropped flat beside the collapsed body.
-    _draw_pick_at(canvas, (cx + 20, ground - 3), -8.0)
+    swing_angle = _cleaver_angle(anim, direction, angle)
+    if pose["trail"]:
+        _draw_cleaver_trail(canvas, hand, swing_angle)
+    _draw_cleaver_at(canvas, hand, swing_angle)
+
+
+def _draw_cleaver_at(canvas: PixelCanvas, hand: tuple, angle: float) -> None:
+    rad = math.radians(angle)
+    dx, dy = math.cos(rad), math.sin(rad)
+    px, py = -dy, dx
+    hx, hy = hand
+
+    # Cream-wrapped grip running back through the fist, iron pommel at the butt.
+    back = (hx - dx * 8.0, hy - dy * 8.0)
+    canvas.draw_line(int(back[0]), int(back[1]), int(hx + dx * 3.0), int(hy + dy * 3.0), *OUTLINE, thickness=5)
+    canvas.draw_line(int(back[0]), int(back[1]), int(hx + dx * 3.0), int(hy + dy * 3.0), *CLEAVER_GRIP, thickness=3)
+    for t in (-6.0, -3.0, 0.0):
+        wx = hx + dx * t
+        wy = hy + dy * t
+        canvas.draw_line(int(wx - px * 2.0), int(wy - py * 2.0), int(wx + px * 2.0), int(wy + py * 2.0), *CLEAVER_GRIP_DARK)
+    canvas.fill_circle(int(back[0]), int(back[1]), 2, *OUTLINE)
+    canvas.fill_circle(int(back[0]), int(back[1]), 1, *IRON)
+
+    # Plain iron guard: a short crossbar where the blade meets the grip.
+    guard = (hx + dx * 4.0, hy + dy * 4.0)
+    canvas.draw_line(int(guard[0] - px * 6.0), int(guard[1] - py * 6.0), int(guard[0] + px * 6.0), int(guard[1] + py * 6.0), *OUTLINE, thickness=5)
+    canvas.draw_line(int(guard[0] - px * 5.0), int(guard[1] - py * 5.0), int(guard[0] + px * 5.0), int(guard[1] + py * 5.0), *CLEAVER_GUARD, thickness=3)
+
+    # Broad cleaver blade: a slightly bowed spine, a belly that swells toward the clipped
+    # tip, and a sweeping cutting edge on the far side from the grip.
+    base = (guard[0] + dx * 1.0, guard[1] + dy * 1.0)
+    spine_heel = (base[0] + px * 2.0, base[1] + py * 2.0)
+    spine_belly = (
+        base[0] + dx * CLEAVER_BLADE_LEN * 0.55 + px * 4.0,
+        base[1] + dy * CLEAVER_BLADE_LEN * 0.55 + py * 4.0,
+    )
+    tip_spine = (
+        base[0] + dx * CLEAVER_BLADE_LEN * 0.96 + px * 3.0,
+        base[1] + dy * CLEAVER_BLADE_LEN * 0.96 + py * 3.0,
+    )
+    tip_edge = (
+        base[0] + dx * CLEAVER_BLADE_LEN * 1.0 - px * 13.0,
+        base[1] + dy * CLEAVER_BLADE_LEN * 1.0 - py * 13.0,
+    )
+    edge_belly = (
+        base[0] + dx * CLEAVER_BLADE_LEN * 0.64 - px * CLEAVER_BLADE_WIDTH,
+        base[1] + dy * CLEAVER_BLADE_LEN * 0.64 - py * CLEAVER_BLADE_WIDTH,
+    )
+    edge_heel = (
+        base[0] + dx * CLEAVER_BLADE_LEN * 0.1 - px * 8.0,
+        base[1] + dy * CLEAVER_BLADE_LEN * 0.1 - py * 8.0,
+    )
+    blade = [spine_heel, spine_belly, tip_spine, tip_edge, edge_belly, edge_heel]
+    _fill_outlined_poly(canvas, blade, CLEAVER_BLADE)
+
+    # Bronze-grey spine highlight, a wide dark bevel and a near-black cutting edge.
+    _thick_curve(canvas, [spine_heel, spine_belly, tip_spine], CLEAVER_BLADE_LIGHT, 2)
+    _thick_curve(
+        canvas,
+        [
+            (tip_edge[0] + px * 4.0, tip_edge[1] + py * 4.0),
+            (edge_belly[0] + px * 5.0, edge_belly[1] + py * 5.0),
+            (edge_heel[0] + px * 3.0, edge_heel[1] + py * 3.0),
+        ],
+        CLEAVER_BLADE_DARK,
+        3,
+    )
+    _thick_curve(canvas, [tip_edge, edge_belly, edge_heel], CLEAVER_EDGE, 2)
+    # Two rivets at the blade root.
+    for s in (-1.0, 1.0):
+        canvas.set_pixel(int(base[0] + dx * 4.0 + px * s * 2.0), int(base[1] + dy * 4.0 + py * s * 2.0), *IRON_LIGHT)
+
+
+def _draw_cleaver_trail(canvas: PixelCanvas, hand: tuple, angle: float) -> None:
+    for radius, alpha in ((28.0, 110), (34.0, 70)):
+        points = []
+        for i in range(7):
+            a = math.radians(angle - 62.0 + i * 10.5)
+            points.append((hand[0] + math.cos(a) * radius, hand[1] + math.sin(a) * radius))
+        for i in range(len(points) - 1):
+            canvas.draw_line(
+                int(points[i][0]),
+                int(points[i][1]),
+                int(points[i + 1][0]),
+                int(points[i + 1][1]),
+                232,
+                224,
+                206,
+                alpha,
+            )
 
 
 # --- sheet generation -----------------------------------------------------------------
 
 WEAPON_SETS = {
     "war_pick": _draw_war_pick,
+    "cleaver": _draw_cleaver,
 }
 
 DRAWERS = {
@@ -716,7 +850,8 @@ def generate_sheets(layout: dict, drawer, weapon_drawer=None) -> tuple:
 def main() -> None:
     parser = argparse.ArgumentParser(description="Generate the thornback_warden (Gorvak) boss sprite sheets.")
     parser.add_argument("--enemies", default="thornback_warden", help="Enemy id to regenerate (default: thornback_warden).")
-    parser.add_argument("--weapon-set", default="war_pick", choices=sorted(WEAPON_SETS.keys()), help="Held weapon layer to draw (phase 2 will add the cleaver).")
+    parser.add_argument("--weapon-set", default="war_pick", choices=sorted(WEAPON_SETS.keys()), help="Held weapon layer to draw (default: war_pick).")
+    parser.add_argument("--weapon-out", default="weapon.png", help="Weapon sheet filename inside the enemy folder (default: weapon.png).")
     args = parser.parse_args()
     only = {x.strip() for x in args.enemies.split(",") if x.strip()}
 
@@ -732,8 +867,8 @@ def main() -> None:
         body, weapon = generate_sheets(layout, drawer, weapon_drawer)
         out_dir = os.path.join(root_dir, "assets", "characters", enemy_id)
         write_png(os.path.join(out_dir, "body.png"), body.width, body.height, body.data)
-        write_png(os.path.join(out_dir, "weapon.png"), weapon.width, weapon.height, weapon.data)
-        print(f"Generated {out_dir}/body.png and weapon.png ({body.width}x{body.height})")
+        write_png(os.path.join(out_dir, args.weapon_out), weapon.width, weapon.height, weapon.data)
+        print(f"Generated {out_dir}/body.png and {args.weapon_out} ({body.width}x{body.height})")
 
 
 if __name__ == "__main__":

@@ -26,7 +26,8 @@
   "thornback_warden": {
     "layers": {
       "body": "res://assets/characters/thornback_warden/body.png",
-      "weapon": "res://assets/characters/thornback_warden/weapon.png"
+      "weapon": "res://assets/characters/thornback_warden/weapon.png",
+      "weapon_phase2": "res://assets/characters/thornback_warden/weapon_phase2.png"
     }
   }
 }
