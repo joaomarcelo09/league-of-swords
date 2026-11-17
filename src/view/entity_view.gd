@@ -171,7 +171,7 @@ func sync(lerp_weight: float = 1.0) -> void:
 		var attack_s := _pending_attack_seconds
 		_pending_attack_dir = null
 		_pending_attack_seconds = 0.0
-		animator.update(sprite, entity.pos, entity.dead, attack_dir, now_tick, attack_s)
+		animator.update(sprite, entity.pos, entity.dead, attack_dir, now_tick, attack_s, entity.state == "scream")
 
 	queue_redraw()
 

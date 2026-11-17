@@ -148,6 +148,59 @@ func test_telegraph_view_line_and_circle_shapes() -> void:
 	assert_true(circle_tele.is_queued_for_deletion())
 
 
+func test_transition_circle_telegraph_grows_from_origin_with_balance_colors() -> void:
+	var tele := TelegraphView.new()
+	autofree(tele)
+	tele.setup({
+		"shape": "circle",
+		"origin": Vector2(5.0, 6.0),
+		"dir": Vector2.RIGHT,
+		"range": 4.0,
+		"radius": 4.0,
+		"duration_s": 2.0,
+		"phase": 2,
+		"transition": true,
+	}, 32, _registry)
+
+	assert_true(tele.transition, "the scream telegraph is flagged as a transition")
+	assert_eq(tele.get_circle_center_px(), Vector2.ZERO, "a transition circle is centred on the origin")
+	assert_almost_eq(tele.current_circle_radius_px(), 0.0, 0.001, "it starts empty")
+	assert_eq(tele.telegraph_fill_color, EntityView.parse_color(_registry.get_balance("view.transition_telegraph_fill_color"), Color.WHITE), "stronger tint comes from balance")
+	assert_ne(tele.telegraph_fill_color, TelegraphView.DEFAULT_TELEGRAPH_FILL_COLOR, "distinct from a normal telegraph")
+
+	tele.advance(1.0)
+	assert_almost_eq(tele.progress, 0.5, 0.01)
+	assert_almost_eq(tele.current_circle_radius_px(), 4.0 * 32.0 * 0.5, 0.01, "the fill reaches half the radius at half time")
+	assert_false(tele.is_queued_for_deletion())
+
+	tele.advance(1.0)
+	assert_almost_eq(tele.current_circle_radius_px(), 4.0 * 32.0, 0.01, "full radius at impact")
+	assert_true(tele.is_queued_for_deletion())
+
+
+func test_phase_transition_impact_shakes_the_camera() -> void:
+	var session := GameSession.new(_zone, _registry)
+	session.spawn_player()
+	var enemy := session.world.spawn_enemy("ash_stalker", Vector2i(4, 10))
+	var layer := EntityLayer.new()
+	autofree(layer)
+	layer.setup(session, _zone_view, _registry)
+	var cam := GameCamera.new(_registry)
+	add_child_autofree(cam)
+	layer.camera = cam
+
+	session.world.record_event({
+		"type": "phase_transition_impact",
+		"tick": session.world.tick_count,
+		"source": enemy.id,
+		"origin": enemy.pos,
+		"radius": 4.0,
+	})
+	layer.sync()
+
+	assert_true(cam.shaking, "the scream impact shakes the camera")
+
+
 func test_telegraph_circle_center_and_edge_points_match_skill_system() -> void:
 	var tile_px: int = 32
 	var origin := Vector2(10.0, 10.0)

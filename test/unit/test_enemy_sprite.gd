@@ -229,6 +229,23 @@ func test_dead_sprite_view_lingers_for_death_animation_then_frees() -> void:
 	assert_almost_eq(steps, expected, 1, "lingers about frame_count / fps seconds")
 
 
+func test_boss_scream_layout_rows_exist_in_the_generated_sheet() -> void:
+	var layout := CharacterAppearance.load_json("res://data/sprites/layout_thornback_warden.json")
+	var scream: Dictionary = layout.get("animations", {}).get("scream", {})
+	assert_false(scream.is_empty(), "the boss layout has a scream animation")
+	assert_eq(int(scream.get("frame_count", 0)), 6)
+	assert_true(bool(scream.get("loop", false)), "the scream loops while the charge lasts")
+	var body := load("res://assets/characters/thornback_warden/body.png") as Texture2D
+	assert_not_null(body, "the boss body sheet loads")
+	var rows: Dictionary = scream.get("rows", {})
+	for dir: String in ["up", "left", "down", "right"]:
+		var row := int(rows.get(dir, -1))
+		assert_true(row >= 0, "scream has a %s row" % dir)
+		assert_true((row + 1) * 96 <= body.get_height(), "scream %s row is inside the sheet" % dir)
+		var rect := LayeredSprite.region_for(layout, "scream", dir, 5)
+		assert_eq(rect.size, Vector2(96, 96), "scream frames are 96px")
+
+
 func test_dead_hexagon_view_frees_immediately() -> void:
 	_registry.get_entry("enemies", ENEMY_ID).erase("appearance")
 	var session := GameSession.new(_zone, _registry)

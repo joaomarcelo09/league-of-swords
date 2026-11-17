@@ -8,7 +8,7 @@ salamander. Phase 1 carries a stone war pick (right hand) and a round targe (lef
 phase 2 drops the targe and grips a huge curved cleaver.
 
 The sheets use data/sprites/layout_thornback_warden.json (96px frames, walk rows 8-11,
-slash rows 12-15, hurt row 20) and are written to:
+slash rows 12-15, scream rows 16-19, hurt row 20) and are written to:
   assets/characters/thornback_warden/body.png              - the beast and its clothing
   assets/characters/thornback_warden/weapon.png            - phase 1: war pick + targe
   assets/characters/thornback_warden/weapon_phase2.png     - phase 2: cleaver, no targe
@@ -146,6 +146,10 @@ def _pose(anim: str, frame: int) -> dict:
         "pick_angle": -100.0,
         "trail": False,
         "fallen": False,
+        "scream": False,
+        "head_back": 0,
+        "chest_lift": 0,
+        "mouth_open": False,
     }
     if anim == "walk":
         s = stride_cycle(frame)
@@ -170,6 +174,25 @@ def _pose(anim: str, frame: int) -> dict:
         pose["bob"] = -1 if frame <= 1 else (1 if frame <= 3 else 0)
         pose["lean"] = -2 if frame <= 1 else (2 if frame <= 3 else 0)
         pose["stride"] = 2 if 2 <= frame <= 3 else 0
+    elif anim == "scream":
+        # Phase 2 roar: head thrown back, maw wide, chest out and both arms raised.
+        # Every frame stays at the peak so the loop reads as one sustained scream while
+        # the charge lasts; the small bob/lean jitter is the roar tremor.
+        tremor = [
+            (0, 0),
+            (-1, 1),
+            (-2, 0),
+            (-1, -1),
+            (-2, 0),
+            (-1, 1),
+        ]
+        bob, lean = tremor[min(frame, len(tremor) - 1)]
+        pose["scream"] = True
+        pose["mouth_open"] = True
+        pose["bob"] = bob
+        pose["lean"] = lean
+        pose["head_back"] = 4
+        pose["chest_lift"] = 2
     elif anim == "hurt":
         pose["bob"] = -2 if frame in (1, 2) else (-1 if frame == 0 else 0)
         pose["lean"] = -2 if frame <= 2 else 0
@@ -183,6 +206,14 @@ def _hand_points(direction: str, pose: dict, cx: int, fy: int) -> tuple:
     side = side_of(direction)
     bob = pose["bob"]
     shift_x, shift_y = pose["pick_shift"]
+    if pose["scream"]:
+        # Both fists punch up beside the thrown-back head, weapon hand highest. The
+        # raised hands sit a little lower than the head so the full cleaver stays in
+        # the 96px cell (the blade is nearly as long as Gorvak is tall).
+        if direction in ("left", "right"):
+            return (cx + side * 4, fy + 50 + bob), (cx - side * 10, fy + 48 + bob)
+        pick_side = -1 if direction == "down" else 1
+        return (cx + pick_side * 15, fy + 52 + bob), (cx - pick_side * 15, fy + 50 + bob)
     if direction in ("left", "right"):
         pick = (cx + side * 9 + side * shift_x, fy + 65 + bob + shift_y)
         targe = (cx - side * 13, fy + 64 + bob)
@@ -333,14 +364,20 @@ def _draw_emblem(canvas: PixelCanvas, bx: int, y: int) -> None:
 # --- body: head -----------------------------------------------------------------------
 
 
-def _draw_fins(canvas: PixelCanvas, hx: int, hcy: int, direction: str, side: int) -> None:
+def _draw_fins(canvas: PixelCanvas, hx: int, hcy: int, direction: str, side: int, flared: bool = False) -> None:
     if direction in ("left", "right"):
         sides = [-side]
     else:
         sides = [-1, 1]
+    # The scream flares the neck fins out and up with the thrown-back head.
+    spread = 1.0 if not flared else 1.22
     for s in sides:
         bases = [(hx + s * 5, hcy - 8), (hx + s * 7, hcy - 2), (hx + s * 7, hcy + 4), (hx + s * 5, hcy + 9)]
-        tips = [(hx + s * 20, hcy - 11), (hx + s * 23, hcy - 3), (hx + s * 18, hcy + 6)]
+        tips = [
+            (hx + s * int(20 * spread), hcy - 11),
+            (hx + s * int(23 * spread), hcy - 3),
+            (hx + s * int(18 * spread), hcy + 6),
+        ]
         for i in range(3):
             fin = [bases[i], tips[i], bases[i + 1]]
             _fill_outlined_poly(canvas, fin, FIN_EDGE)
@@ -353,8 +390,16 @@ def _draw_fins(canvas: PixelCanvas, hx: int, hcy: int, direction: str, side: int
             canvas.set_pixel(int(tips[i][0]), int(tips[i][1] + 2), *FIN_ORANGE_LIGHT)
 
 
-def _draw_head(canvas: PixelCanvas, hx: int, hcy: int, direction: str, side: int) -> None:
-    _draw_fins(canvas, hx, hcy, direction, side)
+def _draw_open_maw(canvas: PixelCanvas, x: float, y: float, rx: int, ry: int) -> None:
+    """A dark open mouth with a crimson tongue, readable at 96px."""
+    canvas.fill_ellipse(x, y, rx + 1, ry + 1, *OUTLINE)
+    canvas.fill_ellipse(x, y, rx, ry, *CRIMSON_DARK)
+    canvas.fill_ellipse(x, y + 1, max(rx - 1, 0), max(ry - 1, 0), *CRIMSON)
+    canvas.fill_ellipse(x, y + max(ry - 1, 0), max(rx - 2, 0), 1, *CRIMSON_LIGHT)
+
+
+def _draw_head(canvas: PixelCanvas, hx: int, hcy: int, direction: str, side: int, open_mouth: bool = False) -> None:
+    _draw_fins(canvas, hx, hcy, direction, side, flared=open_mouth)
     _outlined_ellipse(canvas, hx, hcy, 10, 9, HEAD_MID)
     canvas.fill_ellipse(hx - 3, hcy - 3, 5, 4, *HEAD_LIGHT)
     canvas.fill_ellipse(hx + 3, hcy + 3, 6, 4, *HEAD_DARK)
@@ -370,16 +415,25 @@ def _draw_head(canvas: PixelCanvas, hx: int, hcy: int, direction: str, side: int
         return
 
     if direction == "down":
-        snout = [(hx - 7, hcy + 4), (hx + 7, hcy + 4), (hx + 6, hcy + 10), (hx - 6, hcy + 10)]
-        _fill_outlined_poly(canvas, snout, SNOUT)
-        canvas.fill_ellipse(hx, hcy + 6, 5, 2, *SNOUT_DARK)
-        canvas.set_pixel(hx - 3, hcy + 6, *OUTLINE)
-        canvas.set_pixel(hx + 3, hcy + 6, *OUTLINE)
-        canvas.draw_line(hx - 4, hcy + 9, hx + 4, hcy + 9, *SNOUT_DARK)
-        for s in (-1, 1):
-            canvas.draw_line(hx + s * 5, hcy + 9, hx + s * 9, hcy + 6, *TUSK, thickness=2)
-            canvas.draw_line(hx + s * 9, hcy + 6, hx + s * 8, hcy + 2, *TUSK, thickness=1)
-            canvas.set_pixel(hx + s * 8, hcy + 1, *TUSK)
+        if open_mouth:
+            # Jaw dropped wide: the maw fills most of the snout.
+            snout = [(hx - 8, hcy + 2), (hx + 8, hcy + 2), (hx + 7, hcy + 12), (hx - 7, hcy + 12)]
+            _fill_outlined_poly(canvas, snout, SNOUT)
+            _draw_open_maw(canvas, hx, hcy + 8, 5, 3)
+            for s in (-1, 1):
+                canvas.draw_line(hx + s * 6, hcy + 10, hx + s * 9, hcy + 4, *TUSK, thickness=2)
+                canvas.set_pixel(hx + s * 9, hcy + 3, *TUSK)
+        else:
+            snout = [(hx - 7, hcy + 4), (hx + 7, hcy + 4), (hx + 6, hcy + 10), (hx - 6, hcy + 10)]
+            _fill_outlined_poly(canvas, snout, SNOUT)
+            canvas.fill_ellipse(hx, hcy + 6, 5, 2, *SNOUT_DARK)
+            canvas.set_pixel(hx - 3, hcy + 6, *OUTLINE)
+            canvas.set_pixel(hx + 3, hcy + 6, *OUTLINE)
+            canvas.draw_line(hx - 4, hcy + 9, hx + 4, hcy + 9, *SNOUT_DARK)
+            for s in (-1, 1):
+                canvas.draw_line(hx + s * 5, hcy + 9, hx + s * 9, hcy + 6, *TUSK, thickness=2)
+                canvas.draw_line(hx + s * 9, hcy + 6, hx + s * 8, hcy + 2, *TUSK, thickness=1)
+                canvas.set_pixel(hx + s * 8, hcy + 1, *TUSK)
         for s in (-1, 1):
             canvas.fill_rect(hx + s * 4 - 1, hcy - 2, 3, 3, *EYE_DARK)
             canvas.fill_rect(hx + s * 4 - 1, hcy - 2, 2, 2, *EYE)
@@ -388,17 +442,29 @@ def _draw_head(canvas: PixelCanvas, hx: int, hcy: int, direction: str, side: int
         return
 
     # Profile: snout pushed toward the facing side, one eye, one visible tusk.
-    snout = [
-        (hx + side * 5, hcy - 3),
-        (hx + side * 14, hcy + 1),
-        (hx + side * 13, hcy + 6),
-        (hx + side * 4, hcy + 7),
-    ]
-    _fill_outlined_poly(canvas, snout, SNOUT)
-    canvas.set_pixel(hx + side * 12, hcy + 2, *OUTLINE)
-    canvas.draw_line(hx + side * 4, hcy + 6, hx + side * 12, hcy + 6, *SNOUT_DARK)
-    canvas.draw_line(hx + side * 9, hcy + 7, hx + side * 12, hcy + 5, *TUSK, thickness=2)
-    canvas.draw_line(hx + side * 12, hcy + 5, hx + side * 11, hcy + 1, *TUSK, thickness=1)
+    if open_mouth:
+        snout = [
+            (hx + side * 4, hcy - 3),
+            (hx + side * 15, hcy - 2),
+            (hx + side * 14, hcy + 9),
+            (hx + side * 3, hcy + 8),
+        ]
+        _fill_outlined_poly(canvas, snout, SNOUT)
+        _draw_open_maw(canvas, hx + side * 9, hcy + 5, 4, 3)
+        canvas.draw_line(hx + side * 5, hcy + 9, hx + side * 9, hcy + 4, *TUSK, thickness=2)
+        canvas.set_pixel(hx + side * 9, hcy + 3, *TUSK)
+    else:
+        snout = [
+            (hx + side * 5, hcy - 3),
+            (hx + side * 14, hcy + 1),
+            (hx + side * 13, hcy + 6),
+            (hx + side * 4, hcy + 7),
+        ]
+        _fill_outlined_poly(canvas, snout, SNOUT)
+        canvas.set_pixel(hx + side * 12, hcy + 2, *OUTLINE)
+        canvas.draw_line(hx + side * 4, hcy + 6, hx + side * 12, hcy + 6, *SNOUT_DARK)
+        canvas.draw_line(hx + side * 9, hcy + 7, hx + side * 12, hcy + 5, *TUSK, thickness=2)
+        canvas.draw_line(hx + side * 12, hcy + 5, hx + side * 11, hcy + 1, *TUSK, thickness=1)
     canvas.fill_rect(hx + side * 4 - 1, hcy - 2, 3, 3, *EYE_DARK)
     canvas.fill_rect(hx + side * 4 - 1, hcy - 2, 2, 2, *EYE)
     canvas.set_pixel(hx + side * 4, hcy - 1, *EYE_DARK)
@@ -415,6 +481,32 @@ def _fallen_weapon_points(cx: int, ground: int, frame: int) -> tuple:
         return (cx + 17, ground - 3), -88.0, (cx + 27, ground - 4)
     # Collapsed: the pick lies flat beside the body and the targe has slipped away.
     return (cx + 20, ground - 3), -8.0, (cx - 30, ground - 5)
+
+
+def _scream_shoulder_y(fy: int, bob: int, chest_lift: int) -> int:
+    return fy + 48 + bob - chest_lift
+
+
+def _draw_scream_far_arm(canvas: PixelCanvas, cx: int, fy: int, bob: int, chest_lift: int, direction: str, side: int, targe_hand: tuple) -> None:
+    """Raised far arm, drawn before the torso so the chest overlaps it."""
+    sy = _scream_shoulder_y(fy, bob, chest_lift)
+    if direction in ("left", "right"):
+        _draw_arm(canvas, (cx - side * 12, sy), (cx - side * 19, sy - 8), targe_hand, SKIN_DARK, 6)
+        return
+    pick_side = -1 if direction == "down" else 1
+    s = -pick_side
+    _draw_arm(canvas, (cx + s * 14, sy), (cx + s * 21, sy - 8), targe_hand, SKIN_DARK, 7)
+
+
+def _draw_scream_near_arm(canvas: PixelCanvas, cx: int, fy: int, bob: int, chest_lift: int, direction: str, side: int, pick_hand: tuple) -> None:
+    """Raised weapon arm, drawn after the torso so it stays in front."""
+    sy = _scream_shoulder_y(fy, bob, chest_lift)
+    if direction in ("left", "right"):
+        _draw_arm(canvas, (cx + side * 12, sy), (cx + side * 19, sy - 8), pick_hand, SKIN_MID, 7)
+        return
+    pick_side = -1 if direction == "down" else 1
+    s = pick_side
+    _draw_arm(canvas, (cx + s * 14, sy), (cx + s * 21, sy - 8), pick_hand, SKIN_MID, 7)
 
 
 def draw_gorvak_frame(body: PixelCanvas, weapon: PixelCanvas, fx: int, fy: int, anim: str, direction: str, frame: int, weapon_drawer=None) -> None:
@@ -437,16 +529,19 @@ def draw_gorvak_frame(body: PixelCanvas, weapon: PixelCanvas, fx: int, fy: int, 
     profile = direction in ("left", "right")
     body_cx = cx + lean + (side if profile else 0)
 
-    head_cy = fy + 30 + bob
+    head_cy = fy + 30 + bob - pose["head_back"]
     hip_y = fy + 73 + bob
     body_hip = hip_y
+    chest_lift = pose["chest_lift"]
     pick_hand, targe_hand = _hand_points(direction, pose, cx, fy)
     angle = _pick_angle(direction, pose)
 
     _draw_tail(body, cx, body_cx, body_hip, ground, direction)
 
     # Far arm before the torso, near arm after it.
-    if profile:
+    if pose["scream"]:
+        _draw_scream_far_arm(body, cx, fy, bob, chest_lift, direction, side, targe_hand)
+    elif profile:
         far_hand = targe_hand
         _draw_arm(
             body,
@@ -504,12 +599,13 @@ def draw_gorvak_frame(body: PixelCanvas, weapon: PixelCanvas, fx: int, fy: int, 
     # Top-heavy torso: broad shoulders over a round belly.
     chest_rx = 14 if profile else 18
     belly_rx = 12 if profile else 15
+    chest_y = fy + 47 + bob - chest_lift
     _outlined_ellipse(body, body_cx, fy + 62 + bob, belly_rx, 14, SKIN_MID)
     body.fill_ellipse(body_cx - 4, fy + 57 + bob, belly_rx - 6, 5, *SKIN_LIGHT)
     body.fill_ellipse(body_cx + 4, fy + 69 + bob, belly_rx - 6, 4, *SKIN_DARK)
-    _outlined_ellipse(body, body_cx, fy + 47 + bob, chest_rx, 9, SKIN_MID)
-    body.fill_ellipse(body_cx - 5, fy + 45 + bob, chest_rx - 7, 3, *SKIN_LIGHT)
-    body.fill_ellipse(body_cx + side * 4, fy + 47 + bob, chest_rx - 8, 4, *SKIN_DARK)
+    _outlined_ellipse(body, body_cx, chest_y, chest_rx + (2 if pose["scream"] else 0), 9, SKIN_MID)
+    body.fill_ellipse(body_cx - 5, chest_y - 2, chest_rx - 7, 3, *SKIN_LIGHT)
+    body.fill_ellipse(body_cx + side * 4, chest_y, chest_rx - 8, 4, *SKIN_DARK)
 
     # Bristly boar ridge along the top of the back.
     for i in (-1, 1):
@@ -530,10 +626,19 @@ def draw_gorvak_frame(body: PixelCanvas, weapon: PixelCanvas, fx: int, fy: int, 
     body.fill_rect(body_cx - side * 6, wrap_y + 4, 4, 5, *OLIVE_DARK)
     body.fill_rect(body_cx - side * 6, wrap_y + 4, 3, 4, *OLIVE)
 
-    _draw_head(body, body_cx + (side * 2 if profile else 0), head_cy, direction, side)
+    _draw_head(
+        body,
+        body_cx + (side * 2 if profile else 0),
+        head_cy,
+        direction,
+        side,
+        open_mouth=pose["mouth_open"],
+    )
 
     # Near (weapon) arm and both hands.
-    if profile:
+    if pose["scream"]:
+        _draw_scream_near_arm(body, cx, fy, bob, chest_lift, direction, side, pick_hand)
+    elif profile:
         _draw_arm(
             body,
             (cx + side * 12, fy + 48 + bob),
@@ -686,11 +791,21 @@ CLEAVER_REST_ANGLE = {
     "down": -100.0,
     "up": -60.0,
 }
+# Scream: the raised fist holds the cleaver high on a kept diagonal so the long blade
+# stays inside the 96px cell while the boss roars.
+CLEAVER_SCREAM_ANGLE = {
+    "right": -50.0,
+    "left": -125.0,
+    "down": -48.0,
+    "up": -55.0,
+}
 
 
 def _cleaver_angle(anim: str, direction: str, angle: float) -> float:
     if anim == "slash":
         return angle
+    if anim == "scream":
+        return CLEAVER_SCREAM_ANGLE.get(direction, angle)
     return CLEAVER_REST_ANGLE.get(direction, angle)
 
 

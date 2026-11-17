@@ -34,6 +34,8 @@ var spawn_pos: Vector2 = Vector2.ZERO
 var enemy_type_id: String = ""
 var recovery_damage_mult: float = 1.0
 var target_id: int = 0
+## True once the entity has started its one-shot phase 2 transition scream.
+var phase2_transition_done: bool = false
 
 # Zone spawn bookkeeping: id of the zone spawn this entity came from (empty if none)
 var spawn_id: String = ""

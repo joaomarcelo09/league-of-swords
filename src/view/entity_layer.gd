@@ -42,6 +42,8 @@ var last_events: Array[Dictionary] = []
 
 var telegraphs_root: Node2D = null
 var floating_texts_root: Node2D = null
+## Camera used for impact shakes (set by MainView; null in headless/unit setups).
+var camera: GameCamera = null
 
 
 func _ready() -> void:
@@ -281,6 +283,8 @@ func _handle_sim_event(event: Dictionary) -> void:
 		"damage":
 			_spawn_floating_text(event)
 			_notify_view_hurt(event)
+		"phase_transition_impact":
+			_shake_camera()
 
 
 ## View-only: an enemy started its attack; its sprite slashes toward the locked direction.
@@ -292,6 +296,12 @@ func _notify_view_attack(event: Dictionary) -> void:
 	var windup: Variant = event.get("duration_s", 0.0)
 	var windup_s: float = float(windup) if (windup is float or windup is int) else 0.0
 	view.notify_attack(dir as Vector2 if dir is Vector2 else Vector2.ZERO, windup_s)
+
+
+## View-only: the phase 2 scream lands -> shake the camera with the shared hit shake.
+func _shake_camera() -> void:
+	if camera != null:
+		camera.shake()
 
 
 ## View-only: an enemy took damage; its sprite plays the hurt reaction.

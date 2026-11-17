@@ -14,6 +14,8 @@ const KIND_TRAIL: String = "trail"
 const SUPPORTED_KINDS: Array[String] = [KIND_LINE, KIND_CONE, KIND_CIRCLE, KIND_TRAIL]
 ## Hit spark: not a vfx.json kind, built from view.hit.spark_* on any damage (JGT-87).
 const KIND_SPARK: String = "spark"
+## Phase 2 scream impact ring, built from view.transition_impact in balance.json.
+const TRANSITION_IMPACT_KEY: String = "view.transition_impact"
 const DASH_SLOT: String = "E"
 const BALANCE_PREFIX: String = "view.vfx."
 ## Fallbacks used only when data/balance.json lacks view.vfx.* (keep in sync with it).
@@ -308,6 +310,29 @@ static func spark_params(p_registry: DataRegistry) -> Dictionary:
 	}
 
 
+## Phase 2 scream impact ring config from view.transition_impact: {duration_s, color}
+## plus optional ring style overrides, or {} when the ring is disabled/missing.
+static func transition_impact_params(p_registry: DataRegistry) -> Dictionary:
+	if p_registry == null:
+		return {}
+	var val: Variant = p_registry.get_balance(TRANSITION_IMPACT_KEY)
+	if not (val is Dictionary):
+		return {}
+	var cfg: Dictionary = val
+	var dur_val: Variant = cfg.get("duration_s", 0.0)
+	if not (dur_val is float or dur_val is int) or float(dur_val) <= 0.0:
+		return {}
+	var params := {
+		"duration_s": float(dur_val),
+		"color": parse_color(cfg.get("color", null), Color.WHITE),
+	}
+	for key in ["ring_start_scale", "ring_width_px", "fill_alpha_ratio"]:
+		var style_val: Variant = cfg.get(key, null)
+		if style_val is float or style_val is int:
+			params[key] = float(style_val)
+	return params
+
+
 # --- spawning -----------------------------------------------------------------------
 
 ## Builds (and adds) an effect of `vfx_id` at `origin_px` with pixel `params`; null and
@@ -358,6 +383,8 @@ func handle_event(ev: Dictionary) -> void:
 			_on_heal(ev)
 		"dash":
 			_on_dash(ev)
+		"phase_transition_impact":
+			_on_transition_impact(ev)
 
 
 func _tile_px() -> float:
@@ -449,6 +476,35 @@ func _on_heal(ev: Dictionary) -> void:
 	if target == null or shape.is_empty():
 		return
 	spawn_effect(str(cast["vfx_id"]), _to_px(target.pos), {"radius": shape["radius"] * _tile_px()})
+
+
+## Phase 2 scream impact: one fast expanding ring at the charged origin, as wide as
+## the damage circle that just landed.
+func _on_transition_impact(ev: Dictionary) -> void:
+	var cfg := transition_impact_params(registry)
+	var origin_v: Variant = ev.get("origin", null)
+	var radius_v: Variant = ev.get("radius", 0.0)
+	if cfg.is_empty() or not (origin_v is Vector2):
+		return
+	if not (radius_v is float or radius_v is int):
+		return
+	var radius: float = float(radius_v)
+	if radius <= 0.0:
+		return
+	var fx := VfxEffect.new()
+	fx.kind = KIND_CIRCLE
+	fx.color = cfg["color"]
+	fx.duration_s = cfg["duration_s"]
+	fx.position = _to_px(origin_v as Vector2)
+	var style := {}
+	for key: String in DEFAULTS.keys():
+		style[key] = style_value(registry, key)
+	for key in ["ring_start_scale", "ring_width_px", "fill_alpha_ratio"]:
+		if cfg.has(key):
+			style[key] = cfg[key]
+	style["radius"] = radius * _tile_px()
+	fx.params = style
+	add_child(fx)
 
 
 func _on_dash(ev: Dictionary) -> void:
