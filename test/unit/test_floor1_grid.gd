@@ -227,11 +227,11 @@ func test_city_is_safe_and_plains_are_not() -> void:
 			var type := zone.tile_type(_local(t))
 			if _in_circle(t):
 				if _city_dist(t) <= CITY_FLOOR_RADIUS:
-					assert_eq(type, "town_floor", "%s inside the circle is town floor" % str(t))
+					assert_true(type in ["town_floor", "hub_floor", "road"], "%s inside the circle is city floor" % str(t))
 					assert_true(_safe(t), "%s inside the circle is safe" % str(t))
 				else:
-					assert_true(type in ["wall", "gate_post", "town_floor"], "%s is city wall, gate post or gate opening" % str(t))
-					if type == "town_floor":
+					assert_true(type in ["wall", "gate_post", "town_floor", "road"], "%s is city wall, gate post or gate opening" % str(t))
+					if type == "town_floor" or type == "road":
 						assert_true(_safe(t), "%s gate opening is safe" % str(t))
 			elif type != "wall" and type != "gate" and type != "gate_post":
 				assert_eq(type, "grass", "%s outside the city is plains" % str(t))

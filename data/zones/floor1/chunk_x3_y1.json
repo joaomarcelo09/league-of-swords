@@ -54,16 +54,21 @@
       "safe": true,
       "decor": "house_a_door"
     },
-    "F": {
-      "type": "town_floor",
-      "walkable": false,
-      "safe": true,
-      "decor": "fountain"
+    "R": {
+      "type": "road",
+      "walkable": true,
+      "safe": true
     },
     "T": {
       "type": "town_floor",
       "walkable": true,
       "safe": true
+    },
+    "X": {
+      "type": "hub_floor",
+      "walkable": false,
+      "safe": true,
+      "decor": "tower"
     },
     "a": {
       "type": "town_floor",
@@ -119,8 +124,13 @@
       "safe": true,
       "decor": "house_b_door"
     },
-    "t": {
-      "type": "town_floor",
+    "o": {
+      "type": "hub_floor",
+      "walkable": true,
+      "safe": true
+    },
+    "u": {
+      "type": "hub_floor",
       "walkable": false,
       "safe": true,
       "decor": "torch"

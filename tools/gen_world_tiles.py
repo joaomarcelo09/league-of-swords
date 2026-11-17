@@ -419,6 +419,48 @@ def draw_town_cobble_c(cv: Canvas, ox: int, oy: int, rng: random.Random) -> None
     _cobble_field(cv, ox, oy, rng, rgba(184, 166, 138), weed=False, puddle=True)
 
 
+def draw_hub_floor(cv: Canvas, ox: int, oy: int, rng: random.Random) -> None:
+    """Central plaza: pale dressed flagstones with a small inlaid bronze diamond."""
+    cv.rect(ox, oy, TILE_PX, TILE_PX, rgba(112, 104, 92))
+    for sy in (0, 16):
+        for sx in (0, 16):
+            slab = shade(rgba(208, 196, 168), rng.randint(-6, 6))
+            cv.rect(ox + sx + 1, oy + sy + 1, 15, 15, slab)
+            cv.rect(ox + sx + 1, oy + sy + 1, 15, 1, shade(slab, 16))
+            cv.rect(ox + sx + 1, oy + sy + 15, 15, 1, shade(slab, -20))
+    for _ in range(16):
+        cv.set(
+            ox + rng.randrange(TILE_PX),
+            oy + rng.randrange(TILE_PX),
+            shade(rgba(208, 196, 168), rng.randint(-14, 8)),
+        )
+    # Inlaid diamond over the slab seam, centred on the tile.
+    for row, half in enumerate([1, 2, 3, 4, 3, 2, 1]):
+        cv.rect(ox + 16 - half, oy + 12 + row, half * 2 + 1, 1, rgba(158, 126, 76))
+    for row, half in enumerate([1, 2, 3, 2, 1]):
+        cv.rect(ox + 16 - half, oy + 13 + row, half * 2 + 1, 1, rgba(210, 176, 112))
+
+
+def draw_road(cv: Canvas, ox: int, oy: int, rng: random.Random) -> None:
+    """City road: cool grey paving slabs, darker and smoother than the town cobbles."""
+    cv.rect(ox, oy, TILE_PX, TILE_PX, rgba(74, 72, 76))
+    for sy in (0, 16):
+        for sx in (0, 16):
+            slab = shade(rgba(124, 122, 128), rng.randint(-7, 7))
+            cv.rect(ox + sx + 1, oy + sy + 1, 14, 14, slab)
+            cv.rect(ox + sx + 1, oy + sy + 1, 14, 1, shade(slab, 12))
+            cv.rect(ox + sx + 1, oy + sy + 14, 14, 1, shade(slab, -16))
+    for _ in range(18):
+        cv.set(
+            ox + rng.randrange(TILE_PX),
+            oy + rng.randrange(TILE_PX),
+            shade(rgba(118, 116, 120), rng.randint(-16, 16)),
+        )
+    # Worn sandy patch where traffic grinds the stones.
+    px, py = ox + 7 + rng.randrange(5), oy + 7 + rng.randrange(5)
+    cv.ellipse(px, py, 4, 3, rgba(150, 134, 108))
+
+
 def draw_dirt_path(cv: Canvas, ox: int, oy: int, rng: random.Random) -> None:
     """Packed earth path: mottled brown, pebbles and faint wheel ruts."""
     cv.rect(ox, oy, TILE_PX, TILE_PX, DIRT_BASE)
@@ -938,6 +980,30 @@ def draw_decor_rock(cv: Canvas, ox: int, oy: int, rng: random.Random) -> None:
     cv.set(ox + 25, oy + 24, rgba(156, 152, 144))
 
 
+def draw_decor_tower(cv: Canvas, ox: int, oy: int, rng: random.Random) -> None:
+    """Diamond tower block: dark ashlar masonry with a bronze footing band."""
+    cv.rect(ox + 2, oy + 2, 28, 28, rgba(64, 62, 70))
+    cv.rect(ox + 2, oy + 2, 28, 2, rgba(98, 96, 106))
+    cv.rect(ox + 2, oy + 2, 2, 28, rgba(88, 86, 96))
+    cv.rect(ox + 28, oy + 2, 2, 28, rgba(44, 42, 50))
+    cv.rect(ox + 2, oy + 28, 28, 2, rgba(38, 36, 44))
+    for row in range(4):
+        y = oy + 6 + row * 6
+        cv.rect(ox + 3, y, 26, 1, rgba(46, 44, 52))
+        offset = 3 if row % 2 else 0
+        for x in range(offset, 26, 7):
+            cv.rect(ox + 3 + x, oy + y - 6, 1, 6, rgba(48, 46, 54))
+    for _ in range(10):
+        cv.set(
+            ox + 4 + rng.randrange(24),
+            oy + 4 + rng.randrange(22),
+            shade(rgba(70, 68, 76), rng.randint(-14, 14)),
+        )
+    cv.rect(ox + 4, oy + 24, 24, 3, rgba(150, 110, 52))
+    cv.rect(ox + 4, oy + 24, 24, 1, rgba(206, 164, 86))
+    _house_clear_corners(cv, ox, oy)
+
+
 def draw_gate_floor(cv: Canvas, ox: int, oy: int, rng: random.Random) -> None:
     """Boss gate threshold: dark flagstones with a worn rust-red runner."""
     cv.rect(ox, oy, TILE_PX, TILE_PX, rgba(44, 38, 40))
@@ -999,6 +1065,9 @@ TILE_DRAWERS = {
     (7, 2): draw_decor_rubble,
     (0, 3): draw_gate_floor,
     (1, 3): draw_gate_post,
+    (2, 3): draw_hub_floor,
+    (3, 3): draw_road,
+    (4, 3): draw_decor_tower,
     # House parts (JGT-123), layout mirrored in data/tilesets/floor1.json.
     (0, 4): partial(draw_house_ridge, palette=HOUSE_PALETTES["a"], edge="l"),
     (1, 4): partial(draw_house_ridge, palette=HOUSE_PALETTES["a"], edge="m"),

@@ -15,7 +15,7 @@ const MIN_HOUSES := 4
 
 ## Plaza layout from tools/gen_floor1_layout.py: houses must leave these alone.
 const ENTRY_TILE := Vector2i(93, 58)
-const FOUNTAIN_TILE := Vector2i(95, 60)
+const FOUNTAIN_TILE := Vector2i(93, 60)
 const PLAZA_TORCHES := [
 	Vector2i(92, 56), Vector2i(99, 56), Vector2i(92, 65), Vector2i(99, 65),
 ]
