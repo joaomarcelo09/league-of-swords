@@ -716,11 +716,13 @@ func _create_entity_layer() -> void:
 		return
 	if entities_root.has_node("EntityLayer"):
 		entity_layer = entities_root.get_node("EntityLayer") as EntityLayer
+		entity_layer.view_parent = entities_root
 		return
 
 	var layer := EntityLayer.new()
 	layer.name = "EntityLayer"
 	entities_root.add_child(layer)
+	layer.view_parent = entities_root
 	entity_layer = layer
 	entity_layer.setup(session, zone_view, registry, player_marker)
 	entity_layer.event_emitted.connect(func(ev: Dictionary) -> void: event_emitted.emit(ev))

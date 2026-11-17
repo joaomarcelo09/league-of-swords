@@ -31,6 +31,9 @@ var zone_view: ZoneView = null
 var registry: DataRegistry = null
 var player_marker: Node2D = null
 var player_hp_bar: PlayerHPBar = null
+## Node enemy views are added to. MainView points this at the y-sorted Entities root so
+## the player, enemies, boss and NPCs all sort by feet Y (null -> this layer).
+var view_parent: Node = null
 
 var views: Dictionary = {}
 ## Dead enemy views kept alive to play their death animation: id -> sim tick to free at.
@@ -194,7 +197,7 @@ func sync() -> void:
 			view = EntityView.new()
 			view.name = "EntityView_%d" % entity_id
 			views[entity_id] = view
-			add_child(view)
+			_view_container().add_child(view)
 			_set_view_clock(view)
 			view.setup(entity, zone_view, registry)
 		else:
@@ -232,6 +235,18 @@ func sync() -> void:
 		dying_until_tick.erase(id)
 		if is_instance_valid(view):
 			view.queue_free()
+
+
+## Enemy views must be siblings of PlayerMarker and the NPC views so the shared
+## y-sorted parent draws the bigger feet Y in front; the layer only holds effect roots.
+func _view_container() -> Node:
+	return view_parent if view_parent != null else self
+
+
+## Pure: y-sort rule — with every sprite under one y-sorted parent, the feet Y decides
+## the draw order: a larger Y is drawn later, i.e. in front of the smaller one.
+static func is_in_front(front_y: float, back_y: float) -> bool:
+	return front_y > back_y
 
 
 func _set_view_clock(view: EntityView) -> void:
