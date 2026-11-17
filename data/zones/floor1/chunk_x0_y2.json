@@ -18,18 +18,18 @@
   "npcs": [],
   "spawns": [
     {
-      "enemy": "bog_slime",
-      "tile": [20, 5],
+      "enemy": "cinder_bat",
+      "tile": [9, 16],
       "respawn_s": 30
     },
     {
       "enemy": "bog_slime",
-      "tile": [15, 14],
+      "tile": [26, 18],
       "respawn_s": 30
     },
     {
-      "enemy": "ash_stalker",
-      "tile": [16, 19],
+      "enemy": "cinder_bat",
+      "tile": [21, 28],
       "respawn_s": 30
     }
   ],

@@ -6,11 +6,12 @@ Generates the Floor 1 chunk grid: data/zones/floor1/world.json plus one zone
 pair (<stem>.map + <stem>.json) per chunk.
 
 Layout (see .team/plans/floor1-layout-sketch.md):
-  - 6x4 chunks of 32x32 tiles = 192x128 tiles.
+  - 9x4 chunks of 32x32 tiles = 288x128 tiles.
   - Outer boundary of the whole map is wall, with slightly rounded corners.
-  - City (safe zone, town_floor) = ellipse centred at 50% x / 48% y,
+  - City (safe zone, town_floor) = ellipse centred at x=96 / 48% y,
     79x65 tiles, spanning the central chunks.
-  - Everything else is open plains (grass) with enemy spawns.
+  - Everything else is open plains (grass) with enemy spawns, including the
+    three plains chunk columns east of the city (x6..x8).
 Chunks are joined seamlessly: neighbouring chunks share open edges, so the
 player walks between them while the chunk loader streams them in; no gate
 transitions are needed. The only transition is the boss gate in the south wall.
@@ -29,13 +30,16 @@ import random
 import re
 
 CHUNK = 32
-GRID_W = 6
+GRID_W = 9
 GRID_H = 4
-WIDTH = GRID_W * CHUNK  # 192
+WIDTH = GRID_W * CHUNK  # 288
 HEIGHT = GRID_H * CHUNK  # 128
 
 # City ellipse (tile units, measured on tile centres).
-CITY_CX = WIDTH * 0.50  # 96.0
+# Pinned to the city's original absolute position: the east plains columns
+# (JGT-132) grow the map but must not move the fountain, houses, merchant,
+# torches or the floor1_x2_y1 start chunk. Do not derive this from WIDTH.
+CITY_CX = 96.0
 CITY_CY = HEIGHT * 0.48  # 61.44
 CITY_RX = 79 / 2.0
 CITY_RY = 65 / 2.0
@@ -283,10 +287,13 @@ def zone_stem(cx: int, cy: int) -> str:
 
 def chunk_spawns(grid: list[list[str]], cx: int, cy: int, rng: random.Random) -> list[dict]:
     ox, oy = cx * CHUNK, cy * CHUNK
+    entry = chunk_entry(grid, cx, cy)
     candidates = []
     for ly in range(3, CHUNK - 3):
         for lx in range(3, CHUNK - 3):
             x, y = ox + lx, oy + ly
+            if [lx, ly] == entry:
+                continue  # never spawn an enemy on top of the chunk entry
             if grid[y][x] not in WALKABLE or in_city(x, y):
                 continue
             if city_norm(x, y) < SPAWN_MIN_CITY_NORM ** 2:

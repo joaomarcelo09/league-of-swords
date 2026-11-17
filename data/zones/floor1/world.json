@@ -39,6 +39,24 @@
       "kind": "plains"
     },
     {
+      "id": "floor1_x6_y0",
+      "grid": [6, 0],
+      "zone": "chunk_x6_y0",
+      "kind": "plains"
+    },
+    {
+      "id": "floor1_x7_y0",
+      "grid": [7, 0],
+      "zone": "chunk_x7_y0",
+      "kind": "plains"
+    },
+    {
+      "id": "floor1_x8_y0",
+      "grid": [8, 0],
+      "zone": "chunk_x8_y0",
+      "kind": "plains"
+    },
+    {
       "id": "floor1_x0_y1",
       "grid": [0, 1],
       "zone": "chunk_x0_y1",
@@ -72,6 +90,24 @@
       "id": "floor1_x5_y1",
       "grid": [5, 1],
       "zone": "chunk_x5_y1",
+      "kind": "plains"
+    },
+    {
+      "id": "floor1_x6_y1",
+      "grid": [6, 1],
+      "zone": "chunk_x6_y1",
+      "kind": "plains"
+    },
+    {
+      "id": "floor1_x7_y1",
+      "grid": [7, 1],
+      "zone": "chunk_x7_y1",
+      "kind": "plains"
+    },
+    {
+      "id": "floor1_x8_y1",
+      "grid": [8, 1],
+      "zone": "chunk_x8_y1",
       "kind": "plains"
     },
     {
@@ -111,6 +147,24 @@
       "kind": "plains"
     },
     {
+      "id": "floor1_x6_y2",
+      "grid": [6, 2],
+      "zone": "chunk_x6_y2",
+      "kind": "plains"
+    },
+    {
+      "id": "floor1_x7_y2",
+      "grid": [7, 2],
+      "zone": "chunk_x7_y2",
+      "kind": "plains"
+    },
+    {
+      "id": "floor1_x8_y2",
+      "grid": [8, 2],
+      "zone": "chunk_x8_y2",
+      "kind": "plains"
+    },
+    {
       "id": "floor1_x0_y3",
       "grid": [0, 3],
       "zone": "chunk_x0_y3",
@@ -144,6 +198,24 @@
       "id": "floor1_x5_y3",
       "grid": [5, 3],
       "zone": "chunk_x5_y3",
+      "kind": "plains"
+    },
+    {
+      "id": "floor1_x6_y3",
+      "grid": [6, 3],
+      "zone": "chunk_x6_y3",
+      "kind": "plains"
+    },
+    {
+      "id": "floor1_x7_y3",
+      "grid": [7, 3],
+      "zone": "chunk_x7_y3",
+      "kind": "plains"
+    },
+    {
+      "id": "floor1_x8_y3",
+      "grid": [8, 3],
+      "zone": "chunk_x8_y3",
       "kind": "plains"
     }
   ],

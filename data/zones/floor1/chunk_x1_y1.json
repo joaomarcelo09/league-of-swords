@@ -25,13 +25,13 @@
   "npcs": [],
   "spawns": [
     {
-      "enemy": "cinder_bat",
-      "tile": [3, 4],
+      "enemy": "bog_slime",
+      "tile": [8, 3],
       "respawn_s": 30
     },
     {
       "enemy": "bog_slime",
-      "tile": [11, 22],
+      "tile": [21, 3],
       "respawn_s": 30
     }
   ],

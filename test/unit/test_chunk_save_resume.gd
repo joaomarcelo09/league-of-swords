@@ -197,7 +197,7 @@ func test_failed_resume_falls_back_to_the_town_entry() -> void:
 
 
 func test_save_in_a_removed_chunk_falls_back_to_the_town_entry() -> void:
-	# Saves made on the old 4-chunk strip name chunks the 6x4 grid no longer has.
+	# Saves made on the old 4-chunk strip name chunks the 9x4 grid no longer has.
 	var root := TEST_ROOT.path_join("old_strip")
 	var world := WorldState.new()
 	world.inventory = Inventory.new(_item_db)
