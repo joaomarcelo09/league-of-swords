@@ -116,6 +116,7 @@ class SkillSlotComponent extends Control:
 	func _init(p_slot_key: String, p_size: float = DEFAULT_SLOT_SIZE) -> void:
 		slot_key = p_slot_key
 		slot_size = p_size
+		texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 		custom_minimum_size = Vector2(slot_size, slot_size)
 		size = custom_minimum_size
 

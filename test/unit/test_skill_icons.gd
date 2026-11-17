@@ -34,7 +34,8 @@ func test_every_skill_icon_has_an_icons_entry() -> void:
 		assert_false(icon_id.is_empty(), "skill '%s' needs an icon id" % s_id)
 		assert_true(_registry.has_entry("icons", icon_id), "icon '%s' (skill '%s') needs an icons.json entry" % [icon_id, s_id])
 		var path := SkillIcons.icon_path(_registry, icon_id)
-		assert_true(path.is_empty() or ResourceLoader.exists(path), "icon '%s' path must be empty (letter fallback) or an existing file, got '%s'" % [icon_id, path])
+		assert_false(path.is_empty(), "icon '%s' (skill '%s') needs an art file path" % [icon_id, s_id])
+		assert_true(ResourceLoader.exists(path), "icon '%s' file must exist, got '%s'" % [icon_id, path])
 
 
 func test_icon_entries_are_well_formed() -> void:
