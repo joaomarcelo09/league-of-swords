@@ -13,6 +13,24 @@
       "type": "grass",
       "walkable": true
     },
+    "7": {
+      "type": "town_floor",
+      "walkable": false,
+      "safe": true,
+      "decor": "house_a_wall"
+    },
+    "8": {
+      "type": "town_floor",
+      "walkable": false,
+      "safe": true,
+      "decor": "house_a_window"
+    },
+    "9": {
+      "type": "town_floor",
+      "walkable": true,
+      "safe": true,
+      "decor": "house_a_door"
+    },
     "T": {
       "type": "town_floor",
       "walkable": true,

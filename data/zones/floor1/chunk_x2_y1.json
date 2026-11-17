@@ -55,7 +55,7 @@
       "decor": "house_a_door"
     },
     "B": {
-      "type": "hub_floor",
+      "type": "town_floor",
       "walkable": false,
       "safe": true,
       "decor": "barrel"
@@ -67,7 +67,7 @@
       "decor": "fountain"
     },
     "K": {
-      "type": "hub_floor",
+      "type": "town_floor",
       "walkable": false,
       "safe": true,
       "decor": "crate"
@@ -88,35 +88,11 @@
       "safe": true,
       "decor": "tower"
     },
-    "a": {
-      "type": "town_floor",
-      "walkable": false,
-      "safe": true,
-      "decor": "house_b_ridge_l"
-    },
-    "b": {
-      "type": "town_floor",
-      "walkable": false,
-      "safe": true,
-      "decor": "house_b_ridge_m"
-    },
     "c": {
       "type": "town_floor",
       "walkable": false,
       "safe": true,
       "decor": "house_b_ridge_r"
-    },
-    "d": {
-      "type": "town_floor",
-      "walkable": false,
-      "safe": true,
-      "decor": "house_b_roof_l"
-    },
-    "e": {
-      "type": "town_floor",
-      "walkable": false,
-      "safe": true,
-      "decor": "house_b_roof_m"
     },
     "f": {
       "type": "town_floor",
@@ -142,16 +118,82 @@
       "safe": true,
       "decor": "house_b_door"
     },
+    "j": {
+      "type": "town_floor",
+      "walkable": false,
+      "safe": true,
+      "decor": "shop_parapet_l"
+    },
+    "k": {
+      "type": "town_floor",
+      "walkable": false,
+      "safe": true,
+      "decor": "shop_parapet_m"
+    },
+    "l": {
+      "type": "town_floor",
+      "walkable": false,
+      "safe": true,
+      "decor": "shop_parapet_r"
+    },
+    "m": {
+      "type": "town_floor",
+      "walkable": false,
+      "safe": true,
+      "decor": "shop_awning_l"
+    },
+    "n": {
+      "type": "town_floor",
+      "walkable": false,
+      "safe": true,
+      "decor": "shop_awning_m"
+    },
     "o": {
       "type": "hub_floor",
       "walkable": true,
       "safe": true
+    },
+    "p": {
+      "type": "town_floor",
+      "walkable": false,
+      "safe": true,
+      "decor": "shop_awning_r"
+    },
+    "q": {
+      "type": "town_floor",
+      "walkable": false,
+      "safe": true,
+      "decor": "shop_wall"
+    },
+    "r": {
+      "type": "town_floor",
+      "walkable": false,
+      "safe": true,
+      "decor": "shop_window"
+    },
+    "s": {
+      "type": "town_floor",
+      "walkable": true,
+      "safe": true,
+      "decor": "shop_door"
     },
     "u": {
       "type": "hub_floor",
       "walkable": false,
       "safe": true,
       "decor": "torch"
+    },
+    "v": {
+      "type": "hub_floor",
+      "walkable": false,
+      "safe": true,
+      "decor": "barrel"
+    },
+    "w": {
+      "type": "hub_floor",
+      "walkable": false,
+      "safe": true,
+      "decor": "crate"
     }
   },
   "entry": [29, 26],

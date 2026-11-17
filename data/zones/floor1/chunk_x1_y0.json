@@ -13,6 +13,42 @@
       "type": "grass",
       "walkable": true
     },
+    "1": {
+      "type": "town_floor",
+      "walkable": false,
+      "safe": true,
+      "decor": "house_a_ridge_l"
+    },
+    "2": {
+      "type": "town_floor",
+      "walkable": false,
+      "safe": true,
+      "decor": "house_a_ridge_m"
+    },
+    "4": {
+      "type": "town_floor",
+      "walkable": false,
+      "safe": true,
+      "decor": "house_a_roof_l"
+    },
+    "5": {
+      "type": "town_floor",
+      "walkable": false,
+      "safe": true,
+      "decor": "house_a_roof_m"
+    },
+    "7": {
+      "type": "town_floor",
+      "walkable": false,
+      "safe": true,
+      "decor": "house_a_wall"
+    },
+    "8": {
+      "type": "town_floor",
+      "walkable": false,
+      "safe": true,
+      "decor": "house_a_window"
+    },
     "T": {
       "type": "town_floor",
       "walkable": true,

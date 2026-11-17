@@ -13,6 +13,9 @@ Layout (see .team/plans/floor1-layout-sketch.md):
     wide gate on its west and east side.
   - Central hub (hub_floor) plus four 8 tile wide roads (road) reaching the
     wall, and a diamond tower at the exact centre (JGT-134).
+  - The four quarters between the roads hold mirrored rows of houses and shops,
+    each fronted by a two tile alley (JGT-137); the roads are dressed with
+    torches, barrels and crates on the town floor beside them.
   - Everything else is open plains (grass) with enemy spawns, including the
     three plains chunk columns east of the city (x6..x8).
 Chunks are joined seamlessly: neighbouring chunks share open edges, so the
@@ -49,8 +52,8 @@ CITY_RADIUS = 61.0  # outer edge of the city wall ring
 CITY_FLOOR_RADIUS = 58.0  # inner edge of the wall ring (town floor is inside)
 GATE_ROW_MIN = 60  # west/east gate openings: rows 60..67, centred on y = 64
 GATE_ROW_MAX = 67
-HOUSE_ANCHOR = (96, 61)  # keeps every house on its original absolute tile
-HOUSE_MAX_CITY_DIST = 50.0  # houses stay at least 8 tiles inside the floor edge
+HOUSE_MAX_CITY_DIST = 52.0  # buildings stop short of the floor edge and rim torches
+HUB_BUILDING_MARGIN = 1.25  # keep a one tile walkable margin around the hub
 RIM_TORCH_RADIUS = 54.0  # torch ring just inside the wall
 RIM_TORCH_GATE_CLEARANCE = 6  # keep rim torches this far (in y) off the gate rows
 
@@ -78,17 +81,30 @@ CRATE = (89, 62)
 PLAZA_TORCHES = [(92, 56), (99, 56), (92, 65), (99, 65)]
 RIM_TORCH_COUNT = 12
 
-# Houses (JGT-123): multi-tile footprints (8x6 and 7x5) assembled from roof,
-# wall, window and door parts. Offsets are top-left tiles from the city centre;
-# doors always face south onto open town floor. Rows leave room for the wider
-# footprints and the one tile door approach between them.
+# Buildings (JGT-123/JGT-137): houses are 8x6 or 7x5 footprints assembled from
+# roof, wall, window and door parts; shops are 8x5 or 7x5 (JGT-136). Rows are
+# filled from the east/west road outward, every door faces south onto a two tile
+# alley and neighbouring footprints keep a one tile gap. The (door row, height
+# budget) pairs below start at the road and step north; a 6 row alternates 8x6
+# and 7x5 houses, a 5 row stays 7x5. Rows reuse the same mirrored slots, so all
+# four quarters hold the same buildings.
 HOUSE_SIZES = [(8, 6), (7, 5)]
-HOUSE_ROWS = [
-    (-24, [-26, -17, -8, 3, 14, 25]),
-    (-16, [-28, -18, -8, 2, 12, 22]),
-    (10, [-29, -20, -9, 2, 13, 23]),
-    (18, [-29, -19, -8, 3, 12, 22]),
+BUILDING_ROWS = [
+    (57, 6),
+    (49, 6),
+    (41, 6),
+    (33, 6),
+    (25, 5),
+    (18, 5),
 ]
+BUILDING_COLUMNS = 8  # enough slots to reach the western floor edge
+SHOP_EVERY = 3  # roughly one shop for every three buildings
+
+# Road dressing: barrels, crates and torches on the town floor beside the roads,
+# in mirror pairs so the decoration stays symmetric around the city centre.
+ROAD_PROP_CHARS = ["t", "B", "K"]
+ROAD_PROP_EW_OFFSETS = [18, 25, 32, 39, 46]
+ROAD_PROP_NS_OFFSETS = [27, 34, 41, 48]
 
 # Legend chars per house part. Variant "a" is warm red roof / cream wall,
 # variant "b" cool slate roof / sage wall.
@@ -145,8 +161,11 @@ LEGEND = {
     "F": {"type": "hub_floor", "walkable": False, "safe": True, "decor": "fountain"},
     "t": {"type": "town_floor", "walkable": False, "safe": True, "decor": "torch"},
     "u": {"type": "hub_floor", "walkable": False, "safe": True, "decor": "torch"},
-    "B": {"type": "hub_floor", "walkable": False, "safe": True, "decor": "barrel"},
-    "K": {"type": "hub_floor", "walkable": False, "safe": True, "decor": "crate"},
+    # Road-side props stand on town floor; the hub keeps its own letters.
+    "B": {"type": "town_floor", "walkable": False, "safe": True, "decor": "barrel"},
+    "K": {"type": "town_floor", "walkable": False, "safe": True, "decor": "crate"},
+    "v": {"type": "hub_floor", "walkable": False, "safe": True, "decor": "barrel"},
+    "w": {"type": "hub_floor", "walkable": False, "safe": True, "decor": "crate"},
     "G": {"type": "gate", "walkable": True},
     "P": {"type": "gate_post", "walkable": False},
 }
@@ -257,7 +276,7 @@ def rim_torches() -> list[tuple[int, int]]:
 
 
 def reserved_tiles() -> set[tuple[int, int]]:
-    """Plaza props and torch posts that a house must never cover."""
+    """Plaza props and torch posts that a building must never cover."""
     reserved = {ENTRY, MERCHANT_TILE, BARREL, CRATE}
     for j in range(2):
         for i in range(2):
@@ -267,29 +286,125 @@ def reserved_tiles() -> set[tuple[int, int]]:
     return reserved
 
 
-def house_layouts() -> list[dict]:
-    """Deterministic house placements: size and palette vary row by row."""
+def _derive_windows(layout: dict) -> None:
+    """Set the window cells for the layout's current width, height and door."""
+    w, h = layout["w"], layout["h"]
+    door_i = layout["door_i"]
+    layout["window_i"] = 1 + door_i % (w - 2)
+    layout["window_row"] = h - 2
+    layout["window_i2"] = 1 + (door_i + 3) % (w - 2)
+    layout["window_row2"] = h - 3
+
+
+def _slot_cells(layout: dict) -> list[tuple[int, int]]:
+    return [
+        (layout["x"] + i, layout["y"] + j)
+        for j in range(layout["h"])
+        for i in range(layout["w"])
+    ]
+
+
+def _slot_fits(layout: dict, reserved: set[tuple[int, int]]) -> bool:
+    """True when every footprint tile is clear city floor, off the hub/roads."""
+    for x, y in _slot_cells(layout):
+        if not on_city_floor(x, y):
+            return False
+        if city_dist(x, y) > HOUSE_MAX_CITY_DIST:
+            return False
+        if city_dist(x, y) <= HUB_RADIUS + HUB_BUILDING_MARGIN:
+            return False
+        if on_hub(x, y) or on_road(x, y):
+            return False
+        if (x, y) in reserved:
+            return False
+    return True
+
+
+def _north_building_layouts(reserved: set[tuple[int, int]]) -> list[dict]:
+    """Buildings in the north-west quarter, packed from the N/S road outward."""
     layouts = []
-    for row_idx, (dy, xs) in enumerate(HOUSE_ROWS):
-        for col_idx, dx in enumerate(xs):
-            w, h = HOUSE_SIZES[(row_idx + col_idx) % 2]
-            slot = row_idx * 2 + col_idx
-            door_i = 1 + slot % (w - 2)
+    for row_idx, (door_y, row_h) in enumerate(BUILDING_ROWS):
+        right = ROAD_X_MIN - 2  # leave one town floor tile beside the road
+        for col in range(BUILDING_COLUMNS):
+            # Only the 8 wide house is 6 tall; the 7 wide ones are 7x5.
+            w = 8 if (row_h == 6 and col % 2 == 0) else 7
+            h = 6 if w == 8 else 5
+            left = right - w + 1
+            if left < 0:
+                break
             layout = {
-                "dx": dx,
-                "dy": dy,
+                "x": left,
+                "y": door_y - h + 1,
                 "w": w,
                 "h": h,
-                "variant": "a" if (row_idx + col_idx // 2) % 2 == 0 else "b",
-                "door_i": door_i,
-                "window_i": 1 + door_i % (w - 2),
-                "window_row": h - 2,
+                "door_i": 1 + (row_idx * 3 + col) % (w - 2),
+                "variant": "a" if (row_idx + col) % 2 == 0 else "b",
+                "kind": "house",
+                "row": row_idx,
+                "col": col,
             }
-            if w >= 7:
-                # Wider houses get a second window on another wall row.
-                layout["window_i2"] = 1 + (door_i + 3) % (w - 2)
-                layout["window_row2"] = h - 3
-            layouts.append(layout)
+            _derive_windows(layout)
+            if _slot_fits(layout, reserved):
+                layouts.append(layout)
+            right = left - 2  # one clear tile between neighbouring footprints
+    return layouts
+
+
+def _assign_shops(layouts: list[dict]) -> None:
+    """Turn the third of the buildings closest to the hub/roads into shops."""
+    shop_count = (len(layouts) + SHOP_EVERY - 1) // SHOP_EVERY
+    order = sorted(
+        range(len(layouts)),
+        key=lambda i: (
+            min(city_dist(x, y) for x, y in _slot_cells(layouts[i])),
+            layouts[i]["y"],
+            layouts[i]["x"],
+        ),
+    )
+    for i in order[:shop_count]:
+        layout = layouts[i]
+        bottom = layout["y"] + layout["h"] - 1
+        layout["kind"] = "shop"
+        layout["variant"] = "m"
+        layout["h"] = 5
+        layout["y"] = bottom - layout["h"] + 1
+        _derive_windows(layout)
+    for layout in layouts:
+        layout["cells"] = _slot_cells(layout)
+
+
+def _mirror_x(layout: dict) -> dict:
+    """Mirror a footprint across the north/south roads (x -> 191 - x)."""
+    w = layout["w"]
+    mirrored = dict(layout)
+    mirrored["x"] = 191 - (layout["x"] + w - 1)
+    mirrored["door_i"] = w - 1 - layout["door_i"]
+    mirrored["cells"] = [(191 - x, y) for x, y in layout["cells"]]
+    _derive_windows(mirrored)
+    return mirrored
+
+
+def _mirror_y(layout: dict) -> dict:
+    """Point-reflect a footprint across y = 64, keeping its door facing south."""
+    h = layout["h"]
+    mirrored = dict(layout)
+    mirrored["y"] = 127 - (layout["y"] + h - 1)
+    mirrored["cells"] = [(x, 127 - y) for x, y in layout["cells"]]
+    _derive_windows(mirrored)
+    return mirrored
+
+
+def building_layouts() -> list[dict]:
+    """All city buildings, mirrored into the four quarters between the roads."""
+    reserved = reserved_tiles()
+    north = _north_building_layouts(reserved)
+    _assign_shops(north)
+    layouts = []
+    for layout in north:
+        layouts.append(layout)
+        layouts.append(_mirror_x(layout))
+        layouts.append(_mirror_y(layout))
+        layouts.append(_mirror_x(_mirror_y(layout)))
     return layouts
 
 
@@ -376,6 +491,65 @@ def place_shop(
     return shop
 
 
+def road_props(grid: list[list[str]], buildings: list[dict]) -> list[tuple[int, int, str]]:
+    """Barrels, crates and torches on town floor beside the roads.
+
+    Each offset is stamped as a four-way mirror group, so the decoration stays
+    symmetric. Groups that would touch a building, a door approach or a plaza
+    prop are skipped whole, which keeps the mirror pairs intact.
+    """
+    building_cells = {cell for building in buildings for cell in building["cells"]}
+    approaches = {
+        (building["x"] + building["door_i"], building["y"] + building["h"])
+        for building in buildings
+    }
+    around_doors = {
+        (x + dx, y + dy)
+        for x, y in approaches
+        for dx in range(-1, 2)
+        for dy in range(-1, 2)
+    }
+    reserved = reserved_tiles()
+    used: set[tuple[int, int]] = set()
+    props = []
+
+    def add_group(coords: list[tuple[int, int]], char: str) -> None:
+        for x, y in coords:
+            if grid[y][x] != "T":
+                return
+            if (x, y) in building_cells or (x, y) in reserved or (x, y) in used:
+                return
+            if (x, y) in around_doors:
+                return
+        for x, y in coords:
+            used.add((x, y))
+            props.append((x, y, char))
+
+    for i, off in enumerate(ROAD_PROP_EW_OFFSETS):
+        char = ROAD_PROP_CHARS[i % len(ROAD_PROP_CHARS)]
+        west = int(CITY_CX) - off
+        east = 191 - west
+        coords = [
+            (x, y)
+            for x in (west, east)
+            for y in (ROAD_Y_MIN - 1, GATE_ROW_MAX + 1)
+        ]
+        add_group(coords, char)
+
+    for i, off in enumerate(ROAD_PROP_NS_OFFSETS):
+        char = ROAD_PROP_CHARS[(i + 1) % len(ROAD_PROP_CHARS)]
+        south = int(CITY_CY) + off
+        north = 127 - south
+        coords = [
+            (x, y)
+            for x in (ROAD_X_MIN - 1, ROAD_X_MIN + ROAD_WIDTH)
+            for y in (south, north)
+        ]
+        add_group(coords, char)
+
+    return props
+
+
 def carve_city_gates(grid: list[list[str]]) -> None:
     """Cut the west and east gate openings through the wall, then post their jambs."""
     for y in range(GATE_ROW_MIN, GATE_ROW_MAX + 1):
@@ -417,51 +591,68 @@ def build_world(rng: random.Random) -> list[list[str]]:
     carve_city_gates(grid)
     paint_city_center(grid)
 
-    # Houses (JGT-123): bigger footprints assembled from roof/wall/window/door parts.
-    icx, icy = HOUSE_ANCHOR
+    # Buildings (JGT-123/JGT-137): houses and shops fill the four quarters in
+    # mirrored rows, each door facing south onto a two tile alley.
     reserved = reserved_tiles()
-    houses = []
-    for layout in house_layouts():
-        hx, hy = icx + layout["dx"], icy + layout["dy"]
-        w, h = layout["w"], layout["h"]
-        # Keep the hub and the roads clear (JGT-134 will rebuild these houses).
-        if any(
-            on_hub(hx + i, hy + j) or on_road(hx + i, hy + j)
-            for j in range(-1, h + 1)
-            for i in range(-1, w + 1)
-        ):
+    buildings = building_layouts()
+
+    building_cells: set[tuple[int, int]] = set()
+    for building in buildings:
+        cells = building["cells"]
+        assert all(on_city_floor(x, y) for x, y in cells), "building %s outside the city floor" % str(building)
+        assert all(city_dist(x, y) <= HOUSE_MAX_CITY_DIST for x, y in cells), "building %s outside the city core" % str(building)
+        assert building_cells.isdisjoint(cells), "building %s overlaps another building" % str(building)
+        assert reserved.isdisjoint(cells), "building %s covers a plaza prop" % str(building)
+        for x, y in cells:
+            assert grid[y][x] == "T", "building %s overlaps a non-town-floor tile" % str(building)
+            # Keep a one tile margin from the roads and the hub.
+            for dx in range(-1, 2):
+                for dy in range(-1, 2):
+                    assert not on_road(x + dx, y + dy), "building %s touches a road" % str(building)
+                    assert city_dist(x + dx, y + dy) > HUB_RADIUS, "building %s touches the hub" % str(building)
+        building_cells.update(cells)
+
+    for building in buildings:
+        approach = (building["x"] + building["door_i"], building["y"] + building["h"])
+        assert 0 <= approach[0] < WIDTH and 0 <= approach[1] < HEIGHT, "building %s door is outside the map" % str(building)
+        assert approach not in building_cells, "building %s door faces another building" % str(building)
+        assert approach not in reserved, "building %s door faces a plaza prop" % str(building)
+        assert grid[approach[1]][approach[0]] in ("T", "R", "o"), "building %s door faces a walkable tile" % str(building)
+
+    quarter_counts: dict[str, int] = {}
+    for building in buildings:
+        door_x = building["x"] + building["door_i"]
+        door_y = building["y"] + building["h"]
+        quarter = ("N" if door_y < ROAD_Y_MIN else "S") + ("W" if door_x < ROAD_X_MIN else "E")
+        quarter_counts[quarter] = quarter_counts.get(quarter, 0) + 1
+    assert set(quarter_counts) == {"NW", "NE", "SW", "SE"}, "every quarter holds buildings"
+    assert len(set(quarter_counts.values())) == 1, "the four quarters hold the same number of buildings"
+
+    for building in buildings:
+        if building["kind"] == "shop":
+            place_shop(grid, building["x"], building["y"], building["w"], building["h"], building["door_i"], building["variant"])
+    for building in buildings:
+        if building["kind"] != "house":
             continue
-        cells = [(hx + i, hy + j) for j in range(h) for i in range(w)]
-        assert all(city_dist(cx, cy) <= HOUSE_MAX_CITY_DIST for cx, cy in cells), "house %s outside the city core" % str(layout)
-        houses.append(dict(layout, x=hx, y=hy, cells=cells))
-
-    house_cells: set[tuple[int, int]] = set()
-    for house in houses:
-        assert house_cells.isdisjoint(house["cells"]), "house %s overlaps another house" % str(house)
-        assert reserved.isdisjoint(house["cells"]), "house %s covers a plaza prop" % str(house)
-        house_cells.update(house["cells"])
-
-    for house in houses:
-        approach = (house["x"] + house["door_i"], house["y"] + house["h"])
-        assert approach not in house_cells, "house %s door faces another house" % str(house)
-        assert approach not in reserved, "house %s door faces a plaza prop" % str(house)
-        assert on_city_floor(approach[0], approach[1]), "house %s door faces open town floor" % str(house)
-        for j in range(house["h"]):
-            for i in range(house["w"]):
-                grid[house["y"] + j][house["x"] + i] = house_part_char(house, i, j)
+        for j in range(building["h"]):
+            for i in range(building["w"]):
+                grid[building["y"] + j][building["x"] + i] = house_part_char(building, i, j)
 
     fx, fy = FOUNTAIN
     for j in range(2):
         for i in range(2):
             grid[fy + j][fx + i] = "F"
-    grid[BARREL[1]][BARREL[0]] = "B"
-    grid[CRATE[1]][CRATE[0]] = "K"
+    grid[BARREL[1]][BARREL[0]] = "v"
+    grid[CRATE[1]][CRATE[0]] = "w"
     for tx, ty in PLAZA_TORCHES:
         grid[ty][tx] = "u"
 
-    # Torch posts in a ring just inside the city wall.
+    # Torch posts in a ring just inside the city wall, then dress the roads with
+    # barrels, crates and torches on the town floor beside them.
     for tx, ty in rim_torches():
         grid[ty][tx] = "t"
+    for tx, ty, char in road_props(grid, buildings):
+        grid[ty][tx] = char
 
     for x in range(GATE_X0 - 1, GATE_X0 + GATE_W + 1):
         grid[GATE_Y][x] = "P" if x in (GATE_X0 - 1, GATE_X0 + GATE_W) else "G"
