@@ -299,6 +299,7 @@ func _init_game() -> void:
 		add_child(camera)
 	camera.enabled = true
 	camera.setup(registry)
+	_update_camera_bounds()
 
 	# 9. Setup PlayerInput
 	if player_input == null:
@@ -437,6 +438,7 @@ func _rebuild_after_zone_change() -> void:
 	else:
 		_clear_chunk_views()
 		zone_view.build(zone)
+	_update_camera_bounds()
 	_create_npc_views(true)
 
 	player_animator.reset(player.pos)
@@ -457,6 +459,23 @@ func _rebuild_after_zone_change() -> void:
 ## True when the session currently runs on the chunked floor.
 func in_chunked_mode() -> bool:
 	return session != null and session.in_chunked_world()
+
+
+## Pixels the camera may show: the loaded floor/chunked map in tiles times tile size.
+func _update_camera_bounds() -> void:
+	if camera == null:
+		return
+	var tiles := Vector2.ZERO
+	var use_chunks := chunked_world != null and chunked_world.is_valid() and (session == null or in_chunked_mode())
+	if use_chunks:
+		tiles = Vector2(float(chunked_world.world_width()), float(chunked_world.world_height()))
+	elif zone != null:
+		tiles = Vector2(float(zone.width), float(zone.height))
+	var tile_px := float(zone_view.tile_px) if zone_view != null else float(ZoneView.DEFAULT_TILE_PX)
+	if tiles.x <= 0.0 or tiles.y <= 0.0 or tile_px <= 0.0:
+		camera.set_map_bounds(Rect2())
+		return
+	camera.set_map_bounds(Rect2(Vector2.ZERO, tiles * tile_px))
 
 
 ## Frees every chunk tilemap (entering a classic door zone, or rebuilding the floor).

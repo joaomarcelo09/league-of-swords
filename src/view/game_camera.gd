@@ -16,6 +16,9 @@ var shaking: bool = false
 ## Phase of the current shake; bumped per shake so successive shakes differ.
 var shake_seed: int = 0
 
+## World-space map rectangle the camera may show (set by MainView); empty = no clamp.
+var map_bounds: Rect2 = Rect2()
+
 var follow_offset: Vector2:
 	get:
 		return offset
@@ -55,15 +58,56 @@ func setup(registry: DataRegistry) -> void:
 func follow(world_pos: Vector2) -> void:
 	if pinned:
 		return
+	var target := world_pos
+	if map_bounds.size.x > 0.0 and map_bounds.size.y > 0.0:
+		target = clamp_to_bounds(world_pos, visible_world_size(), map_bounds)
+	_set_position(target)
+
+
+## Debug framing (JGT-80): the pinned camera stays exactly where put, past the map
+## edge if asked, until follow() is re-enabled.
+func pin_to(world_pos: Vector2) -> void:
+	pinned = false
+	_set_position(world_pos)
+	pinned = true
+	stop_shake()
+
+
+## Sets the world-space rectangle the camera should keep inside; empty clears it.
+func set_map_bounds(bounds: Rect2) -> void:
+	map_bounds = bounds
+
+
+## Visible world size in pixels: viewport size / zoom.
+func visible_world_size() -> Vector2:
+	var viewport := get_viewport()
+	if viewport == null:
+		return Vector2.ZERO
+	var safe_zoom := Vector2(maxf(zoom.x, 0.001), maxf(zoom.y, 0.001))
+	return viewport.get_visible_rect().size / safe_zoom
+
+
+func _set_position(world_pos: Vector2) -> void:
 	global_position = world_pos
 	position = world_pos
 
 
-func pin_to(world_pos: Vector2) -> void:
-	pinned = false
-	follow(world_pos)
-	pinned = true
-	stop_shake()
+## Pure: positions `pos` (the camera centre) so `view_size` stays inside `bounds`;
+## a map smaller than the view along an axis is centred on that axis.
+static func clamp_to_bounds(pos: Vector2, view_size: Vector2, bounds: Rect2) -> Vector2:
+	if bounds.size.x <= 0.0 or bounds.size.y <= 0.0:
+		return pos
+	return Vector2(
+		_clamp_axis(pos.x, maxf(view_size.x, 0.0), bounds.position.x, bounds.size.x),
+		_clamp_axis(pos.y, maxf(view_size.y, 0.0), bounds.position.y, bounds.size.y)
+	)
+
+
+static func _clamp_axis(center: float, view: float, start: float, size: float) -> float:
+	if view >= size:
+		return start + size * 0.5
+	var half := view * 0.5
+	return clampf(center, start + half, start + size - half)
 
 
 ## Starts (or restarts) a short decaying hit shake. Ignored while pinned or when the
