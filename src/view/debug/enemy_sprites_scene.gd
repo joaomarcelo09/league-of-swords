@@ -1,7 +1,7 @@
 extends Node2D
-## Debug showcase for tools/screenshot.sh: the three Floor 1 enemies side by side on
-## the test arena floor, one column per layout animation (idle fallback, walk, slash,
-## hurt, death), frozen on a representative frame.
+## Debug showcase for tools/screenshot.sh: the three Floor 1 enemies plus the boss
+## Gorvak side by side on the test arena floor, one column per layout animation (idle
+## fallback, walk, slash, hurt, death), frozen on a representative frame.
 ##
 ##   tools/screenshot.sh --scene=res://scenes/debug/enemy_sprites.tscn \
 ##       --frames=30 --out=.screenshots/enemy_sprites.png
@@ -13,11 +13,11 @@ const APPEARANCES_PATH: String = "res://data/appearances.json"
 const ARENA_MAP: String = "res://data/zones/floor1/test_arena.map"
 const ARENA_JSON: String = "res://data/zones/floor1/test_arena.json"
 const TILE_PX: int = 32
-const CAMERA_ZOOM: float = 2.0
-const CAMERA_TILE: Vector2 = Vector2(11.0, 9.0)
+const CAMERA_ZOOM: float = 1.45
+const CAMERA_TILE: Vector2 = Vector2(11.0, 11.5)
 
-const ENEMY_IDS: Array[String] = ["ash_stalker", "bog_slime", "cinder_bat"]
-const ROW_TILES: Array[float] = [6.0, 9.5, 13.0]
+const ENEMY_IDS: Array[String] = ["ash_stalker", "bog_slime", "cinder_bat", "thornback_warden"]
+const ROW_TILES: Array[float] = [6.0, 9.5, 13.0, 17.0]
 const COLUMN_TILES: Array[float] = [3.5, 7.0, 10.5, 14.0, 17.5]
 const COLUMN_ANIMS: Array[String] = ["idle", "walk", "slash", "hurt", "death"]
 ## Representative frame of each column (death holds its last frame).
@@ -92,7 +92,7 @@ func _add_labels() -> void:
 	var layer := CanvasLayer.new()
 	layer.name = "Labels"
 	add_child(layer)
-	_add_label(layer, "Floor 1 enemy sprites  -  idle / walk / slash / hurt / death", Vector2(340, 8), 20)
+	_add_label(layer, "Floor 1 enemy sprites + Gorvak  -  idle / walk / slash / hurt / death", Vector2(280, 8), 20)
 	for col_idx in COLUMN_ANIMS.size():
 		_add_label(layer, COLUMN_ANIMS[col_idx], Vector2(_column_screen_x(col_idx) - 26, 40), 18)
 	for row_idx in ENEMY_IDS.size():

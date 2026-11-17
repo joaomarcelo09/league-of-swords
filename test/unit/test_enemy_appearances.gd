@@ -6,6 +6,7 @@ extends GutTest
 const ENEMIES_PATH: String = "res://data/enemies.json"
 const APPEARANCES_PATH: String = "res://data/appearances.json"
 const REGULAR_IDS: Array[String] = ["ash_stalker", "bog_slime", "cinder_bat"]
+const BOSS_ID: String = "thornback_warden"
 const SHEET_DIR: String = "res://assets/characters/"
 
 var _enemies: Dictionary = {}
@@ -82,6 +83,43 @@ func test_regular_appearances_build_every_animation() -> void:
 			for dir_name: Variant in rows.keys():
 				var frame := sheet.get_region(Rect2i(0, int(rows[dir_name]) * fs.y, fs.x, fs.y))
 				assert_true(_has_art(frame), "%s %s %s frame has art" % [enemy_id, anim, dir_name])
+
+
+func test_boss_has_own_appearance_with_separate_weapon_layer() -> void:
+	var boss: Dictionary = _enemies.get(BOSS_ID, {})
+	assert_false(boss.is_empty(), "boss entry exists")
+	assert_eq(str(boss.get("name", "")), "Gorvak the Ashen Warden", "boss display name")
+	assert_eq(str(boss.get("appearance", "")), BOSS_ID, "boss uses its own appearance")
+	assert_eq(str(boss.get("layout", "")), BOSS_ID, "boss uses its own layout")
+
+	var appearance := CharacterAppearance.get_appearance(_appearances, BOSS_ID)
+	var layers: Dictionary = appearance.get("layers", {})
+	assert_true(layers.has("body"), "boss has a body sheet")
+	assert_true(layers.has("weapon"), "boss draws the phase 1 weapon as its own layer")
+	for layer_name: Variant in layers.keys():
+		var path := str(layers[layer_name])
+		assert_true(path.begins_with(SHEET_DIR + BOSS_ID + "/"), "boss layer is own art: %s" % path)
+		assert_true(CharacterAppearance.file_exists(path), "boss sheet exists: %s" % path)
+
+	var layout := CharacterAppearance.load_json(EntityView.layout_path_for(str(boss.get("layout", ""))))
+	assert_false(layout.is_empty(), "boss layout loads")
+	assert_eq(CharacterAppearance.frame_size(layout), Vector2i(96, 96), "boss uses the bigger 96px frame")
+
+	var built := CharacterAppearance.build_images(appearance, layout)
+	var images: Dictionary = built.get("layers", {})
+	var fs := CharacterAppearance.frame_size(layout)
+	for layer_name: String in ["body", "weapon"]:
+		var sheet: Image = images.get(layer_name, null)
+		assert_not_null(sheet, "boss %s sheet builds" % layer_name)
+		if sheet == null:
+			continue
+		for anim in [AnimState.ANIM_WALK, AnimState.ANIM_SLASH, AnimState.ANIM_HURT, AnimState.ANIM_IDLE]:
+			var info: Dictionary = (layout.get("animations", {}) as Dictionary).get(anim, {})
+			assert_false(info.is_empty(), "boss layout defines %s" % anim)
+			var rows: Dictionary = info.get("rows", {})
+			for dir_name: Variant in rows.keys():
+				var frame := sheet.get_region(Rect2i(0, int(rows[dir_name]) * fs.y, fs.x, fs.y))
+				assert_true(_has_art(frame), "boss %s %s %s frame has art" % [layer_name, anim, dir_name])
 
 
 ## True when the frame holds at least one non-transparent pixel.

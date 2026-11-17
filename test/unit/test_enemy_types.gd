@@ -123,4 +123,4 @@ func test_shapes_and_timings_differ_as_designed() -> void:
 	assert_eq(str(stalker["appearance"]), "ash_stalker")
 	assert_eq(str(slime["appearance"]), "bog_slime")
 	assert_eq(str(bat["appearance"]), "cinder_bat")
-	assert_eq(str(warden["appearance"]), "ash_stalker", "the boss keeps using the stalker appearance")
+	assert_eq(str(warden["appearance"]), "thornback_warden", "the boss uses its own appearance")
