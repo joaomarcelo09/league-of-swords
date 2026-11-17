@@ -120,5 +120,7 @@ func test_shapes_and_timings_differ_as_designed() -> void:
 	assert_gt(float(warden["windup_s"]), float(stalker["windup_s"]), "warden windup longer")
 	assert_gt(float(warden["recovery_s"]), float(stalker["recovery_s"]), "warden recovery longer")
 	assert_gt(float(bat["move_speed_tiles_per_s"]), float(slime["move_speed_tiles_per_s"]), "bat faster")
-	for type_id: String in TYPES:
-		assert_eq(str(_cfg(type_id).get("appearance", "")), "ash_stalker", "%s reuses ash_stalker art" % type_id)
+	assert_eq(str(stalker["appearance"]), "ash_stalker")
+	assert_eq(str(slime["appearance"]), "bog_slime")
+	assert_eq(str(bat["appearance"]), "cinder_bat")
+	assert_eq(str(warden["appearance"]), "ash_stalker", "the boss keeps using the stalker appearance")

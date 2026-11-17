@@ -1,0 +1,107 @@
+{
+  "_comment": "Stacked sprite sheet layout shared by every layer sheet (assets/characters/placeholder/*.png). idle rows 21-24 may lie past a sheet; they are then filled from walk frame 0 (fallback) by src/view/character_appearance.gd. hurt_seconds is how long the view plays the hurt reaction after the entity takes damage. sprite_offset/sprite_scale place 64px frames so the feet sit on the entity (tile centre) position. octant_dirs maps the 8 facing octants (Facing.EAST, SOUTH_EAST, SOUTH, SOUTH_WEST, WEST, NORTH_WEST, NORTH, NORTH_EAST) to the 4 direction rows. slash_speed_scale_range [min, max] clamps how much the view may speed up/slow down the slash to fit an attack interval or enemy windup. layer_draw_order is back to front: body under clothes (shirt) under armor (coat) under hair under weapon. Copy for cinder_bat: same frames and rows, only hp_bar_y_offset is tuned to the smaller body.",
+  "frame_width": 64,
+  "frame_height": 64,
+  "frame_size": [
+    64,
+    64
+  ],
+  "sprite_offset": [
+    0,
+    -30
+  ],
+  "sprite_scale": 1.0,
+  "hp_bar_y_offset": -44.0,
+  "hurt_seconds": 0.4,
+  "octant_dirs": [
+    "right",
+    "right",
+    "down",
+    "left",
+    "left",
+    "left",
+    "up",
+    "right"
+  ],
+  "slash_speed_scale_range": [
+    0.25,
+    4.0
+  ],
+  "layer_draw_order": [
+    "body",
+    "clothes",
+    "armor",
+    "hair",
+    "weapon"
+  ],
+  "layers": [
+    "body",
+    "clothes",
+    "armor",
+    "hair",
+    "weapon"
+  ],
+  "animations": {
+    "walk": {
+      "frame_count": 9,
+      "fps": 8.0,
+      "loop": true,
+      "rows": {
+        "up": 8,
+        "left": 9,
+        "down": 10,
+        "right": 11
+      }
+    },
+    "slash": {
+      "frame_count": 6,
+      "fps": 12.0,
+      "loop": false,
+      "rows": {
+        "up": 12,
+        "left": 13,
+        "down": 14,
+        "right": 15
+      }
+    },
+    "hurt": {
+      "frame_count": 6,
+      "fps": 10.0,
+      "loop": false,
+      "rows": {
+        "up": 20,
+        "left": 20,
+        "down": 20,
+        "right": 20
+      }
+    },
+    "idle": {
+      "frame_count": 2,
+      "fps": 2.0,
+      "loop": true,
+      "rows": {
+        "up": 21,
+        "left": 22,
+        "down": 23,
+        "right": 24
+      },
+      "fallback": {
+        "anim": "walk",
+        "frame": 0
+      }
+    },
+    "death": {
+      "frame_count": 6,
+      "fps": 8.0,
+      "loop": false,
+      "hold_last": true,
+      "source_anim": "hurt",
+      "rows": {
+        "up": 20,
+        "left": 20,
+        "down": 20,
+        "right": 20
+      }
+    }
+  }
+}
