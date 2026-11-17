@@ -92,6 +92,14 @@ func _set_position(world_pos: Vector2) -> void:
 	position = world_pos
 
 
+## World-space bounds of a map: `tiles` times `tile_px`, anchored at the origin.
+## A zero-size rect for empty input, which disables the camera clamp.
+static func bounds_for(tiles: Vector2, tile_px: float) -> Rect2:
+	if tiles.x <= 0.0 or tiles.y <= 0.0 or tile_px <= 0.0:
+		return Rect2()
+	return Rect2(Vector2.ZERO, tiles * tile_px)
+
+
 ## Pure: positions `pos` (the camera centre) so `view_size` stays inside `bounds`;
 ## a map smaller than the view along an axis is centred on that axis.
 static func clamp_to_bounds(pos: Vector2, view_size: Vector2, bounds: Rect2) -> Vector2:

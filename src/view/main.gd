@@ -474,10 +474,7 @@ func _update_camera_bounds() -> void:
 	elif zone != null:
 		tiles = Vector2(float(zone.width), float(zone.height))
 	var tile_px := float(zone_view.tile_px) if zone_view != null else float(ZoneView.DEFAULT_TILE_PX)
-	if tiles.x <= 0.0 or tiles.y <= 0.0 or tile_px <= 0.0:
-		camera.set_map_bounds(Rect2())
-		return
-	camera.set_map_bounds(Rect2(Vector2.ZERO, tiles * tile_px))
+	camera.set_map_bounds(GameCamera.bounds_for(tiles, tile_px))
 
 
 ## Frees every chunk tilemap (entering a classic door zone, or rebuilding the floor).
