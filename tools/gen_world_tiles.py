@@ -584,7 +584,7 @@ def draw_decor_house(cv: Canvas, ox: int, oy: int, rng: random.Random) -> None:
 
 
 # ---------------------------------------------------------------------------
-# House parts (JGT-123): 32 px cells assembled into 5x4 / 4x3 houses.
+# House parts (JGT-123): 32 px cells assembled into 8x6 / 7x5 houses.
 # Two palettes: "a" warm red roof with cream plaster, "b" slate roof with sage
 # plaster. Every cell keeps its four corner pixels transparent (atlas contract).
 # ---------------------------------------------------------------------------
